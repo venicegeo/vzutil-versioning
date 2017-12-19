@@ -161,11 +161,15 @@ func RunConfig(fileName string) (*ConfigResults, error) {
 	extendedProjects := Projects{}
 	for k, v := range config.Projects {
 		v.fix(k, config.ProjectCloneUrl)
-		projects[k] = NewProject(k, v, targetFolder)
+		if projects[k], err = NewProject(k, v, targetFolder); err != nil {
+			return nil, err
+		}
 	}
 	for k, v := range config.ProjectsExtended {
 		v.fix(k, config.ProjectCloneUrl)
-		extendedProjects[k] = NewProject(k, v, targetFolder)
+		if extendedProjects[k], err = NewProject(k, v, targetFolder); err != nil {
+			return nil, err
+		}
 	}
 	for i, v := range config.RepoCheckPathExceptions {
 		config.RepoCheckPathExceptions[i] = targetFolder + v

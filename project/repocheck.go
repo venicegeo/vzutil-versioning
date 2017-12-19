@@ -82,11 +82,12 @@ func RepoCheck(projects *Projects, pathExceptions []string) error {
 			if f.IsDir() {
 				return nil
 			}
-			if util.IsVendorPath(path, 2) || util.IsDotGitPath(path, 2) {
+			if util.IsVendorPath(path, p.FolderLocation) || util.IsDotGitPath(path, p.FolderLocation) {
 				return nil
 			}
 			for _, exception := range pathExceptions {
-				if strings.HasPrefix(path, exception) {
+				//TODO not perfect, like many things
+				if strings.Contains(path, exception) {
 					return nil
 				}
 			}

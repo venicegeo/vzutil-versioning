@@ -16,6 +16,8 @@ limitations under the License.
 package ingest
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
 )
 
@@ -27,5 +29,6 @@ type MvnDependency struct {
 }
 
 func GenerateMvnReport(location string) ([]byte, error) {
+	exec.Command("sed", "-i", fmt.Sprintf(`"s,${env.ARTIFACT_STORAGE_URL},%s,g"`, os.Getenv("ARTIFACT_STORAGE_URL")), location+"pom.xml").Output()
 	return exec.Command("mvn", "-f", location, "dependency:resolve").Output()
 }

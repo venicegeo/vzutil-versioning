@@ -24,13 +24,15 @@ import (
 	"strings"
 )
 
-var testPathRe = `^(?:[^/]+\/){%d}%s(?:(?:\/)|$){1}.*$`
+var testPathRe = `^%s%s(?:(?:\/)|$){1}.*$`
 
-func IsVendorPath(path string, prefixCount int) bool {
-	return regexp.MustCompile(fmt.Sprintf(testPathRe, prefixCount, `vendor`)).MatchString(path)
+func IsVendorPath(path string, folderLocation string) bool {
+	re := regexp.MustCompile(fmt.Sprintf(testPathRe, strings.Replace(folderLocation, "/", "\\/", -1), `vendor`))
+	return re.MatchString(path)
 }
-func IsDotGitPath(path string, prefixCount int) bool {
-	return regexp.MustCompile(fmt.Sprintf(testPathRe, prefixCount, `\.git`)).MatchString(path)
+func IsDotGitPath(path string, folderLocation string) bool {
+	re := regexp.MustCompile(fmt.Sprintf(testPathRe, strings.Replace(folderLocation, "/", "\\/", -1), `.git`))
+	return re.MatchString(path)
 }
 
 func Exists(path string) (bool, error) {

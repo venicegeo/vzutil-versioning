@@ -62,20 +62,19 @@ func (pi *ProjectInfo) fix(repoName, cloneUrl string) {
 	}
 }
 
-func NewProject(repoName string, projectInfo ProjectInfo, clonedLocation string) *Project {
+func NewProject(repoName string, projectInfo ProjectInfo, clonedLocation string) (*Project, error) {
 	proj := Project{ProjectInfo: projectInfo, repoName: repoName}
-	proj.SetLocation(clonedLocation)
-	return &proj
+	return &proj, proj.SetLocation(clonedLocation)
 }
 
 func (p *Project) GetDependencies() dependency.GenericDependencies {
 	return p.Dependencies
 }
 
-func (p *Project) SetLocation(location string) {
-	location = fixLocation(location)
-	location += fixLocation(p.repoName)
-	p.FolderLocation = location
+func (p *Project) SetLocation(location string) (err error) {
+	location, err = filepath.Abs(fixLocation(location) + p.repoName)
+	p.FolderLocation = location + "/"
+	return err
 }
 
 func fixLocation(location string) string {
@@ -98,7 +97,7 @@ func (p *Project) findDepFiles() (err error) {
 		if f.IsDir() {
 			return nil
 		}
-		if util.IsVendorPath(path, 2) {
+		if util.IsVendorPath(path, p.FolderLocation) || util.IsDotGitPath(path, p.FolderLocation) {
 			return nil
 		}
 		for _, ignore := range p.WalkIgnore {
