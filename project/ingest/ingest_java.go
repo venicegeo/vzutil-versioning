@@ -280,7 +280,7 @@ func (p *PomProjectWrapper) replaceVariables() error {
 func (p *PomProjectWrapper) generateMvnDependencies() ([]*MvnDependency, error) {
 	dat, err := GenerateMvnReport(p.location)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to generate maven report at %s", p.location)
+		return nil, fmt.Errorf("Unable to generate maven report at %s. Info: [%s]", p.location, string(dat))
 	}
 	data := string(dat)
 	if !strings.Contains(data, `
