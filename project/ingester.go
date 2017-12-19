@@ -148,7 +148,6 @@ func (i *Ingester) ingestJavaProject(p *Project) (dependency.GenericDependencies
 		}
 		var projectWrapper ingest.PomProjectWrapper
 		if err = json.Unmarshal(data, &projectWrapper); err != nil {
-			fmt.Println(string(data))
 			return nil, nil, fmt.Errorf("ingestJavaProject %s unmarshal: %s", filePath, err.Error())
 		}
 		fileName := re.FindStringSubmatch(filePath)[0]
