@@ -6,7 +6,7 @@
 	"bf-docs": {},
 	"bf-ia-broker": {},
 	"bf-tideprediction": {},
-	"bf-ui": {},
+	"bf-ui": {"walkIgnore":["test"]},
 	"pzsvc-exec": {},
 	"pzsvc-ndwi-py": {},
 	"bfalg-ndwi": {}
