@@ -1,0 +1,36 @@
+{
+    "projects_clone_url": "https://github.com/venicegeo/",
+    "projects": {
+       "pz-workflow": {"componentName":"workflow"},
+       "pz-sak": {"componentName":"sak"},
+       "pz-gateway": {"componentName":"gateway"},
+       "pz-jobcommon": {"componentName":"jobcommon"},
+       "pz-idam": {"componentName":"idam"},
+       "pz-search-metadata-ingest": {"componentName":"search-metadata-ingest"},
+       "pz-logger": {"componentName":"logger"},
+       "pz-search-query": {"componentName":"search-query"},
+       "pz-servicecontroller": {"componentName":"servicecontroller","walkIgnore": ["SumTestService"]},
+       "pz-access": {"componentName":"access"},
+       "pz-ingest": {"componentName":"ingest"},
+       "pz-jobmanager": {"componentName":"jobmanager"},
+       "pz-gocommon": {"componentName":"gocommon"},
+       "pz-release": {"componentName":"release"}
+    },
+    "repo_check_exceptions": ["pz-sak/public/js/lib/"],
+    "deps_exception_regexs": ["^github.com\/venicegeo\/.+$","^pz-.+$"],
+    "package_bundles": {
+
+       "geotools": ["gt-epsg-extension","gt-epsg-hsql","gt-geojson","gt-geotiff","gt-jdbc-postgis","gt-main","gt-opengis","gt-referencing","gt-shapefile","gt-wfs"],
+
+	"jackson-datatype": ["jackson-datatype-hibernate4","jackson-datatype-hibernate5","jackson-datatype-jdk7","jackson-datatype-jdk8","jackson-datatype-joda","jackson-datatype-jsr310"],
+
+	"jackson-dataformat":["jackson-dataformat-csv","jackson-dataformat-xml","jackson-dataformat-yaml"],
+
+	"spring-framework": ["spring-web","spring-webmvc","spring-context","spring-messaging","spring-aop","spring-test" ],
+
+
+	"spring-boot": ["spring-boot-starter-security","spring-boot-autoconfigure","spring-boot-starter-data-elasticsearch","spring-boot-starter-actuator","spring-boot-starter-test","spring-boot-starter-web","spring-boot-starter"],
+
+	"swagger-api": ["springfox-swagger-ui","springfox-swagger2"]
+    }
+ }

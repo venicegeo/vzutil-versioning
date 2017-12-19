@@ -1,0 +1,37 @@
+#!/usr/bin/groovy
+
+node {
+    def root = pwd()
+    def mvn = tool 'M3'
+    def golangTool = tool 'golang_1.7'
+
+    stage("Setup") {
+        deleteDir()
+		withEnv([
+          "PATH+=${golangTool}/bin:${root}/gopath/bin",
+          "GOROOT=${golangTool}",
+          "GOPATH=${root}/gopath"
+        ]) {
+            sh """
+              mkdir -p ${root}/gopath/bin ${root}/gopath/pkg ${root}/gopath/src/github.com/venicegeo/vzutil-versioning
+              go version
+            """
+        }
+		dir("${root}/gopath/src/github.com/venicegeo/vzutil-versioning") {
+			git url: "${env.GIT_URL}", branch: "master"
+		}
+    }
+
+    stage("Collect") {
+        withEnv([
+          "PATH+=${golangTool}/bin:${root}/gopath/bin",
+          "GOROOT=${golangTool}",
+          "GOPATH=${root}/gopath"
+        ]) {
+            sh """
+              cd "\$GOPATH/src/github.com/venicegeo/vzutil-versioning"
+              go run main.go -async=true -cat=true
+            """
+        }
+    }
+}

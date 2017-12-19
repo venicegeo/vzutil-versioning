@@ -1,0 +1,30 @@
+{
+    "projects_clone_url": "https://github.com/venicegeo/",
+    "projects": {
+	"beachfront-py": {},
+	"bf-api": {},
+	"bf-docs": {},
+	"bf-ia-broker": {},
+	"bf-tideprediction": {},
+	"bf-ui": {},
+	"pzsvc-exec": {},
+	"pzsvc-ndwi-py": {},
+	"bfalg-ndwi": {}
+    },
+    "deps_exception_regexs": ["^github.com\/venicegeo\/.+$","^bf-.+$"],
+    "package_bundles": {
+
+       "geotools": ["gt-epsg-extension","gt-epsg-hsql","gt-geojson","gt-geotiff","gt-jdbc-postgis","gt-main","gt-opengis","gt-referencing","gt-shapefile","gt-wfs"],
+
+	"jackson-datatype": ["jackson-datatype-hibernate4","jackson-datatype-hibernate5","jackson-datatype-jdk7","jackson-datatype-jdk8","jackson-datatype-joda","jackson-datatype-jsr310"],
+
+	"jackson-dataformat":["jackson-dataformat-csv","jackson-dataformat-xml","jackson-dataformat-yaml"],
+
+	"spring-framework": ["spring-web","spring-webmvc","spring-context","spring-messaging","spring-aop","spring-test" ],
+
+	"spring-boot": ["spring-boot-starter-security","spring-boot-autoconfigure","spring-boot-starter-data-elasticsearch","spring-boot-starter-actuator","spring-boot-starter-test","spring-boot-starter-web","spring-boot-starter"],
+
+	"swagger-api": ["springfox-swagger-ui","springfox-swagger2"]
+
+    }
+ }
