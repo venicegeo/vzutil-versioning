@@ -106,10 +106,14 @@ func RepoCheck(projects *Projects, pathExceptions []string) error {
 				return err
 			}
 			str := string(dat)
+			matchedStatements := []string{}
 			for _, statement := range copyrightStatements {
 				if !statement.MatchString(str) {
-					p.AddIssue(issue.NewIssue("File [%s] does not contain copyright statement [%s]", path, statement))
+					matchedStatements = append(matchedStatements, statement.String())
 				}
+			}
+			if len(matchedStatements) != 0 {
+				p.AddIssue(issue.NewIssue("File [%s] does not contain copyright statement(s) %v", path, matchedStatements))
 			}
 			return nil
 		}
