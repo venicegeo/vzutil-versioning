@@ -138,7 +138,6 @@ func getResultsAndFromChildren(pom *PomProjectWrapper, isRoot bool, dependencyMa
 		return nil, issues, err
 	}
 	mvnDeps, mvnError := pom.generateMvnDependencies()
-	fmt.Println(mvnError, mvnDeps)
 	if mvnError != nil && isRoot {
 		return nil, nil, mvnError
 	} else if mvnError != nil {
