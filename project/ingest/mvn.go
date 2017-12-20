@@ -29,9 +29,9 @@ type MvnDependency struct {
 }
 
 func GenerateMvnReport(location string) ([]byte, error) {
-	dat, err := exec.Command("sed", "-i", fmt.Sprintf(`'s,${env.ARTIFACT_STORAGE_URL},%s,g'`, os.Getenv("ARTIFACT_STORAGE_URL")), location+"pom.xml").Output()
-	if err != nil {
-		fmt.Printf("SED Error:\nStdout: [%s]\nEror: [%s]\n", string(dat), err.Error())
+	cmd := exec.Command("bash", "-c", fmt.Sprintf("sed -i 's,${env.ARTIFACT_STORAGE_URL},%s,g' %s", os.Getenv("ARTIFACT_STORAGE_URL"), location+"pom.xml"))
+	if dat, err := cmd.Output(); err != nil {
+		fmt.Printf("SED Error:\nCommand: %#v\nStdout: [%s]\nEror: [%s]\n", cmd.Args, string(dat), err.Error())
 	}
 	return exec.Command("mvn", "-f", location, "dependency:resolve").Output()
 }
