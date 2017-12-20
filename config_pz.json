@@ -16,7 +16,7 @@
        "pz-gocommon": {},
        "pz-release": {}
     },
-    "repo_check_exceptions": ["pz-sak/public/js/lib/"],
+    "repo_check_exceptions": ["pz-sak/public/"],
     "deps_exception_regexs": ["^github.com\/venicegeo\/.+$","^pz-.+$"],
     "package_bundles": {
 

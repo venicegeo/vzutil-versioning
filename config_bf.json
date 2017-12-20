@@ -11,6 +11,7 @@
 	"pzsvc-ndwi-py": {},
 	"bfalg-ndwi": {}
     },
+    "repo_check_exceptions": ["bf-ui/test/"],
     "deps_exception_regexs": ["^github.com\/venicegeo\/.+$","^bf-.+$"],
     "package_bundles": {
 
