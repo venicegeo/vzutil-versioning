@@ -29,7 +29,7 @@ node {
           "GOPATH=${root}/gopath"
         ]) {
             sh """
-              cd "\$GOPATH/src/github.com/venicegeo/vzutil-versioning"
+              cd "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/plural"
               go run main.go -async=true -cat=true
             """
         }
