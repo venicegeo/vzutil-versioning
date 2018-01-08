@@ -57,9 +57,10 @@ func main() {
 	}
 }`)
 	if err != nil {
-		log.Fatal(err.Error())
+		//	log.Fatal(err.Error())
+	} else {
+		fmt.Println(i.GetVersion())
 	}
-	fmt.Println(i.GetVersion())
 
 	port := os.Getenv("PORT")
 	if port == "" {
