@@ -33,5 +33,20 @@ node {
               go run main.go -async=true -cat=true
             """
         }
+    }s
+    stage("Deploy") {
+        withEnv([
+          "PATH+=${golangTool}/bin:${root}/gopath/bin",
+          "GOROOT=${golangTool}",
+          "GOPATH=${root}/gopath"
+        ]) {
+            sh """
+              cd "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/web"
+              go build
+              mv web ${root}
+              cd
+              ls 
+            """
+        }
     }
 }
