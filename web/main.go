@@ -93,10 +93,16 @@ func defaultPath(c *gin.Context) {
 	c.String(200, "Welcome to the dependency service!")
 }
 func webhookPath(c *gin.Context) {
-	var git GitWebhook
-	err := c.BindJSON(&git)
+	var obj interface{}
+	err := c.BindJSON(&obj)
 	if err != nil {
-		log.Println("Unable to bind webhook")
+		log.Println("Unable to bind")
+		c.Status(400)
+		return
+	}
+	git, ok := obj.(GitWebhook)
+	if !ok {
+		log.Println("Unable to convert to webhook struct")
 		c.Status(400)
 		return
 	}
