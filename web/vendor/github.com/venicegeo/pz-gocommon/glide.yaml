@@ -6,8 +6,6 @@ import:
   version: 82a8879fc5fd0381fa8b2d8033b19bf255252088
 - package: github.com/gin-gonic/gin
   version: e2212d40c62a98b388a5eb48ecbdcf88534688ba
-- package: gopkg.in/olivere/elastic.v3
-  version: 96b262cf1d25006d71bd495fd99b590493cff29e
 testImport:
 - package: github.com/stretchr/testify
   version: f390dcf405f7b83c997eac1b06768bb9f44dec18

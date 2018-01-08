@@ -14,10 +14,7 @@
 
 package piazza
 
-import (
-	"encoding/json"
-	"fmt"
-)
+import "fmt"
 
 //----------------------------------------------------------
 
@@ -96,55 +93,4 @@ func (p *JsonPagination) String() string {
 	s := fmt.Sprintf("perPage=%d&page=%d&sortBy=%s&order=%s",
 		p.PerPage, p.Page, p.SortBy, p.Order)
 	return s
-}
-
-func (format *JsonPagination) SyncPagination(dslString string) (string, error) {
-	// Overwrite any from/size in params with what's in the dsl
-	b := []byte(dslString)
-	var f interface{}
-	err := json.Unmarshal(b, &f)
-	if err != nil {
-		return "", err
-	}
-	dsl := f.(map[string]interface{})
-
-	if dsl["size"] == nil {
-		dsl["size"] = format.PerPage
-	} else {
-		dslSize, ok := dsl["size"].(float64)
-		if !ok {
-			dsl["size"] = format.PerPage
-		} else {
-			format.PerPage = int(dslSize)
-		}
-	}
-
-	if dsl["from"] == nil {
-		dsl["from"] = format.Page * format.PerPage
-	} else {
-		dslFrom, ok := dsl["from"].(float64)
-		if !ok {
-			dsl["from"] = format.Page * format.PerPage
-		} else {
-			dsl["from"] = int(dslFrom) - (int(dslFrom) % format.PerPage)
-			format.Page = int(dslFrom) / format.PerPage
-		}
-	}
-
-	if dsl["sort"] == nil {
-		// Since ES has more fine grained sorting allow their sorting to take precedence
-		// If sorting wasn't specified in the DSL, put in sorting from Piazza
-		bts := []byte("[{\"" + format.SortBy + "\":\"" + string(format.Order) + "\"}]")
-		var g interface{}
-		if err = json.Unmarshal(bts, &g); err != nil {
-			return "", err
-		}
-		sortDsl := g.([]interface{})
-		dsl["sort"] = sortDsl
-	}
-	byteArray, err := json.Marshal(dsl)
-	if err != nil {
-		return "", err
-	}
-	return string(byteArray), nil
 }

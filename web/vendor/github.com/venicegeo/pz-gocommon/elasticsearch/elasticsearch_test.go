@@ -18,11 +18,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sort"
 	"testing"
 	"time"
 
-	"gopkg.in/olivere/elastic.v3"
+	"gopkg.in/olivere/elastic.v5"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -285,12 +284,6 @@ func (suite *EsTester) Test03Operations() {
 	assert.Error(err)
 	_, err = esi.GetMapping("")
 	assert.Error(err)
-	_, err = esi.AddPercolationQuery("123", "{}")
-	assert.NoError(err)
-	_, err = esi.DeletePercolationQuery("123")
-	assert.NoError(err)
-	_, err = esi.AddPercolationDocument("123", "{}")
-	assert.NoError(err)
 }
 
 func (suite *EsTester) Test07ConstructMapping() {
@@ -331,22 +324,6 @@ func (suite *EsTester) Test07ConstructMapping() {
 
 	err = es.SetMapping("MyTestObj", piazza.JsonString(actual))
 	assert.NoError(err)
-}
-
-type ByID []*PercolateResponseMatch
-
-func (a ByID) Len() int {
-	return len(a)
-}
-func (a ByID) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-func (a ByID) Less(i, j int) bool {
-	return a[i].Id < a[j].Id
-}
-func sortMatches(matches []*PercolateResponseMatch) []*PercolateResponseMatch {
-	sort.Sort(ByID(matches))
-	return matches
 }
 
 func (suite *EsTester) Test09FullPercolation() {
@@ -700,20 +677,6 @@ func (suite *EsTester) Test14Coverage() {
 	)
 	assert.NotNil(indexResponse)
 
-	percolateResponse := NewPercolateResponse(&elastic.PercolateResponse{
-		TookInMillis: 0,
-		Total:        1,
-		Matches: []*elastic.PercolateMatch{
-			&elastic.PercolateMatch{
-				Index: "1",
-				Id:    "2",
-				Score: 3,
-			},
-		},
-	},
-	)
-	assert.NotNil(percolateResponse)
-
 	getResult := NewGetResult(&elastic.GetResult{Id: "", Source: &json.RawMessage{}, Found: false})
 	assert.NotNil(getResult)
 
@@ -725,13 +688,13 @@ func (suite *EsTester) Test14Coverage() {
 	assert.True(searchResult.TotalHits() == int64(1))
 	assert.True(searchResult.NumHits() == 1)
 
-	assert.True(MappingElementTypeString.isValidMappingType())
-	assert.True(MappingElementTypeString.isValidScalarMappingType())
-	assert.True(MappingElementTypeStringA.isValidArrayMappingType())
-	assert.False(MappingElementTypeString.isValidArrayMappingType())
-	assert.False(MappingElementTypeStringA.isValidScalarMappingType())
-	assert.True(IsValidMappingType("string"))
-	assert.True(IsValidArrayTypeMapping("[string]"))
+	assert.True(MappingElementTypeText.isValidMappingType())
+	assert.True(MappingElementTypeText.isValidScalarMappingType())
+	assert.True(MappingElementTypeKeywordA.isValidArrayMappingType())
+	assert.False(MappingElementTypeKeyword.isValidArrayMappingType())
+	assert.False(MappingElementTypeKeywordA.isValidScalarMappingType())
+	assert.True(IsValidMappingType("keyword"))
+	assert.True(IsValidArrayTypeMapping("[keyword]"))
 	assert.False(IsValidMappingType(5))
 	assert.False(IsValidArrayTypeMapping(5))
 }

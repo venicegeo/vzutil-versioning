@@ -17,7 +17,7 @@ package elasticsearch
 import (
 	"encoding/json"
 
-	"gopkg.in/olivere/elastic.v3"
+	"github.com/venicegeo/pz-gocommon/elasticsearch/elastic-5-api"
 )
 
 type SearchResultHit struct {
@@ -85,33 +85,6 @@ func NewIndexResponse(indexResponse *elastic.IndexResponse) *IndexResponse {
 		Type:    indexResponse.Type,
 		Version: indexResponse.Version,
 	}
-	return resp
-}
-
-type PercolateResponseMatch struct {
-	Id    string
-	Index string
-}
-
-type PercolateResponse struct {
-	Total   int64
-	Matches []*PercolateResponseMatch
-}
-
-func NewPercolateResponse(percolateResponse *elastic.PercolateResponse) *PercolateResponse {
-	resp := &PercolateResponse{
-		Total:   percolateResponse.Total,
-		Matches: make([]*PercolateResponseMatch, len(percolateResponse.Matches)),
-	}
-
-	for i, v := range percolateResponse.Matches {
-		m := &PercolateResponseMatch{
-			Id:    v.Id,
-			Index: v.Index,
-		}
-		resp.Matches[i] = m
-	}
-
 	return resp
 }
 

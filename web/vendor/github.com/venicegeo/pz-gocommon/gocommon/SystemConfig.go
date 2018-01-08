@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 )
 
@@ -28,8 +27,6 @@ const DefaultPzLoggerAddress = "localhost:14600"
 const DefaultPzUuidgenAddress = "localhost:14800"
 const DefaultDomain = ".venicegeo.io"
 const DefaultProtocol = "http"
-
-var hasProtocol = regexp.MustCompile(`^[a-z]+:\/\/.+$`)
 
 const waitTimeoutMs = 3000
 const waitSleepMs = 250
@@ -103,7 +100,7 @@ type SystemConfig struct {
 	// our external services
 	endpoints ServicesMap
 
-	Space        string // int or stage or prod or...
+	Space string // int or stage or prod or...
 	PiazzaSystem string // System-level username
 
 	vcapApplication *VcapApplication
@@ -199,7 +196,7 @@ func (sys *SystemConfig) runHealthChecks() error {
 			continue
 		}
 
-		url := createUrl(addr, HealthcheckEndpoints[name])
+		url := fmt.Sprintf("%s://%s%s", DefaultProtocol, addr, HealthcheckEndpoints[name])
 
 		resp, err := http.Get(url)
 		if err != nil {
@@ -239,7 +236,8 @@ func (sys *SystemConfig) GetURL(name ServiceName) (string, error) {
 		return "", err
 	}
 
-	url := createUrl(addr, EndpointPrefixes[name])
+	url := fmt.Sprintf("%s://%s%s", DefaultProtocol, addr, EndpointPrefixes[name])
+
 	return url, nil
 }
 
@@ -253,7 +251,7 @@ func (sys *SystemConfig) WaitForService(name ServiceName) error {
 		return err
 	}
 
-	url := createUrl(addr)
+	url := fmt.Sprintf("%s://%s", DefaultProtocol, addr)
 	return WaitForService(name, url)
 }
 
@@ -263,17 +261,6 @@ func (sys *SystemConfig) WaitForServiceToDie(name ServiceName) error {
 		return err
 	}
 
-	url := createUrl(addr)
+	url := fmt.Sprintf("%s://%s", DefaultProtocol, addr)
 	return WaitForServiceToDie(name, url)
-}
-
-func createUrl(parts ...string) string {
-	url := ""
-	for _, p := range parts {
-		url += p
-	}
-	if !hasProtocol.MatchString(url) {
-		url = DefaultProtocol + "://" + url
-	}
-	return url
 }

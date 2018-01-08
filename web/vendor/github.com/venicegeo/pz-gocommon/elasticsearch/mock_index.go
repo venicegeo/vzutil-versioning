@@ -226,12 +226,19 @@ func (esi *MockIndex) PutData(typeName string, id string, obj interface{}) (*Ind
 }
 
 func (esi *MockIndex) GetByID(typeName string, id string) (*GetResult, error) {
-	ok, err := esi.ItemExists(typeName, id)
+	ok, err := esi.TypeExists(typeName)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return &GetResult{Found: false}, fmt.Errorf("GetById: id does not exist: %s", id)
+		return nil, fmt.Errorf("GetById: type does not exist: %s", typeName)
+	}
+	ok, err = esi.ItemExists(typeName, id)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("GetById: id does not exist: %s", id)
 	}
 
 	typ := esi.types[typeName]
@@ -258,7 +265,7 @@ func (esi *MockIndex) DeleteByID(typeName string, id string) (*DeleteResponse, e
 
 	typ := esi.types[typeName]
 	delete(typ.items, id)
-	r := &DeleteResponse{Found: true, ID: id}
+	r := &DeleteResponse{Found: true}
 	return r, nil
 
 }
@@ -416,27 +423,6 @@ func (esi *MockIndex) GetTypes() ([]string, error) {
 
 func (esi *MockIndex) GetMapping(typ string) (interface{}, error) {
 	return nil, errors.New("GetMapping not supported under mocking")
-}
-
-func (esi *MockIndex) AddPercolationQuery(id string, query piazza.JsonString) (*IndexResponse, error) {
-	return esi.PostData(percolateTypeName, id, query)
-}
-
-func (esi *MockIndex) DeletePercolationQuery(id string) (*DeleteResponse, error) {
-	return esi.DeleteByID(percolateTypeName, id)
-}
-
-var percid int
-
-func (esi *MockIndex) AddPercolationDocument(typeName string, doc interface{}) (*PercolateResponse, error) {
-
-	_, err := esi.PostData(percolateTypeName, strconv.Itoa(percid), doc)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &PercolateResponse{}
-	return resp, nil
 }
 
 func (esi *MockIndex) DirectAccess(verb string, endpoint string, input interface{}, output interface{}) error {

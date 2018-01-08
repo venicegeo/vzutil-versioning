@@ -1,5 +1,5 @@
-hash: a5403ec4564d2c6087ac2c9630e49d951c6d7512d87769221df160ddd78a9d8a
-updated: 2018-01-05T11:07:10.752996523-05:00
+hash: 6341cbc2008ff44ee19f61130af3d7de4165a1688aa12a31a6ca69dace11c8be
+updated: 2018-01-08T10:14:55.752519358-05:00
 imports:
 - name: github.com/braintree/manners
   version: 82a8879fc5fd0381fa8b2d8033b19bf255252088
@@ -16,27 +16,25 @@ imports:
   version: ee05b128a739a0fb76c7ebd3ae4810c1de808d6d
 - name: github.com/mattn/go-isatty
   version: 281032e84ae07510239465db46bf442aa44b953a
+- name: github.com/pkg/errors
+  version: c605e284fe17294bda444b34710735b29d1a9d90
 - name: github.com/venicegeo/pz-gocommon
-  version: 75443fae08bb820c3b5f1cf9018dc1cf492f2361
+  version: 375e45c7c4bcff230a900814db562e0c3b6179d0
   subpackages:
   - elasticsearch
+  - elasticsearch/elastic-5-api
+  - elasticsearch/elastic-5-api/uritemplates
   - gocommon
 - name: golang.org/x/net
   version: f315505cf3349909cdf013ea56690da34e96a451
   subpackages:
   - context
-  - context/ctxhttp
 - name: golang.org/x/sys
   version: e24f485414aeafb646f6fca458b0bf869c0880a1
   subpackages:
   - unix
 - name: gopkg.in/go-playground/validator.v8
   version: c193cecd124b5cc722d7ee5538e945bdb3348435
-- name: gopkg.in/olivere/elastic.v3
-  version: 96b262cf1d25006d71bd495fd99b590493cff29e
-  subpackages:
-  - backoff
-  - uritemplates
 - name: gopkg.in/yaml.v2
   version: a3f3340b5840cee44f372bddb5880fcbc419b46a
 testImports: []

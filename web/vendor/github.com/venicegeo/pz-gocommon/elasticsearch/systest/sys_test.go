@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/olivere/elastic.v3"
+	"gopkg.in/olivere/elastic.v5"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"

@@ -33,10 +33,9 @@ type Logger struct {
 	processId        string
 	UseSourceElement bool
 	Async            bool
-	pen              string
 }
 
-func NewLogger(logWriter Writer, auditWriter Writer, application string, pen string) *Logger {
+func NewLogger(logWriter Writer, auditWriter Writer, application string) *Logger {
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "UNKNOWN_HOSTNAME"
@@ -53,7 +52,6 @@ func NewLogger(logWriter Writer, auditWriter Writer, application string, pen str
 		hostname:         hostname,
 		processId:        processId,
 		Async:            false,
-		pen:              pen,
 	}
 
 	return logger
@@ -68,7 +66,7 @@ func (logger *Logger) makeMessage(severity Severity, text string, v ...interface
 
 	newText := fmt.Sprintf(text, v...)
 
-	mssg := NewMessage(logger.pen)
+	mssg := NewMessage()
 	mssg.Message = newText
 	mssg.Severity = severity
 	mssg.HostName = logger.hostname

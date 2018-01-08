@@ -147,8 +147,7 @@ func GetPiazzaUrl() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	url := createUrl(host)
-	return url, nil
+	return fmt.Sprintf("%s://%s", DefaultProtocol, host), nil
 }
 
 // GetServiceServer returns the host name of the given service, based on $PZSERVER.
@@ -165,8 +164,7 @@ func GetPiazzaServiceUrl(serviceName ServiceName) (string, error) {
 
 	serviceHost := string(serviceName) + pzHost[i:]
 
-	url := createUrl(serviceHost)
-	return url, nil
+	return fmt.Sprintf("%s://%s", DefaultProtocol, serviceHost), nil
 }
 
 // GetExternalIP returns the "best"(?) IP address we can reasonably get.

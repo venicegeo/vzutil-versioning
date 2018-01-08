@@ -15,6 +15,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -27,7 +28,11 @@ import (
 func main() {
 	fmt.Println("hello")
 
-	i, err := elasticsearch.NewIndex2("http://127.0.0.1:9200", "test", `
+	url, user, pass, err := getVcapES()
+	if err != nil {
+		log.Fatal(err)
+	}
+	i, err := elasticsearch.NewIndex2(url, user, pass, "test", `
 {
 	"mappings": {
 		"project":{
@@ -49,10 +54,15 @@ func main() {
 	}
 	fmt.Println(i.GetVersion())
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "20012"
+	}
+
 	server := Server{}
 	server.Configure([]RouteData{RouteData{"GET", "/", defaultPath},
 		RouteData{"POST", "/webhook", webhookPath}})
-	err = <-server.Start("127.0.0.1:20009")
+	err = <-server.Start("127.0.0.1:" + port)
 	fmt.Println(err)
 }
 
@@ -77,6 +87,11 @@ func defaultPath(c *gin.Context) {
 func webhookPath(c *gin.Context) {
 	var obj interface{}
 	c.BindJSON(&obj)
-	fmt.Println(obj)
+	dat, err := json.MarshalIndent(obj, " ", "   ")
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println(string(dat))
+	}
 	c.Status(200)
 }
