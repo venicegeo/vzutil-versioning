@@ -26,7 +26,7 @@ import (
 )
 
 func main() {
-	fmt.Println("hello")
+	fmt.Println("Starting up...")
 
 	url, user, pass, err := getVcapES()
 	if err != nil {
