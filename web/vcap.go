@@ -37,7 +37,7 @@ type VcapCredentials struct {
 	Host      string `json:"host"`
 	ClusterId string `json:"clusterId"`
 	Uri       string `json:"uri"`
-	Username  string `json:"elastic"`
+	Username  string `json:"username"`
 }
 
 func getVcapES() (string, string, string, error) {
