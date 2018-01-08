@@ -15,7 +15,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -94,13 +93,13 @@ func defaultPath(c *gin.Context) {
 	c.String(200, "Welcome to the dependency service!")
 }
 func webhookPath(c *gin.Context) {
-	var obj interface{}
-	c.BindJSON(&obj)
-	dat, err := json.MarshalIndent(obj, " ", "   ")
+	var git GitWebhook
+	err := c.BindJSON(&git)
 	if err != nil {
-		fmt.Println(err.Error())
-	} else {
-		fmt.Println(string(dat))
+		log.Println("Unable to bind webhook")
+		c.Status(400)
+		return
 	}
+	fmt.Println(git.Repository.FullName, git.AfterSha)
 	c.Status(200)
 }
