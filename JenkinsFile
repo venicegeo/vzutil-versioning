@@ -62,7 +62,7 @@ node {
         sh "cf api ${env.PCF_API_ENDPOINT}"
         sh "cf auth ${CFUSER} ${CFPASS}"
         sh "cf target -o ${env.PCF_ORG} -s ${env.PROVISION_SPACE}"
-        sh "cf push ${appName} -f manifest.jenkins.yml --hostname ${appName} -d ${env.PROVISION_DOMAIN} --no-start"
+        sh "cf push ${appName} -f manifest.jenkins.yml --hostname ${appName} -d ${env.PROVISION_DOMAIN} -u none --no-start"
 		try {
           sh "cf set-env ${appName} SPACE ${env.PROVISION_SPACE}"
           sh "cf set-env ${appName} DOMAIN ${env.PROVISION_DOMAIN}"
