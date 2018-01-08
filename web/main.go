@@ -70,7 +70,7 @@ func main() {
 	server := Server{}
 	server.Configure([]RouteData{RouteData{"GET", "/", defaultPath},
 		RouteData{"POST", "/webhook", webhookPath}})
-	err = <-server.Start("127.0.0.1:" + port)
+	err = <-server.Start(":http")
 	fmt.Println(err)
 }
 
