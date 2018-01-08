@@ -58,8 +58,8 @@ func getVcapES() (string, string, string, error) {
 					if e.Credentials.Port != "" {
 						url += ":" + e.Credentials.Port
 					}
-					return url, e.Credentials.Username, e.Credentials.Password, true
 				}
+				return url, e.Credentials.Username, e.Credentials.Password, true
 			}
 		}
 		return "", "", "", false
