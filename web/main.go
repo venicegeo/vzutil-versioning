@@ -67,10 +67,11 @@ func main() {
 		port = "20012"
 	}
 
+	fmt.Println("Starting on port", port)
 	server := Server{}
 	server.Configure([]RouteData{RouteData{"GET", "/", defaultPath},
 		RouteData{"POST", "/webhook", webhookPath}})
-	err = <-server.Start(":http")
+	err = <-server.Start(":" + port)
 	fmt.Println(err)
 }
 
