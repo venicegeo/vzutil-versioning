@@ -52,7 +52,7 @@ func getVcapES() (string, string, string, error) {
 	searchArr := func(services VcapServices) (string, string, string, bool) {
 		for _, e := range services {
 			if e.Name == "pz-elasticsearch" {
-				url := "http://" + e.Credentials.Host
+				url := "https://" + e.Credentials.Host
 				if e.Credentials.Port != "" {
 					url += ":" + e.Credentials.Port
 				}
