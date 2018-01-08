@@ -29,6 +29,13 @@ func main() {
 	fmt.Println("Starting up...")
 
 	url, user, pass, err := getVcapES()
+	fmt.Printf("The elasticsearch url has been found to be [%s]\n", url)
+	if user != "" {
+		fmt.Println("There is a username")
+	}
+	if pass != "" {
+		fmt.Println("There is a password")
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
