@@ -21,7 +21,7 @@ type GitWebhook struct {
 	Repository GitRepository `json:"repository"`
 }
 type GitRepository struct {
-	Id       string `json:"id"`
+	Id       int64  `json:"id"`
 	Name     string `json:"name"`
 	FullName string `json:"full_name"`
 	HtmlUrl  string `json:"html_url"`

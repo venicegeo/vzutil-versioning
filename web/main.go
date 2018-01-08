@@ -15,9 +15,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -95,18 +93,14 @@ func defaultPath(c *gin.Context) {
 	c.String(200, "Welcome to the dependency service!")
 }
 func webhookPath(c *gin.Context) {
-	dat, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		log.Println("Unable to read request body")
-		c.Status(400)
-		return
-	}
 	var git GitWebhook
-	if err = json.Unmarshal(dat, &git); err != nil {
-		log.Println("Unable to  unmarshal to webhook struct")
+
+	if err := c.BindJSON(&git); err != nil {
+		log.Println("Unable to bind json:", err.Error())
 		c.Status(400)
 		return
 	}
+
 	fmt.Println(git.Repository.FullName, git.AfterSha)
 	c.Status(200)
 }
