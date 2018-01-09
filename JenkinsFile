@@ -50,6 +50,8 @@ node {
         ]) {
             sh """
               mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/manifest.jenkins.yml" .
+              mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/environment.yml" .
+              mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/Procfile" .
               mv ${root}/gopath/bin/* .
               rm -rf gopath/
               ls 
