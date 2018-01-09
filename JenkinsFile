@@ -52,10 +52,17 @@ node {
               mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/manifest.jenkins.yml" .
               mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/environment.yml" .
               mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/Procfile" .
+              mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/write_settings.sh" .
               mv ${root}/gopath/bin/* .
               rm -rf gopath/
               ls 
             """
+      withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${env.ARTIFACT_STORAGE_CREDS}", usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS']]) {
+        sh """
+          ./write_settings.sh
+          rm write_settings.sh
+        """
+      }
          if(!fileExists('.cf')) {
       sh "mkdir -p .cf"
     }
@@ -68,6 +75,7 @@ node {
 		try {
           sh "cf set-env ${appName} SPACE ${env.PROVISION_SPACE}"
           sh "cf set-env ${appName} DOMAIN ${env.PROVISION_DOMAIN}"
+          sh "cf set-env ${appName} ARTIFACT_STORAGE_URL ${env.ARTIFACT_STORAGE_URL}"
           sh "cf start ${appName}"
         } catch (Exception e) {
 		  try {
