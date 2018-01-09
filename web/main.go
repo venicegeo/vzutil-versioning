@@ -57,7 +57,7 @@ func main() {
 	}
 }`)
 	if err != nil {
-		//	log.Fatal(err.Error())
+		log.Fatal(err.Error())
 	} else {
 		fmt.Println(i.GetVersion())
 	}
@@ -106,7 +106,7 @@ func webhookPath(c *gin.Context) {
 	c.Status(200)
 
 	go func() {
-		dat, err := exec.Command("single", git.Repository.FullName, git.AfterSha).Output()
+		dat, err := exec.Command("./single", git.Repository.FullName, git.AfterSha).Output()
 		fmt.Println(string(dat), err)
 	}()
 }
