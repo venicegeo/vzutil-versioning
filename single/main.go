@@ -77,7 +77,7 @@ func cloneAndCheckout(full_name, checkout, name string) (t string, err error) {
 		log.Println("clone:", string(dat))
 		return t, err
 	}
-	cmd := exec.Command("git", "branch")
+	cmd := exec.Command("git", "-C", t, "checkout", checkout)
 	if dat, err = cmd.Output(); err != nil {
 		log.Println("checkout:", string(dat))
 		return t, err
