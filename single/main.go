@@ -30,11 +30,12 @@ import (
 )
 
 func main() {
+	var err error
+
 	runInterruptHandler()
 
 	fmt.Println("### Generating direct dependencies...")
 
-	var err error
 	var project *proj.Project
 
 	if len(os.Args) != 3 {

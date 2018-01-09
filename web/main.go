@@ -19,6 +19,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,10 @@ import (
 
 func main() {
 	fmt.Println("Starting up...")
+
+	if err := handleMaven(); err != nil {
+		log.Fatal(err)
+	}
 
 	url, user, pass, err := getVcapES()
 	fmt.Printf("The elasticsearch url has been found to be [%s]\n", url)
@@ -109,4 +114,22 @@ func webhookPath(c *gin.Context) {
 		dat, err := exec.Command("./single", git.Repository.FullName, git.AfterSha).Output()
 		fmt.Println(string(dat), err)
 	}()
+}
+
+func handleMaven() error {
+	_, err := os.Stat("settings.xml")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		} else {
+			return err
+		}
+	}
+	dat, _ := exec.Command("mvn", "-X").Output()
+	re := regexp.MustCompile(`Reading user settings from (.+)\/`)
+	finds := re.FindStringSubmatch(string(dat))
+	if len(finds) != 2 {
+		return fmt.Errorf("Couldnt find maven settings location")
+	}
+	return exec.Command("mv", "settings.xml", finds[1]).Run()
 }
