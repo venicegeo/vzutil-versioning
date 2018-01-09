@@ -1,7 +1,6 @@
 applications:
 - name: vzutil-versioning
   host: vzutil-versioning
-  command: chmod 755 ./web && ./web
   buildpack: python_buildpack
   memory: 512M
   instances: 1
