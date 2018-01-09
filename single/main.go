@@ -45,14 +45,14 @@ func main() {
 	location, err := cloneAndCheckout(os.Args[1], os.Args[2], name)
 	defer func() { exec.Command("rm", "-rf", location).Run() }()
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("checking out:", err)
 	}
 
 	if project, err = proj.NewProject(fmt.Sprintf("%s/%s", location, name)); err != nil {
-		log.Fatalln(err)
+		log.Fatalln("creating project:", err)
 	}
 	if err = proj.Ingest(project, false); err != nil {
-		log.Fatalln(err)
+		log.Fatalln("ingesting:", err)
 	}
 
 	fmt.Printf("### Direct dependencies found for %s version %s\n", project.FolderName, project.Sha)
