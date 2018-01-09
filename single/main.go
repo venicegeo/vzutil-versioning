@@ -21,8 +21,10 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	proj "github.com/venicegeo/vzutil-versioning/single/project"
 )
@@ -39,9 +41,14 @@ func main() {
 		log.Fatalln("Not enough args")
 	}
 
-	cloneAndCheckout(os.Args[1], os.Args[2])
+	name := strings.Split(os.Args[1], "/")[1]
+	location, err := cloneAndCheckout(os.Args[1], os.Args[2], name)
+	defer func() { exec.Command("rm", "-rf", location).Run() }()
+	if err != nil {
+		log.Fatalln(err)
+	}
 
-	if project, err = proj.NewProject(strings.Split(os.Args[1], "/")[1]); err != nil {
+	if project, err = proj.NewProject(fmt.Sprintf("%s/%s", location, name)); err != nil {
 		log.Fatalln(err)
 	}
 	if err = proj.Ingest(project, false); err != nil {
@@ -53,18 +60,26 @@ func main() {
 		fmt.Printf("###   %s\n", s.FullString())
 	}
 
-	exec.Command("rm", "-rf", strings.Split(os.Args[1], "/")[1]).Run()
 }
 
-func cloneAndCheckout(name, checkout string) (err error) {
-	if err = exec.Command("git", "clone", fmt.Sprintf("https://github.com/%s", name)).Run(); err != nil {
-		return err
+func cloneAndCheckout(full_name, checkout, name string) (t string, err error) {
+	t = fmt.Sprintf("%d", time.Now().Unix())
+	if err = exec.Command("mkdir", t).Run(); err != nil {
+		return t, err
 	}
-	cmd := exec.Cmd{Path: strings.Split(name, "/")[1], Args: []string{"git", "checkout", checkout}}
+	if t, err = filepath.Abs(t); err != nil {
+		return t, err
+	}
+	rest := t
+	t = fmt.Sprintf("%s/%s", t, name)
+	if err = exec.Command("git", "clone", "https://github.com/"+full_name, t).Run(); err != nil {
+		return t, err
+	}
+	cmd := exec.Command("git", "branch")
 	if err = cmd.Run(); err != nil {
-		return err
+		return t, err
 	}
-	return nil
+	return rest, nil
 }
 
 func runInterruptHandler() {

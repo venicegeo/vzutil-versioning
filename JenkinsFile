@@ -26,15 +26,18 @@ node {
 		}
     }
 
-    stage("Collect") {
+    stage("Build") {
         withEnv([
           "PATH+=${golangTool}/bin:${root}/gopath/bin",
           "GOROOT=${golangTool}",
-          "GOPATH=${root}/gopath"
+          "GOPATH=${root}/gopath",
+          "GOBIN=${root}/gopath/bin"
         ]) {
             sh """
-              cd "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/plural"
-              #go run main.go -async=true -cat=true
+              cd "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/single"
+              go install
+              cd ../web
+              go install
             """
         }
     }
@@ -46,11 +49,8 @@ node {
           "GOPATH=${root}/gopath"
         ]) {
             sh """
-              cd "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/web"
-              go build
-              mv web ${root}
-              mv ../manifest.jenkins.yml ${root}
-              cd ${root}
+              mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/manifest.jenkins.yml" .
+              mv ${root}/gopath/bin/* .
               rm -rf gopath/
               ls 
             """
