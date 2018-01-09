@@ -74,12 +74,12 @@ func cloneAndCheckout(full_name, checkout, name string) (t string, err error) {
 	t = fmt.Sprintf("%s/%s", t, name)
 	var dat []byte
 	if dat, err = exec.Command("git", "clone", "https://github.com/"+full_name, t).Output(); err != nil {
-		log.Println(string(dat))
+		log.Println("clone:", string(dat))
 		return t, err
 	}
 	cmd := exec.Command("git", "branch")
 	if dat, err = cmd.Output(); err != nil {
-		log.Println(string(dat))
+		log.Println("checkout:", string(dat))
 		return t, err
 	}
 	return rest, nil
