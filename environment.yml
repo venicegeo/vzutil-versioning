@@ -1,0 +1,5 @@
+name: vzutil
+channels:
+  - conda-forge
+dependencies:
+  - maven

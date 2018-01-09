@@ -2,7 +2,7 @@ applications:
 - name: vzutil-versioning
   host: vzutil-versioning
   command: chmod 755 ./web && ./web
-  buildpack: binary_buildpack
+  buildpack: python_buildpack
   memory: 512M
   instances: 1
   timeout: 180
