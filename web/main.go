@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -103,4 +104,9 @@ func webhookPath(c *gin.Context) {
 
 	fmt.Println(git.Repository.FullName, git.AfterSha)
 	c.Status(200)
+
+	go func() {
+		dat, err := exec.Command("single", git.Repository.FullName, git.AfterSha).Output()
+		fmt.Println(string(dat), err)
+	}()
 }

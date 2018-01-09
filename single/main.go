@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	proj "github.com/venicegeo/vzutil-versioning/single/project"
@@ -33,7 +35,13 @@ func main() {
 	var err error
 	var project *proj.Project
 
-	if project, err = proj.NewProject("../bf-api"); err != nil {
+	if len(os.Args) != 3 {
+		log.Fatalln("Not enough args")
+	}
+
+	cloneAndCheckout(os.Args[1], os.Args[2])
+
+	if project, err = proj.NewProject(strings.Split(os.Args[1], "/")[1]); err != nil {
 		log.Fatalln(err)
 	}
 	if err = proj.Ingest(project, false); err != nil {
@@ -42,8 +50,21 @@ func main() {
 
 	fmt.Printf("### Direct dependencies found for %s version %s\n", project.FolderName, project.Sha)
 	for _, s := range project.GetDependencies() {
-		fmt.Printf("###   %s\n", s)
+		fmt.Printf("###   %s\n", s.FullString())
 	}
+
+	exec.Command("rm", "-rf", strings.Split(os.Args[1], "/")[1]).Run()
+}
+
+func cloneAndCheckout(name, checkout string) (err error) {
+	if err = exec.Command("git", "clone", fmt.Sprintf("https://github.com/%s", name)).Run(); err != nil {
+		return err
+	}
+	cmd := exec.Cmd{Path: strings.Split(name, "/")[1], Args: []string{"git", "checkout", checkout}}
+	if err = cmd.Run(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func runInterruptHandler() {
