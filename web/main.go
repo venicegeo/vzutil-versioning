@@ -26,6 +26,8 @@ import (
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 )
 
+var wrkr *worker
+
 func main() {
 	fmt.Println("Starting up...")
 
@@ -44,19 +46,24 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	i, err := elasticsearch.NewIndex2(url, user, pass, "test", `
+	i, err := elasticsearch.NewIndex2(url, user, pass, "versioning_tool", `
 {
 	"mappings": {
 		"project":{
 			"dynamic":"strict",
 			"properties":{
-				"location":{"type":"string"},
-				"history": {
-					"dynamic":"strict",
-					"properties":{
-						"sha":{"type":"string"}
-					}
-				}
+				"full_name":{"type":"string"},
+				"name":{"type":"string"},
+				"shas":{"type":"string"}
+			}
+		},
+		"dependency":{
+			"dynamic":"strict",
+			"properties":{
+				"hashsum":{"type":"string"},
+				"name":{"type":"string"},
+				"version":{"type":"string"},
+				"language":{"type":"string"}
 			}
 		}
 	}
@@ -66,6 +73,9 @@ func main() {
 	} else {
 		fmt.Println(i.GetVersion())
 	}
+
+	wrkr = NewWorker(i)
+	wrkr.Start()
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -110,10 +120,7 @@ func webhookPath(c *gin.Context) {
 	fmt.Println(git.Repository.FullName, git.AfterSha)
 	c.Status(200)
 
-	go func() {
-		dat, err := exec.Command("./single", git.Repository.FullName, git.AfterSha).Output()
-		fmt.Println(string(dat), err)
-	}()
+	wrkr.AddTask(git)
 }
 
 func handleMaven() error {
