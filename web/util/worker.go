@@ -29,13 +29,14 @@ import (
 )
 
 type Worker struct {
-	index *elasticsearch.Index
-	queue chan *GitWebhook
-	mux   *sync.Mutex
+	singleLocation string
+	index          *elasticsearch.Index
+	queue          chan *GitWebhook
+	mux            *sync.Mutex
 }
 
-func NewWorker(i *elasticsearch.Index) *Worker {
-	wrkr := Worker{i, make(chan *GitWebhook), &sync.Mutex{}}
+func NewWorker(i *elasticsearch.Index, singleLocation string) *Worker {
+	wrkr := Worker{singleLocation, i, make(chan *GitWebhook), &sync.Mutex{}}
 	return &wrkr
 }
 
@@ -50,12 +51,11 @@ func (w *Worker) Start() {
 			var projectEntries *es.ProjectEntries
 			var exists bool
 
-			dat, err := exec.Command("./single", git.Repository.FullName, git.AfterSha).Output()
+			dat, err := exec.Command(w.singleLocation, git.Repository.FullName, git.AfterSha).Output()
 			if err != nil {
 				log.Println("Unable to run against", git.Repository.FullName, git.AfterSha, ":", err.Error())
 				continue
 			}
-			log.Println(string(dat))
 			w.mux.Lock()
 			{
 				deps := []es.Dependency{}
@@ -101,6 +101,7 @@ func (w *Worker) Start() {
 			}
 			if projectEntries, err = project.GetEntries(); err != nil {
 				log.Println("Unable to get entries:", err.Error())
+				continue
 			}
 			if project.LastSha != "" {
 				referenceSha := project.LastSha
@@ -120,6 +121,21 @@ func (w *Worker) Start() {
 			}
 			project.SetEntries(projectEntries)
 			project.LastSha = git.AfterSha
+
+			if strings.HasPrefix(git.Ref, "refs/tags/") {
+				tag := strings.Split(git.Ref, "/")[2]
+				mapp, err := project.GetTagShas()
+				if err != nil {
+					log.Println("Unable to get tag shas:", err.Error())
+					continue
+				}
+				mapp[tag] = git.AfterSha
+				if err = project.SetTagShas(mapp); err != nil {
+					log.Println("Unable to set tag shas:", err.Error())
+					continue
+				}
+			}
+
 			indexProject := func(data func(string, string, interface{}) (*elasticsearch.IndexResponse, error), method string, checkCreate bool) bool {
 				resp, err := data("project", docName, project)
 				if err != nil {

@@ -22,6 +22,7 @@ type Project struct {
 	FullName string `json:"full_name"`
 	Name     string `json:"name"`
 	LastSha  string `json:"last_sha"`
+	TagShas  string `json:"tag_shas"`
 	Entries  string `json:"entries"`
 }
 
@@ -34,8 +35,10 @@ type ProjectEntry struct {
 
 func NewProject(fullName, name string) *Project {
 	temp := ProjectEntries{}
+	temp2 := map[string]string{}
 	dat, _ := json.Marshal(temp)
-	return &Project{fullName, name, "", string(dat)}
+	dat2, _ := json.Marshal(temp2)
+	return &Project{fullName, name, "", string(dat2), string(dat)}
 }
 
 func (p *Project) GetEntries() (*ProjectEntries, error) {
@@ -49,5 +52,19 @@ func (p *Project) SetEntries(entries *ProjectEntries) error {
 		return err
 	}
 	p.Entries = string(dat)
+	return nil
+}
+
+func (p *Project) GetTagShas() (map[string]string, error) {
+	var shas map[string]string
+	return shas, json.Unmarshal([]byte(p.TagShas), &shas)
+}
+
+func (p *Project) SetTagShas(shas map[string]string) error {
+	dat, err := json.Marshal(shas)
+	if err != nil {
+		return err
+	}
+	p.TagShas = string(dat)
 	return nil
 }

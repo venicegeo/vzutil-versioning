@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package util
 
 import (
 	"bytes"
@@ -25,8 +25,9 @@ import (
 )
 
 func Test1(t *testing.T) {
-	go main()
-	defer func() { killChan <- true }()
+	app := NewApplication("versioning_test", "../single", true)
+	go func() { fmt.Println(<-app.Start()) }()
+	defer func() { app.Stop() }()
 	time.Sleep(time.Second)
 
 	fmt.Println(defaultCall(nt.GET, "http://localhost:20012", nil, t))
@@ -59,19 +60,19 @@ func status200(code int, t *testing.T) {
 var test1 = `
 {
     "ref":"refs/head/master",
-    "after":"da09290a7992188358bde11ba6ab7f000b49adaa",
+    "after":"6d73a8563872dc58a45bb09951d64b43e282ff8d",
     "repository":{
         "id":1234,
         "name":"pz-gateway",
         "full_name":"venicegeo/pz-gateway",
         "html_url":"https://github.com/venicegeo/pz-gateway",
         "url":"https://github.com/venicegeo/pz-gateway"
-    }
+   }
 }`
 var test2 = `
 {
     "ref":"refs/head/master",
-    "after":"fe1df9f9a7b3b62b7df12c79b23c2a9dff4959cb",
+    "after":"da09290a7992188358bde11ba6ab7f000b49adaa",
     "repository":{
         "id":1234,
         "name":"pz-gateway",
@@ -83,7 +84,7 @@ var test2 = `
 var test3 = `
 {
     "ref":"refs/head/master",
-    "after":"592e467676c0ba2d1e10ad8cf019a0daa047974c",
+    "after":"fe1df9f9a7b3b62b7df12c79b23c2a9dff4959cb",
     "repository":{
         "id":1234,
         "name":"pz-gateway",
@@ -95,7 +96,7 @@ var test3 = `
 var test4 = `
 {
     "ref":"refs/head/master",
-    "after":"6d73a8563872dc58a45bb09951d64b43e282ff8d",
+    "after":"592e467676c0ba2d1e10ad8cf019a0daa047974c",
     "repository":{
         "id":1234,
         "name":"pz-gateway",

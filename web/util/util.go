@@ -12,15 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package util
 
 import (
-	"fmt"
-
-	"github.com/venicegeo/vzutil-versioning/web/util"
+	"log"
+	"os"
+	"strings"
 )
 
-func main() {
-	app := util.NewApplication("versioning_tool", "./single", false)
-	fmt.Println(<-app.Start())
+func addFSifMissing(url string) string {
+	if !strings.HasSuffix(url, "/") {
+		url += "/"
+	}
+	return url
+}
+
+func getRequiredEnv(env string) string {
+	temp := os.Getenv(env)
+	if temp == "" {
+		log.Fatal("Missing env var", env)
+	}
+	return temp
 }
