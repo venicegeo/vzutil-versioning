@@ -24,9 +24,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
+	"github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-var wrkr *worker
+var wrkr *util.Worker
+var killChan = make(chan bool)
 
 func main() {
 	fmt.Println("Starting up...")
@@ -35,7 +37,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	url, user, pass, err := getVcapES()
+	url, user, pass, err := util.GetVcapES()
 	fmt.Printf("The elasticsearch url has been found to be [%s]\n", url)
 	if user != "" {
 		fmt.Println("There is a username")
@@ -54,7 +56,8 @@ func main() {
 			"properties":{
 				"full_name":{"type":"string"},
 				"name":{"type":"string"},
-				"shas":{"type":"string"}
+				"last_sha":{"type":"string"},
+				"entries":{"type":"string"}
 			}
 		},
 		"dependency":{
@@ -74,7 +77,7 @@ func main() {
 		fmt.Println(i.GetVersion())
 	}
 
-	wrkr = NewWorker(i)
+	wrkr = util.NewWorker(i)
 	wrkr.Start()
 
 	port := os.Getenv("PORT")
@@ -83,11 +86,17 @@ func main() {
 	}
 
 	fmt.Println("Starting on port", port)
-	server := Server{}
-	server.Configure([]RouteData{RouteData{"GET", "/", defaultPath},
-		RouteData{"POST", "/webhook", webhookPath}})
-	err = <-server.Start(":" + port)
-	fmt.Println(err)
+	server := util.Server{}
+	server.Configure([]util.RouteData{
+		util.RouteData{"GET", "/", defaultPath},
+		util.RouteData{"POST", "/webhook", webhookPath},
+	})
+	select {
+	case err = <-server.Start(":" + port):
+		fmt.Println(err)
+	case <-killChan:
+		fmt.Println("was stopped:", server.Stop())
+	}
 }
 
 func addFSifMissing(url string) string {
@@ -109,7 +118,7 @@ func defaultPath(c *gin.Context) {
 	c.String(200, "Welcome to the dependency service!")
 }
 func webhookPath(c *gin.Context) {
-	var git GitWebhook
+	git := util.GitWebhook{}
 
 	if err := c.BindJSON(&git); err != nil {
 		log.Println("Unable to bind json:", err.Error())
@@ -118,9 +127,9 @@ func webhookPath(c *gin.Context) {
 	}
 
 	fmt.Println(git.Repository.FullName, git.AfterSha)
-	c.Status(200)
+	c.String(200, "Thanks!")
 
-	wrkr.AddTask(git)
+	wrkr.AddTask(&git)
 }
 
 func handleMaven() error {
@@ -138,5 +147,6 @@ func handleMaven() error {
 	if len(finds) != 2 {
 		return fmt.Errorf("Couldnt find maven settings location")
 	}
+
 	return exec.Command("mv", "settings.xml", finds[1]).Run()
 }

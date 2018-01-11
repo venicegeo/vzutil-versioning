@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package util
 
 import (
 	"encoding/json"
@@ -40,7 +40,7 @@ type VcapCredentials struct {
 	Username  string `json:"username"`
 }
 
-func getVcapES() (string, string, string, error) {
+func GetVcapES() (string, string, string, error) {
 	services := os.Getenv("VCAP_SERVICES")
 	if services == "" {
 		return "http://127.0.0.1:9200", "", "", nil
