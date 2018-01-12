@@ -206,12 +206,17 @@ func (a *Application) reportSha(c *gin.Context) {
 	deps, err := a.rprtr.ReportBySha(fullName, sha)
 	if err != nil {
 		c.String(400, "Unable to do this:", err.Error())
+		return
 	}
-	res := "Report for " + fullName + " at " + sha + "\n===================="
+	res := "Report for " + fullName + " at " + sha + "\n"
+	t := table.NewTable(3, len(deps))
 	for _, dep := range deps {
-		res += "\n" + dep
+		t.Fill(dep.Name)
+		t.Fill(dep.Version)
+		t.Fill(dep.Language)
 	}
-	c.String(200, res)
+	t.SpaceColumn(1).NoBorders().Format()
+	c.String(200, res+t.String())
 }
 
 func (a *Application) reportTag(c *gin.Context) {
@@ -220,12 +225,17 @@ func (a *Application) reportTag(c *gin.Context) {
 	deps, err := a.rprtr.ReportByTag2(c.Param("tag"), fullName)
 	if err != nil {
 		c.String(400, "Unable to do this:", err.Error())
+		return
 	}
-	res := "Report for " + fullName + " at " + tag + "\n===================="
+	res := "Report for " + fullName + " at " + tag + "\n"
+	t := table.NewTable(3, len(deps))
 	for _, dep := range deps {
-		res += "\n" + dep
+		t.Fill(dep.Name)
+		t.Fill(dep.Version)
+		t.Fill(dep.Language)
 	}
-	c.String(200, res)
+	t.SpaceColumn(2).NoBorders().Format()
+	c.String(200, res+t.String())
 }
 
 func (a *Application) reportTagAll(c *gin.Context) {
@@ -237,12 +247,14 @@ func (a *Application) reportTagAll(c *gin.Context) {
 	}
 	res := ""
 	for name, depss := range deps {
-		res += "====================\n"
 		res += name + " at " + tag + "\n"
-		res += "===================="
+		t := table.NewTable(3, len(depss))
 		for _, dep := range depss {
-			res += "\n" + dep
+			t.Fill(dep.Name)
+			t.Fill(dep.Version)
+			t.Fill(dep.Language)
 		}
+		res += t.NoBorders().SpaceAllColumns().Format().String()
 	}
 	c.String(200, res)
 }
@@ -254,11 +266,13 @@ func (a *Application) listShas(c *gin.Context) {
 		c.String(400, err.Error())
 		return
 	}
-	res := "List of Shas for " + fullName + "\n===================="
+	res := "List of Shas for " + fullName + "\n"
+	t := table.NewTable(1, len(res))
 	for _, sha := range shas {
-		res += "\n" + sha
+		t.Fill(sha)
 	}
-	c.String(200, res)
+	t.NoBorders().Format()
+	c.String(200, res+t.String())
 }
 
 func (a *Application) listTags(c *gin.Context) {
@@ -271,11 +285,10 @@ func (a *Application) listTags(c *gin.Context) {
 	res := "List of tags for " + fullName + "\n"
 	t := table.NewTable(2, len(*tags))
 	for k, v := range *tags {
-		//		res += "\n" + k + "\t\t" + v
 		t.Fill(k)
 		t.Fill(v)
 	}
-	t.Format()
+	t.SpaceAllColumns().NoBorders().Format()
 	c.String(200, res+t.String())
 }
 

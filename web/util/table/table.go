@@ -21,10 +21,11 @@ type Table struct {
 	spaceColum []bool
 	nextRow    int
 	nextColumn int
+	drawBorder bool
 }
 
 func NewTable(width, height int) *Table {
-	table := &Table{[][]string{}, []bool{}, 0, 0}
+	table := &Table{[][]string{}, []bool{}, 0, 0, true}
 	for i := 0; i < height; i++ {
 		temp := []string{}
 		for j := 0; j < width; j++ {
@@ -67,7 +68,7 @@ func (t *Table) Fill(toFill string) {
 		t.nextColumn++
 	}
 }
-func (t *Table) Format() {
+func (t *Table) Format() *Table {
 	for c := 0; c < len(t.table[0]); c++ {
 		max := 0
 		for r := 0; r < len(t.table); r++ {
@@ -79,29 +80,44 @@ func (t *Table) Format() {
 			}
 		}
 	}
+	return t
+}
+func (t *Table) DrawBorders() *Table {
+	t.drawBorder = true
+	return t
+}
+func (t *Table) NoBorders() *Table {
+	t.drawBorder = false
+	return t
 }
 func (t *Table) String() string {
 	res := ""
+	pipe := "|"
+	if !t.drawBorder {
+		pipe = ""
+	}
 	for r := 0; r < len(t.table); r++ {
 		line := ""
 		for c := 0; c < len(t.table[r]); c++ {
 			if t.spaceColum[c] {
-				line += " " + t.table[r][c] + " |"
+				line += " " + t.table[r][c] + " " + pipe
 			} else {
-				line += t.table[r][c] + "|"
+				line += t.table[r][c] + pipe
 			}
 		}
-		res += "|" + line + "\n"
-		for i := 0; i < len(line)+1; i++ {
-			res += "-"
+		res += pipe + line + "\n"
+		if t.drawBorder {
+			for i := 0; i < len(line)+1; i++ {
+				res += "-"
+			}
+			res += "\n"
 		}
-		res += "\n"
 	}
 	temp := ""
 	for i := 0; i < len(strings.SplitN(res, "\n", 2)[0]); i++ {
 		temp += "_"
 	}
-	return temp + "\n" + res
+	return temp + "\n" + res + temp
 }
 func (t *Table) max(a, b int) int {
 	if a > b {

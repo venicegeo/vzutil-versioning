@@ -17,7 +17,6 @@ package util
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/es"
@@ -31,52 +30,49 @@ func NewReporter(index *elasticsearch.Index) *Reporter {
 	return &Reporter{index}
 }
 
-func (r *Reporter) ReportBySha(fullName, sha string) ([]string, error) {
-	docName := strings.Replace(fullName, "/", "_", -1)
-	resp, err := r.index.GetByID("project", docName)
-	if err != nil {
+func (r *Reporter) ReportBySha(fullName, sha string) (res []es.Dependency, err error) {
+	var project *es.Project
+	var projectEntries *es.ProjectEntries
+	var entry es.ProjectEntry
+	var exists bool
+	var resp *elasticsearch.GetResult
+
+	if project, err = es.GetProjectById(r.index, fullName); err != nil {
 		return nil, err
 	}
-	if !resp.Found {
-		return nil, fmt.Errorf("Could not find a project named %s", docName)
-	}
-	var project es.Project
-	if err = json.Unmarshal([]byte(*resp.Source), &project); err != nil {
+	if projectEntries, err = project.GetEntries(); err != nil {
 		return nil, err
 	}
-	projectEntries, err := project.GetEntries()
-	if err != nil {
-		return nil, err
-	}
-	entry, ok := (*projectEntries)[sha]
-	if !ok {
+	entry, exists = (*projectEntries)[sha]
+	if !exists {
 		return nil, fmt.Errorf("Sorry, this sha was not found")
 	}
 	if entry.EntryReference != "" {
-		entry, ok = (*projectEntries)[entry.EntryReference]
-		if !ok {
+		entry, exists = (*projectEntries)[entry.EntryReference]
+		if !exists {
 			return nil, fmt.Errorf("The database is corrupted, this sha points to a sha that doesnt exist:", entry.EntryReference)
 		}
 	}
 	//TODO THREAD THIS NONSENSE
-	res := []string{}
 	for _, d := range entry.Dependencies {
-		resp, err = r.index.GetByID("dependency", d)
-		if err != nil || !resp.Found {
-			res = append(res, fmt.Sprintf("Cound not find [%s]", d))
+		if resp, err = r.index.GetByID("dependency", d); err != nil || !resp.Found {
+			name := fmt.Sprintf("Cound not find [%s]", d)
+			tmp := es.Dependency{name, "", ""}
+			res = append(res, tmp)
 		} else {
 			var dep es.Dependency
 			if err = json.Unmarshal([]byte(*resp.Source), &dep); err != nil {
-				res = append(res, fmt.Sprintf("Error getting [%s]: [%s]", d, err.Error()))
+				tmp := es.Dependency{fmt.Sprintf("Error getting [%s]: [%s]", d, err.Error()), "", ""}
+				res = append(res, tmp)
 			} else {
-				res = append(res, dep.String())
+				res = append(res, dep)
 			}
 		}
 	}
 	return res, nil
 }
 
-func (r *Reporter) ReportByTag(tag string) (map[string][]string, error) {
+func (r *Reporter) ReportByTag(tag string) (map[string][]es.Dependency, error) {
 	resp, err := r.index.GetAllElements("project")
 	if err != nil {
 		return nil, err
@@ -104,7 +100,7 @@ func (r *Reporter) ReportByTag(tag string) (map[string][]string, error) {
 		}
 	}
 
-	mappp := map[string][]string{}
+	mappp := map[string][]es.Dependency{}
 	for projectName, sha := range mapp {
 		deps, err := r.ReportBySha(projectName, sha)
 		if err != nil {
@@ -116,48 +112,35 @@ func (r *Reporter) ReportByTag(tag string) (map[string][]string, error) {
 	return mappp, nil
 }
 
-func (r *Reporter) ReportByTag2(tag, fullName string) ([]string, error) {
-	docName := strings.Replace(fullName, "/", "_", -1)
-	resp, err := r.index.GetByID("project", docName)
-	if err != nil {
+func (r *Reporter) ReportByTag2(tag, fullName string) ([]es.Dependency, error) {
+	var project *es.Project
+	var err error
+	var tagShas *map[string]string
+	var sha string
+	var ok bool
+
+	if project, err = es.GetProjectById(r.index, fullName); err != nil {
 		return nil, err
 	}
-	if !resp.Found {
-		return nil, fmt.Errorf("Could not find this document: [%s]", docName)
-	}
-	var project es.Project
-	if err = json.Unmarshal([]byte(*resp.Source), &project); err != nil {
+	if tagShas, err = project.GetTagShas(); err != nil {
 		return nil, err
 	}
-	tagShas, err := project.GetTagShas()
-	if err != nil {
-		return nil, err
-	}
-	sha, ok := (*tagShas)[tag]
-	if !ok {
+	if sha, ok = (*tagShas)[tag]; !ok {
 		return nil, fmt.Errorf("Could not find this tag: [%s]", tag)
 	}
-	return r.ReportBySha(sha, fullName)
+	return r.ReportBySha(fullName, sha)
 }
 
-func (r *Reporter) ListShas(fullName string) ([]string, error) {
-	docName := strings.Replace(fullName, "/", "_", -1)
-	resp, err := r.index.GetByID("project", docName)
-	if err != nil {
+func (r *Reporter) ListShas(fullName string) (res []string, err error) {
+	var project *es.Project
+	var entries *es.ProjectEntries
+
+	if project, err = es.GetProjectById(r.index, fullName); err != nil {
 		return nil, err
 	}
-	if !resp.Found {
-		return nil, fmt.Errorf("Could not find this document: [%s]", docName)
-	}
-	var project es.Project
-	if err = json.Unmarshal([]byte(*resp.Source), &project); err != nil {
+	if entries, err = project.GetEntries(); err != nil {
 		return nil, err
 	}
-	entries, err := project.GetEntries()
-	if err != nil {
-		return nil, err
-	}
-	res := []string{}
 	for k, _ := range *entries {
 		res = append(res, k)
 	}
@@ -165,16 +148,8 @@ func (r *Reporter) ListShas(fullName string) ([]string, error) {
 }
 
 func (r *Reporter) ListTags(fullName string) (*map[string]string, error) {
-	docName := strings.Replace(fullName, "/", "_", -1)
-	resp, err := r.index.GetByID("project", docName)
+	project, err := es.GetProjectById(r.index, fullName)
 	if err != nil {
-		return nil, err
-	}
-	if !resp.Found {
-		return nil, fmt.Errorf("Could not find this document: [%s]", docName)
-	}
-	var project es.Project
-	if err = json.Unmarshal([]byte(*resp.Source), &project); err != nil {
 		return nil, err
 	}
 	return project.GetTagShas()
