@@ -98,7 +98,7 @@ func (r *Reporter) ReportByTag(tag string) (map[string][]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		sha, exists := tagShas[tag]
+		sha, exists := (*tagShas)[tag]
 		if exists {
 			mapp[project.FullName] = sha
 		}
@@ -114,4 +114,68 @@ func (r *Reporter) ReportByTag(tag string) (map[string][]string, error) {
 	}
 
 	return mappp, nil
+}
+
+func (r *Reporter) ReportByTag2(tag, fullName string) ([]string, error) {
+	docName := strings.Replace(fullName, "/", "_", -1)
+	resp, err := r.index.GetByID("project", docName)
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Found {
+		return nil, fmt.Errorf("Could not find this document: [%s]", docName)
+	}
+	var project es.Project
+	if err = json.Unmarshal([]byte(*resp.Source), &project); err != nil {
+		return nil, err
+	}
+	tagShas, err := project.GetTagShas()
+	if err != nil {
+		return nil, err
+	}
+	sha, ok := (*tagShas)[tag]
+	if !ok {
+		return nil, fmt.Errorf("Could not find this tag: [%s]", tag)
+	}
+	return r.ReportBySha(sha, fullName)
+}
+
+func (r *Reporter) ListShas(fullName string) ([]string, error) {
+	docName := strings.Replace(fullName, "/", "_", -1)
+	resp, err := r.index.GetByID("project", docName)
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Found {
+		return nil, fmt.Errorf("Could not find this document: [%s]", docName)
+	}
+	var project es.Project
+	if err = json.Unmarshal([]byte(*resp.Source), &project); err != nil {
+		return nil, err
+	}
+	entries, err := project.GetEntries()
+	if err != nil {
+		return nil, err
+	}
+	res := []string{}
+	for k, _ := range *entries {
+		res = append(res, k)
+	}
+	return res, nil
+}
+
+func (r *Reporter) ListTags(fullName string) (*map[string]string, error) {
+	docName := strings.Replace(fullName, "/", "_", -1)
+	resp, err := r.index.GetByID("project", docName)
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Found {
+		return nil, fmt.Errorf("Could not find this document: [%s]", docName)
+	}
+	var project es.Project
+	if err = json.Unmarshal([]byte(*resp.Source), &project); err != nil {
+		return nil, err
+	}
+	return project.GetTagShas()
 }

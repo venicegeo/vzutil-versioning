@@ -24,6 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
+	"github.com/venicegeo/vzutil-versioning/web/util/table"
 )
 
 type Application struct {
@@ -111,7 +112,10 @@ func (a *Application) Start() chan error {
 		RouteData{"GET", "/generate/tags/:org/:repo", a.updateAllTags},
 		RouteData{"GET", "/generate/sha/:org/:repo/:sha", a.specificSha},
 		RouteData{"GET", "/report/sha/:org/:repo/:sha", a.reportSha},
-		RouteData{"GET", "/report/tag/:tag", a.reportTag},
+		RouteData{"GET", "/report/tag/repo/:org/:repo/:tag", a.reportTag},
+		RouteData{"GET", "/report/tag/all/:tag", a.reportTagAll},
+		RouteData{"GET", "/list/shas/:org/:repo", a.listShas},
+		RouteData{"GET", "/list/tags/:org/:repo", a.listTags},
 	})
 	select {
 	case err = <-server.Start(":" + port):
@@ -209,11 +213,26 @@ func (a *Application) reportSha(c *gin.Context) {
 	}
 	c.String(200, res)
 }
+
 func (a *Application) reportTag(c *gin.Context) {
+	tag := c.Param("tag")
+	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
+	deps, err := a.rprtr.ReportByTag2(c.Param("tag"), fullName)
+	if err != nil {
+		c.String(400, "Unable to do this:", err.Error())
+	}
+	res := "Report for " + fullName + " at " + tag + "\n===================="
+	for _, dep := range deps {
+		res += "\n" + dep
+	}
+	c.String(200, res)
+}
+
+func (a *Application) reportTagAll(c *gin.Context) {
 	tag := c.Param("tag")
 	deps, err := a.rprtr.ReportByTag(tag)
 	if err != nil {
-		c.String(500, "Unable to do this: ", err.Error())
+		c.String(500, "Unable to do this: %s", err.Error())
 		return
 	}
 	res := ""
@@ -226,6 +245,38 @@ func (a *Application) reportTag(c *gin.Context) {
 		}
 	}
 	c.String(200, res)
+}
+
+func (a *Application) listShas(c *gin.Context) {
+	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
+	shas, err := a.rprtr.ListShas(fullName)
+	if err != nil {
+		c.String(400, err.Error())
+		return
+	}
+	res := "List of Shas for " + fullName + "\n===================="
+	for _, sha := range shas {
+		res += "\n" + sha
+	}
+	c.String(200, res)
+}
+
+func (a *Application) listTags(c *gin.Context) {
+	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
+	tags, err := a.rprtr.ListTags(fullName)
+	if err != nil {
+		c.String(400, err.Error())
+		return
+	}
+	res := "List of tags for " + fullName + "\n"
+	t := table.NewTable(2, len(*tags))
+	for k, v := range *tags {
+		//		res += "\n" + k + "\t\t" + v
+		t.Fill(k)
+		t.Fill(v)
+	}
+	t.Format()
+	c.String(200, res+t.String())
 }
 
 func (a *Application) handleMaven() error {

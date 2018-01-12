@@ -55,12 +55,12 @@ func (p *Project) SetEntries(entries *ProjectEntries) error {
 	return nil
 }
 
-func (p *Project) GetTagShas() (map[string]string, error) {
+func (p *Project) GetTagShas() (*map[string]string, error) {
 	var shas map[string]string
-	return shas, json.Unmarshal([]byte(p.TagShas), &shas)
+	return &shas, json.Unmarshal([]byte(p.TagShas), &shas)
 }
 
-func (p *Project) SetTagShas(shas map[string]string) error {
+func (p *Project) SetTagShas(shas *map[string]string) error {
 	dat, err := json.Marshal(shas)
 	if err != nil {
 		return err

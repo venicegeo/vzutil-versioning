@@ -129,7 +129,7 @@ func (w *Worker) Start() {
 					log.Println("Unable to get tag shas:", err.Error())
 					continue
 				}
-				mapp[tag] = git.AfterSha
+				(*mapp)[tag] = git.AfterSha
 				if err = project.SetTagShas(mapp); err != nil {
 					log.Println("Unable to set tag shas:", err.Error())
 					continue
