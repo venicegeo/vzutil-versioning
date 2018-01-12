@@ -30,3 +30,7 @@ func (d *Dependency) GetHashSum() string {
 	tmp := md5.Sum([]byte(fmt.Sprintf("%s:%s:%s", d.Name, d.Version, d.Language)))
 	return hex.EncodeToString(tmp[:])
 }
+
+func (d *Dependency) String() string {
+	return fmt.Sprintf("%s:%s:%s", d.Name, d.Version, d.Language)
+}

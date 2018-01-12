@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
+	nt "github.com/venicegeo/pz-gocommon/gocommon"
 )
 
 type Application struct {
@@ -31,6 +32,7 @@ type Application struct {
 	debugMode      bool
 
 	wrkr     *Worker
+	rprtr    *Reporter
 	killChan chan bool
 }
 
@@ -94,6 +96,7 @@ func (a *Application) Start() chan error {
 
 	a.wrkr = NewWorker(i, a.singleLocation)
 	a.wrkr.Start()
+	a.rprtr = NewReporter(i)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -106,6 +109,9 @@ func (a *Application) Start() chan error {
 		RouteData{"GET", "/", a.defaultPath},
 		RouteData{"POST", "/webhook", a.webhookPath},
 		RouteData{"GET", "/generate/tags/:org/:repo", a.updateAllTags},
+		RouteData{"GET", "/generate/sha/:org/:repo/:sha", a.specificSha},
+		RouteData{"GET", "/report/sha/:org/:repo/:sha", a.reportSha},
+		RouteData{"GET", "/report/tag/:tag", a.reportTag},
 	})
 	select {
 	case err = <-server.Start(":" + port):
@@ -148,7 +154,7 @@ func (a *Application) updateAllTags(c *gin.Context) {
 	}
 	go func() {
 		for sha, ref := range dat {
-			git := &GitWebhook{
+			git := GitWebhook{
 				Ref:      ref,
 				AfterSha: sha,
 				Repository: GitRepository{
@@ -157,10 +163,69 @@ func (a *Application) updateAllTags(c *gin.Context) {
 				},
 			}
 			fmt.Println(git.Repository.FullName, git.AfterSha, git.Ref)
-			a.wrkr.AddTask(git)
+			a.wrkr.AddTask(&git)
 		}
 	}()
 	c.String(200, "Yeah, I can do that. Check back in a minute")
+}
+
+func (a *Application) specificSha(c *gin.Context) {
+	name := c.Param("repo")
+	fullName := fmt.Sprintf("%s/%s", c.Param("org"), name)
+	sha := c.Param("sha")
+	code, _, _, err := nt.HTTP(nt.HEAD, fmt.Sprintf("https://github.com/%s/commit/%s", fullName, sha), nt.NewHeaderBuilder().GetHeader(), nil)
+	if err != nil {
+		c.String(500, "could not verify this sha:", err.Error())
+		return
+	}
+	if code != 200 {
+		c.String(400, "could not verify this sha, head code:", code)
+		return
+	}
+
+	c.String(200, "I got this, check back in a bit")
+
+	git := GitWebhook{
+		AfterSha: sha,
+		Repository: GitRepository{
+			Name:     name,
+			FullName: fullName,
+		},
+	}
+	fmt.Println(git.Repository.FullName, git.AfterSha)
+	a.wrkr.AddTask(&git)
+}
+
+func (a *Application) reportSha(c *gin.Context) {
+	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
+	sha := c.Param("sha")
+	deps, err := a.rprtr.ReportBySha(fullName, sha)
+	if err != nil {
+		c.String(400, "Unable to do this:", err.Error())
+	}
+	res := "Report for " + fullName + " at " + sha + "\n===================="
+	for _, dep := range deps {
+		res += "\n" + dep
+	}
+	c.String(200, res)
+}
+func (a *Application) reportTag(c *gin.Context) {
+	tag := c.Param("tag")
+	deps, err := a.rprtr.ReportByTag(tag)
+	if err != nil {
+		c.String(500, "Unable to do this: ", err.Error())
+		return
+	}
+	res := ""
+	for name, depss := range deps {
+		res += "====================\n"
+		res += name + " at " + tag + "\n"
+		res += "===================="
+		for _, dep := range depss {
+			res += "\n" + dep
+		}
+	}
+	c.String(200, res)
 }
 
 func (a *Application) handleMaven() error {
