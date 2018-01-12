@@ -69,6 +69,9 @@ func (t *Table) Fill(toFill string) {
 	}
 }
 func (t *Table) Format() *Table {
+	if len(t.table) == 0 {
+		return t
+	}
 	for c := 0; c < len(t.table[0]); c++ {
 		max := 0
 		for r := 0; r < len(t.table); r++ {
@@ -114,7 +117,11 @@ func (t *Table) String() string {
 		}
 	}
 	temp := ""
-	for i := 0; i < len(strings.SplitN(res, "\n", 2)[0]); i++ {
+	tmpS := len(strings.SplitN(res, "\n", 2)[0])
+	if tmpS == 0 {
+		tmpS = 10
+	}
+	for i := 0; i < tmpS; i++ {
 		temp += "_"
 	}
 	return temp + "\n" + res + temp
