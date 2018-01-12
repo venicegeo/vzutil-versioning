@@ -247,14 +247,14 @@ func (a *Application) reportTagAll(c *gin.Context) {
 	}
 	res := ""
 	for name, depss := range deps {
-		res += name + " at " + tag + "\n"
+		res += name + " at " + tag
 		t := table.NewTable(3, len(depss))
 		for _, dep := range depss {
 			t.Fill(dep.Name)
 			t.Fill(dep.Version)
 			t.Fill(dep.Language)
 		}
-		res += t.NoBorders().SpaceAllColumns().Format().String()
+		res += "\n" + t.NoBorders().SpaceAllColumns().Format().String() + "\n"
 	}
 	c.String(200, res)
 }
