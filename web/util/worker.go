@@ -36,7 +36,7 @@ type Worker struct {
 }
 
 func NewWorker(i *elasticsearch.Index, singleLocation string) *Worker {
-	wrkr := Worker{singleLocation, i, make(chan *GitWebhook), &sync.Mutex{}}
+	wrkr := Worker{singleLocation, i, make(chan *GitWebhook, 1000), &sync.Mutex{}}
 	return &wrkr
 }
 
@@ -46,6 +46,7 @@ func (w *Worker) Start() {
 	go func() {
 		for {
 			git := <-w.queue
+			log.Println("[WORKER] Starting work on", git.Repository.FullName, git.AfterSha)
 			hashes := []string{}
 			var project es.Project
 			var projectEntries *es.ProjectEntries
@@ -157,6 +158,7 @@ func (w *Worker) Start() {
 				}
 			}
 			w.mux.Unlock()
+			log.Println("[WORKER] Finished work on", git.Repository.FullName, git.AfterSha)
 		}
 	}()
 }
