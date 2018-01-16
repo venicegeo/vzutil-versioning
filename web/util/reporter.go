@@ -19,15 +19,17 @@ import (
 	"fmt"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
+	piazza "github.com/venicegeo/pz-gocommon/gocommon"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 )
 
 type Reporter struct {
-	index *elasticsearch.Index
+	index      *elasticsearch.Index
+	defaultPag *piazza.JsonPagination
 }
 
 func NewReporter(index *elasticsearch.Index) *Reporter {
-	return &Reporter{index}
+	return &Reporter{index, &piazza.JsonPagination{PerPage: 250}}
 }
 
 func (r *Reporter) reportBySha(fullName, sha string) (res []es.Dependency, err error) {
@@ -73,7 +75,7 @@ func (r *Reporter) reportBySha(fullName, sha string) (res []es.Dependency, err e
 }
 
 func (r *Reporter) reportByTag(tag string) (map[string][]es.Dependency, error) {
-	resp, err := r.index.GetAllElements("project")
+	resp, err := r.index.FilterByMatchAll("project", r.defaultPag)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +83,6 @@ func (r *Reporter) reportByTag(tag string) (map[string][]es.Dependency, error) {
 	projects := []es.Project{}
 	for _, hit := range *hits {
 		var project es.Project
-		fmt.Println(string(*hit.Source))
 		if err = json.Unmarshal([]byte(*hit.Source), &project); err != nil {
 			return nil, err
 		}
@@ -202,6 +203,7 @@ func (r *Reporter) listProjects() ([]string, error) {
 func (r *Reporter) listProjectsByOrg(org string) ([]string, error) {
 	return r.listProjectsWrk(r.index.SearchByJSON("project", fmt.Sprintf(`
 {
+	"size": 250,
 	"query": {
 		"regexp": {
 			"full_name": "%s"

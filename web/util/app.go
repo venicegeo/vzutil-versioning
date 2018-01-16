@@ -204,7 +204,7 @@ func (a *Application) reportSha(c *gin.Context) {
 	sha := c.Param("sha")
 	deps, err := a.rprtr.reportBySha(fullName, sha)
 	if err != nil {
-		c.String(400, "Unable to do this:", err.Error())
+		c.String(400, "Unable to do this: %s", err.Error())
 		return
 	}
 	res := "Report for " + fullName + " at " + sha + "\n"
@@ -224,7 +224,7 @@ func (a *Application) reportTag(c *gin.Context) {
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
 	deps, err := a.rprtr.reportByTag2(c.Param("tag"), fullName)
 	if err != nil {
-		c.String(400, "Unable to do this:", err.Error())
+		c.String(400, "Unable to do this: %s", err.Error())
 		return
 	}
 	res := "Report for " + fullName + " at " + tag + "\n"
