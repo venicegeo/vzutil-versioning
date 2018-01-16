@@ -115,7 +115,10 @@ func (a *Application) Start() chan error {
 		RouteData{"GET", "/report/tag/repo/:org/:repo/:tag", a.reportTag},
 		RouteData{"GET", "/report/tag/all/:tag", a.reportTagAll},
 		RouteData{"GET", "/list/shas/:org/:repo", a.listShas},
-		RouteData{"GET", "/list/tags/:org/:repo", a.listTags},
+		RouteData{"GET", "/list/tags/:org/:repo", a.listTagsRepo},
+		RouteData{"GET", "/list/tags/:org", a.listTags},
+		RouteData{"GET", "/list/projects", a.listProjects},
+		RouteData{"GET", "/list/projects/:org", a.listProjectsOrg},
 	})
 	select {
 	case err = <-server.Start(":" + port):
@@ -203,7 +206,7 @@ func (a *Application) specificSha(c *gin.Context) {
 func (a *Application) reportSha(c *gin.Context) {
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
 	sha := c.Param("sha")
-	deps, err := a.rprtr.ReportBySha(fullName, sha)
+	deps, err := a.rprtr.reportBySha(fullName, sha)
 	if err != nil {
 		c.String(400, "Unable to do this:", err.Error())
 		return
@@ -222,7 +225,7 @@ func (a *Application) reportSha(c *gin.Context) {
 func (a *Application) reportTag(c *gin.Context) {
 	tag := c.Param("tag")
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
-	deps, err := a.rprtr.ReportByTag2(c.Param("tag"), fullName)
+	deps, err := a.rprtr.reportByTag2(c.Param("tag"), fullName)
 	if err != nil {
 		c.String(400, "Unable to do this:", err.Error())
 		return
@@ -240,7 +243,7 @@ func (a *Application) reportTag(c *gin.Context) {
 
 func (a *Application) reportTagAll(c *gin.Context) {
 	tag := c.Param("tag")
-	deps, err := a.rprtr.ReportByTag(tag)
+	deps, err := a.rprtr.reportByTag(tag)
 	if err != nil {
 		c.String(500, "Unable to do this: %s", err.Error())
 		return
@@ -261,7 +264,7 @@ func (a *Application) reportTagAll(c *gin.Context) {
 
 func (a *Application) listShas(c *gin.Context) {
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
-	shas, err := a.rprtr.ListShas(fullName)
+	shas, err := a.rprtr.listShas(fullName)
 	if err != nil {
 		c.String(400, err.Error())
 		return
@@ -275,9 +278,9 @@ func (a *Application) listShas(c *gin.Context) {
 	c.String(200, res+t.String())
 }
 
-func (a *Application) listTags(c *gin.Context) {
+func (a *Application) listTagsRepo(c *gin.Context) {
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
-	tags, err := a.rprtr.ListTags(fullName)
+	tags, err := a.rprtr.listTagsRepo(fullName)
 	if err != nil {
 		c.String(400, err.Error())
 		return
@@ -290,6 +293,59 @@ func (a *Application) listTags(c *gin.Context) {
 	}
 	t.SpaceAllColumns().NoBorders().Format()
 	c.String(200, res+t.String())
+}
+
+func (a *Application) listTags(c *gin.Context) {
+	org := c.Param("org")
+	tags, num, err := a.rprtr.listTags(org)
+	if err != nil {
+		c.String(400, err.Error())
+		return
+	}
+	res := "List of tags for " + org + "\n"
+	t := table.NewTable(2, num)
+	for k, v := range *tags {
+		t.Fill(k)
+		for i, vv := range v {
+			t.Fill(vv)
+			if i != len(v)-1 {
+				t.Fill(" ")
+			}
+		}
+	}
+	t.SpaceAllColumns().NoBorders().Format()
+	c.String(200, res+t.String())
+}
+
+func (a *Application) listProjects(c *gin.Context) {
+	ps, err := a.rprtr.listProjects()
+	if err != nil {
+		c.String(400, err.Error())
+		return
+	}
+	res := "List of projects\n"
+	t := table.NewTable(1, len(ps))
+	for _, v := range ps {
+		t.Fill(v)
+	}
+	c.String(200, res+t.SpaceAllColumns().NoBorders().Format().String())
+}
+
+//TODO compress
+
+func (a *Application) listProjectsOrg(c *gin.Context) {
+	org := c.Param("org")
+	ps, err := a.rprtr.listProjectsByOrg(org)
+	if err != nil {
+		c.String(400, err.Error())
+		return
+	}
+	res := "List of projects for " + org + "\n"
+	t := table.NewTable(1, len(ps))
+	for _, v := range ps {
+		t.Fill(v)
+	}
+	c.String(200, res+t.SpaceAllColumns().NoBorders().Format().String())
 }
 
 func (a *Application) handleMaven() error {
