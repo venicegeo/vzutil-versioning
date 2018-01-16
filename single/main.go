@@ -44,15 +44,19 @@ func main() {
 
 	name := strings.Split(os.Args[1], "/")[1]
 	location, err := cloneAndCheckout(os.Args[1], os.Args[2], name)
-	defer func() { exec.Command("rm", "-rf", location).Run() }()
+	cleanup := func() { exec.Command("rm", "-rf", location).Run() }
+	defer cleanup()
 	if err != nil {
+		cleanup()
 		log.Fatalln("checking out:", err)
 	}
 
 	if project, err = proj.NewProject(fmt.Sprintf("%s/%s", location, name)); err != nil {
+		cleanup()
 		log.Fatalln("creating project:", err)
 	}
 	if err = proj.Ingest(project, false); err != nil {
+		cleanup()
 		log.Fatalln("ingesting:", err)
 	}
 
