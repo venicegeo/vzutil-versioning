@@ -81,6 +81,7 @@ func (r *Reporter) reportByTag(tag string) (map[string][]es.Dependency, error) {
 	projects := []es.Project{}
 	for _, hit := range *hits {
 		var project es.Project
+		fmt.Println(string(*hit.Source))
 		if err = json.Unmarshal([]byte(*hit.Source), &project); err != nil {
 			return nil, err
 		}
@@ -131,6 +132,8 @@ func (r *Reporter) reportByTag2(tag, fullName string) ([]es.Dependency, error) {
 	return r.reportBySha(fullName, sha)
 }
 
+//
+
 func (r *Reporter) listShas(fullName string) (res []string, err error) {
 	var project *es.Project
 	var entries *es.ProjectEntries
@@ -147,6 +150,8 @@ func (r *Reporter) listShas(fullName string) (res []string, err error) {
 	return res, nil
 }
 
+//
+
 func (r *Reporter) listTagsRepo(fullName string) (*map[string]string, error) {
 	project, err := es.GetProjectById(r.index, fullName)
 	if err != nil {
@@ -154,7 +159,6 @@ func (r *Reporter) listTagsRepo(fullName string) (*map[string]string, error) {
 	}
 	return project.GetTagShas()
 }
-
 func (r *Reporter) listTags(org string) (*map[string][]string, int, error) {
 	resp, err := r.index.SearchByJSON("project", fmt.Sprintf(`
 {
@@ -189,29 +193,14 @@ func (r *Reporter) listTags(org string) (*map[string][]string, int, error) {
 	return &mapp, numTags, err
 }
 
-//TODO look into unmarshalling directly to slice
+//
 
 func (r *Reporter) listProjects() ([]string, error) {
-	resp, err := r.index.GetAllElements("project")
-	if err != nil {
-		return nil, err
-	}
-	hits := *resp.GetHits()
-	res := []string{}
-	var project *es.Project
-	for _, hit := range hits {
-		if err = json.Unmarshal(*hit.Source, &project); err != nil {
-			return nil, err
-		}
-		res = append(res, project.FullName)
-	}
-	return res, nil
+	return r.listProjectsWrk(r.index.GetAllElements("project"))
+
 }
-
-//TODO compress these two functions
-
 func (r *Reporter) listProjectsByOrg(org string) ([]string, error) {
-	resp, err := r.index.SearchByJSON("project", fmt.Sprintf(`
+	return r.listProjectsWrk(r.index.SearchByJSON("project", fmt.Sprintf(`
 {
 	"query": {
 		"regexp": {
@@ -219,7 +208,9 @@ func (r *Reporter) listProjectsByOrg(org string) ([]string, error) {
 		}
 	}
 }	
-	`, org))
+	`, org)))
+}
+func (r *Reporter) listProjectsWrk(resp *elasticsearch.SearchResult, err error) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}

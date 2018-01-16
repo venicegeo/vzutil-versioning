@@ -48,20 +48,14 @@ func NewApplication(indexName, singleLocation string, debugMode bool) *Applicati
 
 func (a *Application) Start() chan error {
 	done := make(chan error)
-	fmt.Println("Starting up...")
+	log.Println("Starting up...")
 
 	if err := a.handleMaven(); err != nil {
 		log.Fatal(err)
 	}
 
 	url, user, pass, err := GetVcapES()
-	fmt.Printf("The elasticsearch url has been found to be [%s]\n", url)
-	if user != "" {
-		fmt.Println("There is a username")
-	}
-	if pass != "" {
-		fmt.Println("There is a password")
-	}
+	log.Printf("The elasticsearch url has been found to be [%s]\n", url)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -92,7 +86,7 @@ func (a *Application) Start() chan error {
 	if err != nil {
 		log.Fatal(err.Error())
 	} else {
-		fmt.Println(i.GetVersion())
+		log.Println(i.GetVersion())
 	}
 
 	a.wrkr = NewWorker(i, a.singleLocation)
@@ -104,7 +98,7 @@ func (a *Application) Start() chan error {
 		port = "20012"
 	}
 
-	fmt.Println("Starting on port", port)
+	log.Println("Starting on port", port)
 	server := Server{}
 	server.Configure([]RouteData{
 		RouteData{"GET", "/", a.defaultPath},
@@ -144,7 +138,7 @@ func (a *Application) webhookPath(c *gin.Context) {
 		return
 	}
 
-	fmt.Println(git.Repository.FullName, git.AfterSha, git.Ref)
+	log.Println(git.Repository.FullName, git.AfterSha, git.Ref)
 	c.String(200, "Thanks!")
 
 	a.wrkr.AddTask(&git)
@@ -169,7 +163,7 @@ func (a *Application) updateAllTags(c *gin.Context) {
 					FullName: fullName,
 				},
 			}
-			fmt.Println(git.Repository.FullName, git.AfterSha, git.Ref)
+			log.Println(git.Repository.FullName, git.AfterSha, git.Ref)
 			a.wrkr.AddTask(&git)
 		}
 	}()
@@ -199,9 +193,11 @@ func (a *Application) specificSha(c *gin.Context) {
 			FullName: fullName,
 		},
 	}
-	fmt.Println(git.Repository.FullName, git.AfterSha)
+	log.Println(git.Repository.FullName, git.AfterSha)
 	a.wrkr.AddTask(&git)
 }
+
+//
 
 func (a *Application) reportSha(c *gin.Context) {
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
@@ -218,9 +214,10 @@ func (a *Application) reportSha(c *gin.Context) {
 		t.Fill(dep.Version)
 		t.Fill(dep.Language)
 	}
-	t.SpaceColumn(1).NoBorders().Format()
-	c.String(200, res+t.String())
+	c.String(200, res+t.SpaceColumn(1).NoBorders().Format().String())
 }
+
+//
 
 func (a *Application) reportTag(c *gin.Context) {
 	tag := c.Param("tag")
@@ -237,10 +234,8 @@ func (a *Application) reportTag(c *gin.Context) {
 		t.Fill(dep.Version)
 		t.Fill(dep.Language)
 	}
-	t.SpaceColumn(2).NoBorders().Format()
-	c.String(200, res+t.String())
+	c.String(200, res+t.SpaceColumn(1).NoBorders().Format().String())
 }
-
 func (a *Application) reportTagAll(c *gin.Context) {
 	tag := c.Param("tag")
 	deps, err := a.rprtr.reportByTag(tag)
@@ -257,10 +252,12 @@ func (a *Application) reportTagAll(c *gin.Context) {
 			t.Fill(dep.Version)
 			t.Fill(dep.Language)
 		}
-		res += "\n" + t.NoBorders().SpaceAllColumns().Format().String() + "\n"
+		res += "\n" + t.NoBorders().SpaceColumn(1).Format().String() + "\n"
 	}
 	c.String(200, res)
 }
+
+//
 
 func (a *Application) listShas(c *gin.Context) {
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
@@ -274,9 +271,10 @@ func (a *Application) listShas(c *gin.Context) {
 	for _, sha := range shas {
 		t.Fill(sha)
 	}
-	t.NoBorders().Format()
-	c.String(200, res+t.String())
+	c.String(200, res+t.NoBorders().Format().String())
 }
+
+//
 
 func (a *Application) listTagsRepo(c *gin.Context) {
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
@@ -286,15 +284,14 @@ func (a *Application) listTagsRepo(c *gin.Context) {
 		return
 	}
 	res := "List of tags for " + fullName + "\n"
-	t := table.NewTable(2, len(*tags))
+	t := table.NewTable(3, len(*tags))
 	for k, v := range *tags {
 		t.Fill(k)
+		t.Fill("")
 		t.Fill(v)
 	}
-	t.SpaceAllColumns().NoBorders().Format()
-	c.String(200, res+t.String())
+	c.String(200, res+t.SpaceColumn(1).NoBorders().Format().String())
 }
-
 func (a *Application) listTags(c *gin.Context) {
 	org := c.Param("org")
 	tags, num, err := a.rprtr.listTags(org)
@@ -313,40 +310,33 @@ func (a *Application) listTags(c *gin.Context) {
 			}
 		}
 	}
-	t.SpaceAllColumns().NoBorders().Format()
-	c.String(200, res+t.String())
+	c.String(200, res+t.SpaceColumn(1).NoBorders().Format().String())
 }
 
 func (a *Application) listProjects(c *gin.Context) {
 	ps, err := a.rprtr.listProjects()
-	if err != nil {
-		c.String(400, err.Error())
-		return
-	}
-	res := "List of projects\n"
-	t := table.NewTable(1, len(ps))
-	for _, v := range ps {
-		t.Fill(v)
-	}
-	c.String(200, res+t.SpaceAllColumns().NoBorders().Format().String())
+	header := "List of projects\n"
+	a.listProjectsWrk(ps, err, header, c)
 }
-
-//TODO compress
-
 func (a *Application) listProjectsOrg(c *gin.Context) {
 	org := c.Param("org")
 	ps, err := a.rprtr.listProjectsByOrg(org)
+	header := "List of projects for " + org + "\n"
+	a.listProjectsWrk(ps, err, header, c)
+}
+func (a *Application) listProjectsWrk(ps []string, err error, header string, c *gin.Context) {
 	if err != nil {
 		c.String(400, err.Error())
 		return
 	}
-	res := "List of projects for " + org + "\n"
 	t := table.NewTable(1, len(ps))
 	for _, v := range ps {
 		t.Fill(v)
 	}
-	c.String(200, res+t.SpaceAllColumns().NoBorders().Format().String())
+	c.String(200, header+t.NoBorders().Format().String())
 }
+
+//
 
 func (a *Application) handleMaven() error {
 	_, err := os.Stat("settings.xml")
