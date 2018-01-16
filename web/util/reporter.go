@@ -19,17 +19,16 @@ import (
 	"fmt"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
-	piazza "github.com/venicegeo/pz-gocommon/gocommon"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 )
 
 type Reporter struct {
 	index      *elasticsearch.Index
-	defaultPag *piazza.JsonPagination
+	searchSize int
 }
 
 func NewReporter(index *elasticsearch.Index) *Reporter {
-	return &Reporter{index, &piazza.JsonPagination{PerPage: 250}}
+	return &Reporter{index, 250}
 }
 
 func (r *Reporter) reportBySha(fullName, sha string) (res []es.Dependency, err error) {
@@ -75,7 +74,7 @@ func (r *Reporter) reportBySha(fullName, sha string) (res []es.Dependency, err e
 }
 
 func (r *Reporter) reportByTag(tag string) (map[string][]es.Dependency, error) {
-	resp, err := r.index.FilterByMatchAll("project", r.defaultPag)
+	resp, err := es.MatchAllSize(r.index, "project", r.searchSize)
 	if err != nil {
 		return nil, err
 	}
@@ -163,13 +162,14 @@ func (r *Reporter) listTagsRepo(fullName string) (*map[string]string, error) {
 func (r *Reporter) listTags(org string) (*map[string][]string, int, error) {
 	resp, err := r.index.SearchByJSON("project", fmt.Sprintf(`
 {
+	"size": %d,
 	"query": {
 		"regexp": {
 			"full_name": "%s"
 		}
 	}
 }	
-	`, org))
+	`, r.searchSize, org))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -197,20 +197,20 @@ func (r *Reporter) listTags(org string) (*map[string][]string, int, error) {
 //
 
 func (r *Reporter) listProjects() ([]string, error) {
-	return r.listProjectsWrk(r.index.GetAllElements("project"))
+	return r.listProjectsWrk(es.MatchAllSize(r.index, "project", r.searchSize))
 
 }
 func (r *Reporter) listProjectsByOrg(org string) ([]string, error) {
 	return r.listProjectsWrk(r.index.SearchByJSON("project", fmt.Sprintf(`
 {
-	"size": 250,
+	"size": %d,
 	"query": {
 		"regexp": {
 			"full_name": "%s"
 		}
 	}
 }	
-	`, org)))
+	`, r.searchSize, org)))
 }
 func (r *Reporter) listProjectsWrk(resp *elasticsearch.SearchResult, err error) ([]string, error) {
 	if err != nil {

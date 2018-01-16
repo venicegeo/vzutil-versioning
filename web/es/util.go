@@ -37,3 +37,12 @@ func GetProjectById(index *elasticsearch.Index, fullName string) (*Project, erro
 	}
 	return project, nil
 }
+
+func MatchAllSize(index *elasticsearch.Index, typ string, size int) (*elasticsearch.SearchResult, error) {
+	return index.SearchByJSON(typ, fmt.Sprintf(`
+{
+	"size": %d,
+	"query":{}
+}	
+	`, size))
+}
