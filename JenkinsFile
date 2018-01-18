@@ -53,6 +53,7 @@ node {
               mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/environment.yml" .
               mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/Procfile" .
               mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/write_settings.sh" .
+              mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/templates" .
               mv ${root}/gopath/bin/* .
               rm -rf gopath/
               ls 
