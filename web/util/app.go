@@ -15,6 +15,7 @@
 package util
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -35,6 +36,10 @@ type Application struct {
 	wrkr     *Worker
 	rprtr    *Reporter
 	killChan chan bool
+}
+
+type Return struct {
+	Return string `form:"return"`
 }
 
 func NewApplication(indexName, singleLocation string, debugMode bool) *Application {
@@ -113,6 +118,7 @@ func (a *Application) Start() chan error {
 		RouteData{"GET", "/list/tags/:org", a.listTags},
 		RouteData{"GET", "/list/projects", a.listProjects},
 		RouteData{"GET", "/list/projects/:org", a.listProjectsOrg},
+		RouteData{"GET", "/ui", a.formPath},
 	})
 	select {
 	case err = <-server.Start(":" + port):
@@ -314,6 +320,14 @@ func (a *Application) listTags(c *gin.Context) {
 }
 
 func (a *Application) listProjects(c *gin.Context) {
+	log.Println("I have arrived from the redirect")
+	dat, err := json.MarshalIndent(c.Keys, " ", "   ")
+	fmt.Println(string(dat), err)
+	fmt.Println(c.Get("BLAH"))
+	var checkReturn Return
+	c.Bind(&checkReturn)
+	fmt.Println(checkReturn)
+	fmt.Println(c.Params)
 	ps, err := a.rprtr.listProjects()
 	header := "List of projects\n"
 	a.listProjectsWrk(ps, err, header, c)
@@ -355,4 +369,65 @@ func (a *Application) handleMaven() error {
 	}
 
 	return exec.Command("mv", "settings.xml", finds[1]).Run()
+}
+
+func (a *Application) formPath(c *gin.Context) {
+	log.Println("FORM PATH")
+	var form Form
+	if err := c.Bind(&form); err != nil {
+		c.String(400, err.Error())
+		return
+	}
+	if form.isEmpty() {
+		c.HTML(200, "form.html", "")
+		return
+	}
+	buttonPress := form.findButtonPress()
+	log.Println("BUTTON", buttonPress)
+	switch buttonPress {
+	case ReportAllTag:
+		c.Set("tag", form.ReportAllTag)
+	//	a.reportTagAll(c)
+	case ReportTagSha:
+		c.Set("org", form.ReportOrg)
+		c.Set("repo", form.ReportRepo)
+		if form.ReportTag != "" {
+			c.Set("tag", form.ReportTag)
+			//		a.reportTag(c)
+		} else {
+			c.Set("sha", form.ReportSha)
+			//		a.reportSha(c)
+		}
+	case ListProjects:
+		if form.ProjectsOrg != "" {
+			c.Set("org", form.ProjectsOrg)
+			//		a.listProjectsOrg(c)
+		} else {
+			log.Println("preparing redirect")
+			c.Redirect(307, "/list/projects")
+			//			a.listProjects(c)
+		}
+	case ListTags:
+		c.Set("org", form.TagsOrg)
+		if form.TagsRepo != "" {
+			c.Set("repo", form.TagsRepo)
+			//	a.listTagsRepo(c)
+		} else {
+			//	a.listTags(c)
+		}
+	case ListShas:
+		c.Set("org", form.ShasOrg)
+		c.Set("repo", form.ShasRepo)
+	//	a.listShas(c)
+	case GenerateTag:
+		c.Set("tag", form.AllTag)
+	//	a.updateAllTags(c)
+	case GenerateSha:
+		c.Set("org", form.ByShaOrg)
+		c.Set("repo", form.ByShaRepo)
+		c.Set("sha", form.ByShaSha)
+	//	a.specificSha(c)
+	default:
+		c.String(400, "What did you do? :(")
+	}
 }

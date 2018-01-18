@@ -16,6 +16,7 @@ type Redirect struct {
 }
 
 func (r Redirect) Render(w http.ResponseWriter) error {
+	fmt.Println("DEBUGG REDIRECT RENDER")
 	if (r.Code < 300 || r.Code > 308) && r.Code != 201 {
 		panic(fmt.Sprintf("Cannot redirect with status code %d", r.Code))
 	}

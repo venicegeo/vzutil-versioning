@@ -6,6 +6,7 @@ package gin
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"net"
@@ -423,6 +424,7 @@ func (c *Context) Cookie(name string) (string, error) {
 }
 
 func (c *Context) Render(code int, r render.Render) {
+	fmt.Println("DEBUG", c.Keys)
 	c.Status(code)
 	if err := r.Render(c.Writer); err != nil {
 		panic(err)
@@ -473,6 +475,7 @@ func (c *Context) String(code int, format string, values ...interface{}) {
 
 // Redirect returns a HTTP redirect to the specific location.
 func (c *Context) Redirect(code int, location string) {
+	fmt.Println("Context redirect")
 	c.Render(-1, render.Redirect{
 		Code:     code,
 		Location: location,

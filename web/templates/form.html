@@ -1,0 +1,68 @@
+<form>
+	<br><fieldset><br>
+		<legend>Reporting</legend>
+		<fieldset>
+			<legend>All by tag</legend>
+			Tag:
+    		<input type="text" name="reportalltag" value="">
+    		<input type="submit" name="button_reportalltag" value="Submit">
+		</fieldset><br>
+		<fieldset>
+			<legend>By tag or sha</legend>
+			Org:&nbsp;&nbsp;
+    		<input type="text" name="reportorg" value=""><br>
+			Repo:
+    		<input type="text" name="reportrepo" value=""><br><br>
+			Tag:&nbsp;&nbsp;
+    		<input type="text" name="reporttag" value=""><br>
+			or<br>
+			Sha:&nbsp;&nbsp;
+    		<input type="text" name="reportsha" value=""><br><br>
+			<input type="submit" name="button_reporttagsha" value="Submit">
+		</fieldset>
+	</fieldset><br>
+	<fieldset><br>
+		<legend>Listing</legend>
+		<fieldset>
+			<legend>All projects</legend>
+			Org (Optional):
+			<input type="text" name="projectsorg" value=""><br><br>
+			<input type="submit" name="button_listprojects" value="Submit">
+		</fieldset><br>
+		<fieldset>
+			<legend>All tags</legend>
+			Org:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+			<input type="text" name="tagsorg" value=""><br>
+			Repo (Optional):
+			<input type="text" name="tagsrepo" value=""><br><br>
+			<input type="submit" name="button_listtags" value="Submit">
+		</fieldset><br>
+		<fieldset>
+			<legend>All shas</legend>
+			Org:&nbsp;&nbsp;
+			<input type="text" name="shasorg" value=""><br>
+			Repo:
+			<input type="text" name="shasrepo" value=""><br><br>
+			<input type="submit" name="button_listshas" value="Submit">
+		</fieldset>
+	</fieldset><br>
+	<fieldset><br>
+		<legend>Generation</legend>
+  		<fieldset>
+    		<legend>All by tag</legend>
+    		Tag:
+    		<input type="text" name="alltag" value="">
+    		<input type="submit" name="button_generatetag" value="Submit">
+  		</fieldset><br>
+		<fieldset>
+			<legend>By sha</legend>
+			Org:&nbsp;&nbsp;
+			<input type="text" name="byshaorg" value=""><br>
+			Repo:
+			<input type="text" name="bysharepo" value=""><br>
+			Sha:&nbsp;&nbsp;
+			<input type="text" name="byshasha" value=""><br><br>
+			<input type="submit" name="button_generatesha" value="Submit">
+		</fieldset>
+	</fieldset>
+</form> 

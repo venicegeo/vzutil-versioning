@@ -73,6 +73,14 @@ func (server *Server) Configure(routeData []RouteData) error {
 		}
 	}
 
+	//	tmp := New()
+	//	tmp.Layout = "layouts/default"
+	//	dat, _ := json.MarshalIndent(tmp, " ", "   ")
+	//	fmt.Println(string(dat))
+	//	router.HTMLRender = tmp.Create()
+	//	dat, _ = json.MarshalIndent(router.HTMLRender, " ", "   ")
+	//	fmt.Println(string(dat))
+	router.LoadHTMLGlob("templates/*")
 	server.router = router
 
 	return nil
