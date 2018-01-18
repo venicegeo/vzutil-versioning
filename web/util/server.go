@@ -73,6 +73,7 @@ func (server *Server) Configure(routeData []RouteData) error {
 		}
 	}
 
+	router.LoadHTMLGlob("templates/*")
 	server.router = router
 
 	return nil
