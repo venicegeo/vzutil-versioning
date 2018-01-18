@@ -15,7 +15,6 @@
 package util
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -38,8 +37,8 @@ type Application struct {
 	killChan chan bool
 }
 
-type Return struct {
-	Return string `form:"return"`
+type Back struct {
+	BackButton string `form:"button_back"`
 }
 
 func NewApplication(indexName, singleLocation string, debugMode bool) *Application {
@@ -151,6 +150,9 @@ func (a *Application) webhookPath(c *gin.Context) {
 }
 
 func (a *Application) updateAllTags(c *gin.Context) {
+	if a.checkBack(c) {
+		return
+	}
 	name := c.Param("repo")
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), name)
 	tr := newTagsRunner(name, fullName)
@@ -173,10 +175,13 @@ func (a *Application) updateAllTags(c *gin.Context) {
 			a.wrkr.AddTask(&git)
 		}
 	}()
-	c.String(200, "Yeah, I can do that. Check back in a minute")
+	a.displaySuccess(c, "Yeah, I can do that. Check back in a minute")
 }
 
 func (a *Application) specificSha(c *gin.Context) {
+	if a.checkBack(c) {
+		return
+	}
 	name := c.Param("repo")
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), name)
 	sha := c.Param("sha")
@@ -189,23 +194,26 @@ func (a *Application) specificSha(c *gin.Context) {
 		c.String(400, "could not verify this sha, head code:", code)
 		return
 	}
-
-	c.String(200, "I got this, check back in a bit")
-
-	git := GitWebhook{
-		AfterSha: sha,
-		Repository: GitRepository{
-			Name:     name,
-			FullName: fullName,
-		},
-	}
-	log.Println(git.Repository.FullName, git.AfterSha)
-	a.wrkr.AddTask(&git)
+	go func() {
+		git := GitWebhook{
+			AfterSha: sha,
+			Repository: GitRepository{
+				Name:     name,
+				FullName: fullName,
+			},
+		}
+		log.Println(git.Repository.FullName, git.AfterSha)
+		a.wrkr.AddTask(&git)
+	}()
+	a.displaySuccess(c, "I got this, check back in a bit")
 }
 
 //
 
 func (a *Application) reportSha(c *gin.Context) {
+	if a.checkBack(c) {
+		return
+	}
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
 	sha := c.Param("sha")
 	deps, err := a.rprtr.reportBySha(fullName, sha)
@@ -213,19 +221,22 @@ func (a *Application) reportSha(c *gin.Context) {
 		c.String(400, "Unable to do this: %s", err.Error())
 		return
 	}
-	res := "Report for " + fullName + " at " + sha + "\n"
+	header := "Report for " + fullName + " at " + sha + "\n"
 	t := table.NewTable(3, len(deps))
 	for _, dep := range deps {
 		t.Fill(dep.Name)
 		t.Fill(dep.Version)
 		t.Fill(dep.Language)
 	}
-	c.String(200, res+t.SpaceColumn(1).NoBorders().Format().String())
+	a.displaySuccess(c, header+t.SpaceColumn(1).NoBorders().Format().String())
 }
 
 //
 
 func (a *Application) reportTag(c *gin.Context) {
+	if a.checkBack(c) {
+		return
+	}
 	tag := c.Param("tag")
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
 	deps, err := a.rprtr.reportByTag2(c.Param("tag"), fullName)
@@ -233,16 +244,19 @@ func (a *Application) reportTag(c *gin.Context) {
 		c.String(400, "Unable to do this: %s", err.Error())
 		return
 	}
-	res := "Report for " + fullName + " at " + tag + "\n"
+	header := "Report for " + fullName + " at " + tag + "\n"
 	t := table.NewTable(3, len(deps))
 	for _, dep := range deps {
 		t.Fill(dep.Name)
 		t.Fill(dep.Version)
 		t.Fill(dep.Language)
 	}
-	c.String(200, res+t.SpaceColumn(1).NoBorders().Format().String())
+	a.displaySuccess(c, header+t.SpaceColumn(1).NoBorders().Format().String())
 }
 func (a *Application) reportTagAll(c *gin.Context) {
+	if a.checkBack(c) {
+		return
+	}
 	tag := c.Param("tag")
 	deps, err := a.rprtr.reportByTag(tag)
 	if err != nil {
@@ -260,52 +274,61 @@ func (a *Application) reportTagAll(c *gin.Context) {
 		}
 		res += "\n" + t.NoBorders().SpaceColumn(1).Format().String() + "\n"
 	}
-	c.String(200, res)
+	a.displaySuccess(c, res)
 }
 
 //
 
 func (a *Application) listShas(c *gin.Context) {
+	if a.checkBack(c) {
+		return
+	}
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
 	shas, err := a.rprtr.listShas(fullName)
 	if err != nil {
 		c.String(400, err.Error())
 		return
 	}
-	res := "List of Shas for " + fullName + "\n"
-	t := table.NewTable(1, len(res))
+	header := "List of Shas for " + fullName + "\n"
+	t := table.NewTable(1, len(header))
 	for _, sha := range shas {
 		t.Fill(sha)
 	}
-	c.String(200, res+t.NoBorders().Format().String())
+	a.displaySuccess(c, header+t.NoBorders().Format().String())
 }
 
 //
 
 func (a *Application) listTagsRepo(c *gin.Context) {
+	if a.checkBack(c) {
+		return
+	}
 	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
 	tags, err := a.rprtr.listTagsRepo(fullName)
 	if err != nil {
 		c.String(400, err.Error())
 		return
 	}
-	res := "List of tags for " + fullName + "\n"
+	header := "List of tags for " + fullName + "\n"
 	t := table.NewTable(3, len(*tags))
 	for k, v := range *tags {
 		t.Fill(k)
 		t.Fill("")
 		t.Fill(v)
 	}
-	c.String(200, res+t.SpaceColumn(1).NoBorders().Format().String())
+	a.displaySuccess(c, header+t.SpaceColumn(1).NoBorders().Format().String())
 }
 func (a *Application) listTags(c *gin.Context) {
+	if a.checkBack(c) {
+		return
+	}
 	org := c.Param("org")
 	tags, num, err := a.rprtr.listTags(org)
 	if err != nil {
 		c.String(400, err.Error())
 		return
 	}
-	res := "List of tags for " + org + "\n"
+	header := "List of tags for " + org + "\n"
 	t := table.NewTable(2, num)
 	for k, v := range *tags {
 		t.Fill(k)
@@ -316,23 +339,21 @@ func (a *Application) listTags(c *gin.Context) {
 			}
 		}
 	}
-	c.String(200, res+t.SpaceColumn(1).NoBorders().Format().String())
+	a.displaySuccess(c, header+t.SpaceColumn(1).NoBorders().Format().String())
 }
 
 func (a *Application) listProjects(c *gin.Context) {
-	log.Println("I have arrived from the redirect")
-	dat, err := json.MarshalIndent(c.Keys, " ", "   ")
-	fmt.Println(string(dat), err)
-	fmt.Println(c.Get("BLAH"))
-	var checkReturn Return
-	c.Bind(&checkReturn)
-	fmt.Println(checkReturn)
-	fmt.Println(c.Params)
+	if a.checkBack(c) {
+		return
+	}
 	ps, err := a.rprtr.listProjects()
 	header := "List of projects\n"
 	a.listProjectsWrk(ps, err, header, c)
 }
 func (a *Application) listProjectsOrg(c *gin.Context) {
+	if a.checkBack(c) {
+		return
+	}
 	org := c.Param("org")
 	ps, err := a.rprtr.listProjectsByOrg(org)
 	header := "List of projects for " + org + "\n"
@@ -347,10 +368,78 @@ func (a *Application) listProjectsWrk(ps []string, err error, header string, c *
 	for _, v := range ps {
 		t.Fill(v)
 	}
-	c.String(200, header+t.NoBorders().Format().String())
+	a.displaySuccess(c, header+t.NoBorders().Format().String())
 }
 
 //
+
+func (a *Application) formPath(c *gin.Context) {
+	var form Form
+	if err := c.Bind(&form); err != nil {
+		c.String(400, err.Error())
+		return
+	}
+	if form.isEmpty() {
+		c.HTML(200, "form.html", "")
+		return
+	}
+	buttonPress := form.findButtonPress()
+	switch buttonPress {
+	case ReportAllTag:
+		c.Redirect(307, "/report/tag/all/"+form.ReportAllTag)
+	case ReportTagSha:
+		if form.ReportTag != "" {
+			c.Redirect(307, fmt.Sprintf("/report/tag/repo/%s/%s/%s", form.ReportOrg, form.ReportRepo, form.ReportTag))
+		} else {
+			c.Redirect(307, fmt.Sprintf("/report/sha/%s/%s/%s", form.ReportOrg, form.ReportRepo, form.ReportSha))
+		}
+	case ListProjects:
+		if form.ProjectsOrg != "" {
+			c.Redirect(307, "/list/projects/"+form.ProjectsOrg)
+		} else {
+			c.Redirect(307, "/list/projects")
+		}
+	case ListTags:
+		if form.TagsRepo != "" {
+			c.Redirect(307, fmt.Sprintf("/list/tags/%s/%s", form.TagsOrg, form.TagsRepo))
+		} else {
+			c.Redirect(307, "/list/tags/"+form.TagsOrg)
+		}
+	case ListShas:
+		c.Redirect(307, fmt.Sprintf("/list/shas/%s/%s", form.ShasOrg, form.ShasRepo))
+	case GenerateTag:
+		c.Redirect(307, fmt.Sprintf("/generate/tags/%s/%s", form.AllTagOrg, form.AllTagRepo))
+	case GenerateSha:
+		c.Redirect(307, fmt.Sprintf("/generate/sha/%s/%s/%s", form.ByShaOrg, form.ByShaRepo, form.ByShaSha))
+	default:
+		c.String(400, "What did you do? :(")
+	}
+}
+
+func (a *Application) checkBack(c *gin.Context) (wasHandled bool) {
+	var back Back
+	if err := c.Bind(&back); err != nil {
+		c.String(500, err.Error())
+		return true
+	}
+	if back.BackButton != "" {
+		c.Redirect(307, "/ui")
+		return true
+	}
+	return false
+}
+
+func (a *Application) displaySuccess(c *gin.Context, data string) {
+	if !a.checkForRedirect(c) {
+		c.String(200, data)
+	} else {
+		c.HTML(200, "back.tmpl", gin.H{"data": data})
+	}
+}
+
+func (a *Application) checkForRedirect(c *gin.Context) bool {
+	return c.Request.Header.Get("Referer") != ""
+}
 
 func (a *Application) handleMaven() error {
 	_, err := os.Stat("settings.xml")
@@ -369,65 +458,4 @@ func (a *Application) handleMaven() error {
 	}
 
 	return exec.Command("mv", "settings.xml", finds[1]).Run()
-}
-
-func (a *Application) formPath(c *gin.Context) {
-	log.Println("FORM PATH")
-	var form Form
-	if err := c.Bind(&form); err != nil {
-		c.String(400, err.Error())
-		return
-	}
-	if form.isEmpty() {
-		c.HTML(200, "form.html", "")
-		return
-	}
-	buttonPress := form.findButtonPress()
-	log.Println("BUTTON", buttonPress)
-	switch buttonPress {
-	case ReportAllTag:
-		c.Set("tag", form.ReportAllTag)
-	//	a.reportTagAll(c)
-	case ReportTagSha:
-		c.Set("org", form.ReportOrg)
-		c.Set("repo", form.ReportRepo)
-		if form.ReportTag != "" {
-			c.Set("tag", form.ReportTag)
-			//		a.reportTag(c)
-		} else {
-			c.Set("sha", form.ReportSha)
-			//		a.reportSha(c)
-		}
-	case ListProjects:
-		if form.ProjectsOrg != "" {
-			c.Set("org", form.ProjectsOrg)
-			//		a.listProjectsOrg(c)
-		} else {
-			log.Println("preparing redirect")
-			c.Redirect(307, "/list/projects")
-			//			a.listProjects(c)
-		}
-	case ListTags:
-		c.Set("org", form.TagsOrg)
-		if form.TagsRepo != "" {
-			c.Set("repo", form.TagsRepo)
-			//	a.listTagsRepo(c)
-		} else {
-			//	a.listTags(c)
-		}
-	case ListShas:
-		c.Set("org", form.ShasOrg)
-		c.Set("repo", form.ShasRepo)
-	//	a.listShas(c)
-	case GenerateTag:
-		c.Set("tag", form.AllTag)
-	//	a.updateAllTags(c)
-	case GenerateSha:
-		c.Set("org", form.ByShaOrg)
-		c.Set("repo", form.ByShaRepo)
-		c.Set("sha", form.ByShaSha)
-	//	a.specificSha(c)
-	default:
-		c.String(400, "What did you do? :(")
-	}
 }

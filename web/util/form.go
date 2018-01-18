@@ -15,7 +15,6 @@
 package util
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 )
@@ -54,7 +53,8 @@ type Form struct {
 	ButtonListShas string `form:"button_listshas"`
 
 	//Generation
-	AllTag            string `form:"alltag"`
+	AllTagOrg         string `form:"alltagorg"`
+	AllTagRepo        string `form:"alltagrepo"`
 	ButtonGenerateTag string `form:"button_generatetag"`
 
 	ByShaOrg          string `form:"byshaorg"`
@@ -78,7 +78,6 @@ func (f *Form) findButtonPress() Forms {
 	for i := 0; i < val.NumField(); i++ {
 		f := val.Field(i)
 		field := val.Type().Field(i)
-		fmt.Println("checking", field.Tag.Get("form"))
 		if strings.HasPrefix(field.Tag.Get("form"), "button_") {
 			if f.String() != "" {
 				return Forms(strings.TrimPrefix(field.Tag.Get("form"), "button_"))

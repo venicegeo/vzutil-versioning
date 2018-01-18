@@ -68,7 +68,7 @@ func main() {
 }
 
 func cloneAndCheckout(full_name, checkout, name string) (t string, err error) {
-	t = fmt.Sprintf("%d", time.Now().Unix())
+	t = fmt.Sprintf("%d", time.Now().UnixNano())
 	if err = exec.Command("mkdir", t).Run(); err != nil {
 		return t, err
 	}
