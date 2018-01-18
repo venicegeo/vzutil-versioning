@@ -15,10 +15,12 @@
 package util
 
 import (
-	"fmt"
+	"errors"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/venicegeo/vzutil-versioning/web/f"
 )
 
 type tagsRunner struct {
@@ -32,9 +34,9 @@ func newTagsRunner(name, fullName string) *tagsRunner {
 
 func (tr *tagsRunner) run() (res map[string]string, err error) {
 	res = map[string]string{}
-	tempFolder := fmt.Sprint(time.Now().Unix())
+	tempFolder := f.Format("%d", time.Now().Unix())
 	defer func() { exec.Command("rm", "-rf", tempFolder).Run() }()
-	targetFolder := fmt.Sprintf("%s/%s", tempFolder, tr.name)
+	targetFolder := f.Format("%s/%s", tempFolder, tr.name)
 	if err = exec.Command("mkdir", tempFolder).Run(); err != nil {
 		return res, err
 	}
@@ -52,7 +54,7 @@ func (tr *tagsRunner) run() (res map[string]string, err error) {
 		}
 		shaRef := strings.Split(l, " ")
 		if len(shaRef) != 2 {
-			return res, fmt.Errorf("Problem parsing this line [%s]", l)
+			return res, errors.New("Problem parsing this line [%" + l + "]")
 		}
 		res[shaRef[0]] = shaRef[1]
 	}

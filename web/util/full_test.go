@@ -16,8 +16,8 @@ package util
 
 import (
 	"bytes"
-	"fmt"
 	"io"
+	"log"
 	"testing"
 	"time"
 
@@ -26,11 +26,11 @@ import (
 
 func Test1(t *testing.T) {
 	app := NewApplication("versioning_test", "../single", true)
-	go func() { fmt.Println(<-app.Start()) }()
+	go func() { log.Println(<-app.Start()) }()
 	defer func() { app.Stop() }()
 	time.Sleep(time.Second)
 
-	fmt.Println(defaultCall(nt.GET, "http://localhost:20012", nil, t))
+	log.Println(defaultCall(nt.GET, "http://localhost:20012", nil, t))
 	defaultCall(nt.POST, "http://localhost:20012/webhook", bytes.NewReader([]byte(test1)), t)
 	defaultCall(nt.POST, "http://localhost:20012/webhook", bytes.NewReader([]byte(test2)), t)
 	defaultCall(nt.POST, "http://localhost:20012/webhook", bytes.NewReader([]byte(test3)), t)

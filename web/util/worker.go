@@ -15,7 +15,6 @@
 package util
 
 import (
-	"encoding/json"
 	"log"
 	"os/exec"
 	"reflect"
@@ -48,18 +47,28 @@ func (w *Worker) Start() {
 			git := <-w.queue
 			log.Println("[WORKER] Starting work on", git.Repository.FullName, git.AfterSha)
 			hashes := []string{}
-			var project es.Project
+			var project *es.Project
 			var projectEntries *es.ProjectEntries
 			var exists bool
+			deps := []es.Dependency{}
+			var err error
+
+			docName := strings.Replace(git.Repository.FullName, "/", "_", -1)
+
+			if exists, err = es.CheckShaExists(w.index, docName, git.AfterSha); err != nil {
+				log.Println("Unable to check status of current sha:", err.Error())
+				continue
+			} else if exists {
+				log.Println("[WORKER] This sha already exists, skipping")
+				continue
+			}
 
 			dat, err := exec.Command(w.singleLocation, git.Repository.FullName, git.AfterSha).Output()
 			if err != nil {
 				log.Println("Unable to run against", git.Repository.FullName, git.AfterSha, ":", err.Error())
 				continue
 			}
-			w.mux.Lock()
 			{
-				deps := []es.Dependency{}
 				for _, p := range strings.Split(string(dat), "\n")[2:] {
 					if p == "" {
 						continue
@@ -67,6 +76,10 @@ func (w *Worker) Start() {
 					matches := depRe.FindStringSubmatch(p)
 					deps = append(deps, es.Dependency{matches[1], matches[2], matches[4]})
 				}
+			}
+			w.mux.Lock()
+			{
+
 				for _, d := range deps {
 					hash := d.GetHashSum()
 					hashes = append(hashes, hash)
@@ -82,23 +95,18 @@ func (w *Worker) Start() {
 				}
 			}
 			sort.Strings(hashes)
-			docName := strings.Replace(git.Repository.FullName, "/", "_", -1)
 			if exists, err = w.index.ItemExists("project", docName); err != nil {
 				log.Println("Error checking project exists:", err.Error())
 				continue
 			}
 			if exists {
-				resp, err := w.index.GetByID("project", docName)
+				project, err = es.GetProjectById(w.index, docName)
 				if err != nil {
 					log.Println("Unable to retrieve project:", err.Error())
 					continue
 				}
-				if err = json.Unmarshal([]byte(*resp.Source), &project); err != nil {
-					log.Println("Unable to unmarshal source:", err.Error())
-					continue
-				}
 			} else {
-				project = *es.NewProject(git.Repository.FullName, git.Repository.Name)
+				project = es.NewProject(git.Repository.FullName, git.Repository.Name)
 			}
 			if projectEntries, err = project.GetEntries(); err != nil {
 				log.Println("Unable to get entries:", err.Error())

@@ -15,15 +15,17 @@
 package util
 
 import (
-	"fmt"
+	"errors"
 	"log"
 	"os"
 	"os/exec"
 	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
+	"github.com/venicegeo/vzutil-versioning/web/f"
 	"github.com/venicegeo/vzutil-versioning/web/util/table"
 )
 
@@ -108,6 +110,7 @@ func (a *Application) Start() chan error {
 		RouteData{"GET", "/", a.defaultPath},
 		RouteData{"POST", "/webhook", a.webhookPath},
 		RouteData{"GET", "/generate/tags/:org/:repo", a.updateAllTags},
+		RouteData{"GET", "/generate/tags/:org", a.updateAllTagsOrg},
 		RouteData{"GET", "/generate/sha/:org/:repo/:sha", a.specificSha},
 		RouteData{"GET", "/report/sha/:org/:repo/:sha", a.reportSha},
 		RouteData{"GET", "/report/tag/repo/:org/:repo/:tag", a.reportTag},
@@ -123,7 +126,7 @@ func (a *Application) Start() chan error {
 	case err = <-server.Start(":" + port):
 		done <- err
 	case <-a.killChan:
-		done <- fmt.Errorf("was stopped: %s", server.Stop())
+		done <- errors.New(f.Format("was stopped: %s", server.Stop()))
 	}
 	return done
 }
@@ -154,14 +157,13 @@ func (a *Application) updateAllTags(c *gin.Context) {
 		return
 	}
 	name := c.Param("repo")
-	fullName := fmt.Sprintf("%s/%s", c.Param("org"), name)
-	tr := newTagsRunner(name, fullName)
-	dat, err := tr.run()
+	fullName := f.Format("%s/%s", c.Param("org"), name)
+	dat, err := newTagsRunner(name, fullName).run()
 	if err != nil {
 		c.String(400, "Sorry, no can do. Problem: [%s]", err.Error())
 		return
 	}
-	go func() {
+	go func(dat map[string]string, name, fullName string) {
 		for sha, ref := range dat {
 			git := GitWebhook{
 				Ref:      ref,
@@ -171,11 +173,54 @@ func (a *Application) updateAllTags(c *gin.Context) {
 					FullName: fullName,
 				},
 			}
-			log.Println(git.Repository.FullName, git.AfterSha, git.Ref)
+			log.Println(fullName, sha, ref)
 			a.wrkr.AddTask(&git)
 		}
-	}()
+	}(dat, name, fullName)
 	a.displaySuccess(c, "Yeah, I can do that. Check back in a minute")
+}
+
+func (a *Application) updateAllTagsOrg(c *gin.Context) {
+	if a.checkBack(c) {
+		return
+	}
+	org := c.Param("org")
+	projects, err := a.rprtr.listProjectsByOrg(org)
+	if err != nil {
+		c.String(400, "Problemo: [%s]", err.Error())
+		return
+	}
+	go func(projects []string) {
+		for _, project := range projects {
+			name := strings.SplitN(project, "/", 2)[1]
+			dat, err := newTagsRunner(name, project).run()
+			if err != nil {
+				log.Println("TODO", err.Error()) //TODO
+				continue
+			}
+			go func(dat map[string]string, name string, project string) {
+				for sha, ref := range dat {
+					git := GitWebhook{
+						Ref:      ref,
+						AfterSha: sha,
+						Repository: GitRepository{
+							Name:     name,
+							FullName: project,
+						},
+					}
+					log.Println(project, sha, ref)
+					a.wrkr.AddTask(&git)
+				}
+			}(dat, name, project)
+		}
+	}(projects)
+
+	res := "Trying to run against:\n"
+	for _, project := range projects {
+		res += "\n" + project
+	}
+
+	a.displaySuccess(c, res)
 }
 
 func (a *Application) specificSha(c *gin.Context) {
@@ -183,9 +228,9 @@ func (a *Application) specificSha(c *gin.Context) {
 		return
 	}
 	name := c.Param("repo")
-	fullName := fmt.Sprintf("%s/%s", c.Param("org"), name)
+	fullName := f.Format("%s/%s", c.Param("org"), name)
 	sha := c.Param("sha")
-	code, _, _, err := nt.HTTP(nt.HEAD, fmt.Sprintf("https://github.com/%s/commit/%s", fullName, sha), nt.NewHeaderBuilder().GetHeader(), nil)
+	code, _, _, err := nt.HTTP(nt.HEAD, f.Format("https://github.com/%s/commit/%s", fullName, sha), nt.NewHeaderBuilder().GetHeader(), nil)
 	if err != nil {
 		c.String(500, "could not verify this sha:", err.Error())
 		return
@@ -194,7 +239,7 @@ func (a *Application) specificSha(c *gin.Context) {
 		c.String(400, "could not verify this sha, head code:", code)
 		return
 	}
-	go func() {
+	go func(name, fullName, sha string) {
 		git := GitWebhook{
 			AfterSha: sha,
 			Repository: GitRepository{
@@ -202,9 +247,9 @@ func (a *Application) specificSha(c *gin.Context) {
 				FullName: fullName,
 			},
 		}
-		log.Println(git.Repository.FullName, git.AfterSha)
+		log.Println(fullName, sha)
 		a.wrkr.AddTask(&git)
-	}()
+	}(name, fullName, sha)
 	a.displaySuccess(c, "I got this, check back in a bit")
 }
 
@@ -214,7 +259,7 @@ func (a *Application) reportSha(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
-	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
+	fullName := f.Format("%s/%s", c.Param("org"), c.Param("repo"))
 	sha := c.Param("sha")
 	deps, err := a.rprtr.reportBySha(fullName, sha)
 	if err != nil {
@@ -238,7 +283,7 @@ func (a *Application) reportTag(c *gin.Context) {
 		return
 	}
 	tag := c.Param("tag")
-	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
+	fullName := f.Format("%s/%s", c.Param("org"), c.Param("repo"))
 	deps, err := a.rprtr.reportByTag2(c.Param("tag"), fullName)
 	if err != nil {
 		c.String(400, "Unable to do this: %s", err.Error())
@@ -272,7 +317,7 @@ func (a *Application) reportTagAll(c *gin.Context) {
 			t.Fill(dep.Version)
 			t.Fill(dep.Language)
 		}
-		res += "\n" + t.NoBorders().SpaceColumn(1).Format().String() + "\n"
+		res += "\n" + t.NoBorders().SpaceColumn(1).Format().String() + "\n\n"
 	}
 	a.displaySuccess(c, res)
 }
@@ -283,7 +328,7 @@ func (a *Application) listShas(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
-	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
+	fullName := f.Format("%s/%s", c.Param("org"), c.Param("repo"))
 	shas, err := a.rprtr.listShas(fullName)
 	if err != nil {
 		c.String(400, err.Error())
@@ -303,7 +348,7 @@ func (a *Application) listTagsRepo(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
-	fullName := fmt.Sprintf("%s/%s", c.Param("org"), c.Param("repo"))
+	fullName := f.Format("%s/%s", c.Param("org"), c.Param("repo"))
 	tags, err := a.rprtr.listTagsRepo(fullName)
 	if err != nil {
 		c.String(400, err.Error())
@@ -329,8 +374,10 @@ func (a *Application) listTags(c *gin.Context) {
 		return
 	}
 	header := "List of tags for " + org + "\n"
-	t := table.NewTable(2, num)
+	t := table.NewTable(2, num+len(*tags))
 	for k, v := range *tags {
+		t.Fill("")
+		t.Fill("")
 		t.Fill(k)
 		for i, vv := range v {
 			t.Fill(vv)
@@ -389,9 +436,9 @@ func (a *Application) formPath(c *gin.Context) {
 		c.Redirect(307, "/report/tag/all/"+form.ReportAllTag)
 	case ReportTagSha:
 		if form.ReportTag != "" {
-			c.Redirect(307, fmt.Sprintf("/report/tag/repo/%s/%s/%s", form.ReportOrg, form.ReportRepo, form.ReportTag))
+			c.Redirect(307, f.Format("/report/tag/repo/%s/%s/%s", form.ReportOrg, form.ReportRepo, form.ReportTag))
 		} else {
-			c.Redirect(307, fmt.Sprintf("/report/sha/%s/%s/%s", form.ReportOrg, form.ReportRepo, form.ReportSha))
+			c.Redirect(307, f.Format("/report/sha/%s/%s/%s", form.ReportOrg, form.ReportRepo, form.ReportSha))
 		}
 	case ListProjects:
 		if form.ProjectsOrg != "" {
@@ -401,16 +448,20 @@ func (a *Application) formPath(c *gin.Context) {
 		}
 	case ListTags:
 		if form.TagsRepo != "" {
-			c.Redirect(307, fmt.Sprintf("/list/tags/%s/%s", form.TagsOrg, form.TagsRepo))
+			c.Redirect(307, f.Format("/list/tags/%s/%s", form.TagsOrg, form.TagsRepo))
 		} else {
 			c.Redirect(307, "/list/tags/"+form.TagsOrg)
 		}
 	case ListShas:
-		c.Redirect(307, fmt.Sprintf("/list/shas/%s/%s", form.ShasOrg, form.ShasRepo))
+		c.Redirect(307, f.Format("/list/shas/%s/%s", form.ShasOrg, form.ShasRepo))
 	case GenerateTag:
-		c.Redirect(307, fmt.Sprintf("/generate/tags/%s/%s", form.AllTagOrg, form.AllTagRepo))
+		if form.AllTagRepo != "" {
+			c.Redirect(307, f.Format("/generate/tags/%s/%s", form.AllTagOrg, form.AllTagRepo))
+		} else {
+			c.Redirect(307, "/generate/tags/"+form.AllTagOrg)
+		}
 	case GenerateSha:
-		c.Redirect(307, fmt.Sprintf("/generate/sha/%s/%s/%s", form.ByShaOrg, form.ByShaRepo, form.ByShaSha))
+		c.Redirect(307, f.Format("/generate/sha/%s/%s/%s", form.ByShaOrg, form.ByShaRepo, form.ByShaSha))
 	default:
 		c.String(400, "What did you do? :(")
 	}
@@ -454,7 +505,7 @@ func (a *Application) handleMaven() error {
 	re := regexp.MustCompile(`Reading user settings from (.+)\/`)
 	finds := re.FindStringSubmatch(string(dat))
 	if len(finds) != 2 {
-		return fmt.Errorf("Couldnt find maven settings location")
+		return errors.New("Couldnt find maven settings location")
 	}
 
 	return exec.Command("mv", "settings.xml", finds[1]).Run()

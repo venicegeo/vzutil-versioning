@@ -16,10 +16,11 @@ package util
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/es"
+	"github.com/venicegeo/vzutil-versioning/web/f"
 )
 
 type Reporter struct {
@@ -46,24 +47,24 @@ func (r *Reporter) reportBySha(fullName, sha string) (res []es.Dependency, err e
 	}
 	entry, exists = (*projectEntries)[sha]
 	if !exists {
-		return nil, fmt.Errorf("Sorry, this sha was not found")
+		return nil, errors.New("Sorry, this sha was not found")
 	}
 	if entry.EntryReference != "" {
 		entry, exists = (*projectEntries)[entry.EntryReference]
 		if !exists {
-			return nil, fmt.Errorf("The database is corrupted, this sha points to a sha that doesnt exist:", entry.EntryReference)
+			return nil, errors.New("The database is corrupted, this sha points to a sha that doesnt exist: " + entry.EntryReference)
 		}
 	}
 	//TODO THREAD THIS NONSENSE
 	for _, d := range entry.Dependencies {
 		if resp, err = r.index.GetByID("dependency", d); err != nil || !resp.Found {
-			name := fmt.Sprintf("Cound not find [%s]", d)
+			name := f.Format("Cound not find [%s]", d)
 			tmp := es.Dependency{name, "", ""}
 			res = append(res, tmp)
 		} else {
 			var dep es.Dependency
 			if err = json.Unmarshal([]byte(*resp.Source), &dep); err != nil {
-				tmp := es.Dependency{fmt.Sprintf("Error getting [%s]: [%s]", d, err.Error()), "", ""}
+				tmp := es.Dependency{f.Format("Error getting [%s]: [%s]", d, err.Error()), "", ""}
 				res = append(res, tmp)
 			} else {
 				res = append(res, dep)
@@ -127,7 +128,7 @@ func (r *Reporter) reportByTag2(tag, fullName string) ([]es.Dependency, error) {
 		return nil, err
 	}
 	if sha, ok = (*tagShas)[tag]; !ok {
-		return nil, fmt.Errorf("Could not find this tag: [%s]", tag)
+		return nil, errors.New("Could not find this tag: [" + tag + "]")
 	}
 	return r.reportBySha(fullName, sha)
 }
@@ -160,7 +161,7 @@ func (r *Reporter) listTagsRepo(fullName string) (*map[string]string, error) {
 	return project.GetTagShas()
 }
 func (r *Reporter) listTags(org string) (*map[string][]string, int, error) {
-	resp, err := r.index.SearchByJSON("project", fmt.Sprintf(`
+	resp, err := r.index.SearchByJSON("project", f.Format(`
 {
 	"size": %d,
 	"query": {
@@ -201,7 +202,7 @@ func (r *Reporter) listProjects() ([]string, error) {
 
 }
 func (r *Reporter) listProjectsByOrg(org string) ([]string, error) {
-	return r.listProjectsWrk(r.index.SearchByJSON("project", fmt.Sprintf(`
+	return r.listProjectsWrk(r.index.SearchByJSON("project", f.Format(`
 {
 	"size": %d,
 	"query": {

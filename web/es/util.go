@@ -16,10 +16,11 @@ package es
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"strings"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
+	"github.com/venicegeo/vzutil-versioning/web/f"
 )
 
 func GetProjectById(index *elasticsearch.Index, fullName string) (*Project, error) {
@@ -29,7 +30,7 @@ func GetProjectById(index *elasticsearch.Index, fullName string) (*Project, erro
 		return nil, err
 	}
 	if !resp.Found {
-		return nil, fmt.Errorf("Could not find this document: [%s]", docName)
+		return nil, errors.New("Could not find this document: [" + docName + "]")
 	}
 	project := &Project{}
 	if err = json.Unmarshal([]byte(*resp.Source), project); err != nil {
@@ -38,8 +39,28 @@ func GetProjectById(index *elasticsearch.Index, fullName string) (*Project, erro
 	return project, nil
 }
 
+func CheckShaExists(index *elasticsearch.Index, fullName string, sha string) (bool, error) {
+	exists, err := index.ItemExists("project", fullName)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, nil
+	}
+	project, err := GetProjectById(index, fullName)
+	if err != nil {
+		return false, err
+	}
+	entries, err := project.GetEntries()
+	if err != nil {
+		return false, err
+	}
+	_, exists = (*entries)[sha]
+	return exists, nil
+}
+
 func MatchAllSize(index *elasticsearch.Index, typ string, size int) (*elasticsearch.SearchResult, error) {
-	return index.SearchByJSON(typ, fmt.Sprintf(`
+	return index.SearchByJSON(typ, f.Format(`
 {
 	"size": %d,
 	"query":{}

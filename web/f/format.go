@@ -12,15 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package f
 
 import (
-	"log"
-
-	"github.com/venicegeo/vzutil-versioning/web/util"
+	"fmt"
 )
 
-func main() {
-	app := util.NewApplication("versioning_tool", "./single", false)
-	log.Println(<-app.Start())
+func Format(format string, a ...interface{}) string {
+	return fmt.Sprintf(format, a...)
 }
