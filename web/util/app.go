@@ -160,7 +160,7 @@ func (a *Application) updateAllTags(c *gin.Context) {
 	fullName := f.Format("%s/%s", c.Param("org"), name)
 	dat, err := newTagsRunner(name, fullName).run()
 	if err != nil {
-		c.String(400, "Sorry, no can do. Problem: [%s]", err.Error())
+		a.displayFailure(c, "Sorry, no can do. Problem: ["+err.Error()+"]")
 		return
 	}
 	go func(dat map[string]string, name, fullName string) {
@@ -187,7 +187,7 @@ func (a *Application) updateAllTagsOrg(c *gin.Context) {
 	org := c.Param("org")
 	projects, err := a.rprtr.listProjectsByOrg(org)
 	if err != nil {
-		c.String(400, "Problemo: [%s]", err.Error())
+		a.displayFailure(c, "Problemo: ["+err.Error()+"]")
 		return
 	}
 	go func(projects []string) {
@@ -195,7 +195,7 @@ func (a *Application) updateAllTagsOrg(c *gin.Context) {
 			name := strings.SplitN(project, "/", 2)[1]
 			dat, err := newTagsRunner(name, project).run()
 			if err != nil {
-				log.Println("TODO", err.Error()) //TODO
+				log.Println("[TAG UPDATER] Was unable to run tags against " + project + ": [" + err.Error() + "]")
 				continue
 			}
 			go func(dat map[string]string, name string, project string) {
@@ -232,11 +232,11 @@ func (a *Application) specificSha(c *gin.Context) {
 	sha := c.Param("sha")
 	code, _, _, err := nt.HTTP(nt.HEAD, f.Format("https://github.com/%s/commit/%s", fullName, sha), nt.NewHeaderBuilder().GetHeader(), nil)
 	if err != nil {
-		c.String(500, "could not verify this sha:", err.Error())
+		a.displayFailure(c, "could not verify this sha: "+err.Error())
 		return
 	}
 	if code != 200 {
-		c.String(400, "could not verify this sha, head code:", code)
+		a.displayFailure(c, f.Format("could not verify this sha, head code: %d", code))
 		return
 	}
 	go func(name, fullName, sha string) {
@@ -286,7 +286,7 @@ func (a *Application) reportTag(c *gin.Context) {
 	fullName := f.Format("%s/%s", c.Param("org"), c.Param("repo"))
 	deps, err := a.rprtr.reportByTag2(c.Param("tag"), fullName)
 	if err != nil {
-		c.String(400, "Unable to do this: %s", err.Error())
+		a.displayFailure(c, "Unable to do this: "+err.Error())
 		return
 	}
 	header := "Report for " + fullName + " at " + tag + "\n"
@@ -305,7 +305,7 @@ func (a *Application) reportTagAll(c *gin.Context) {
 	tag := c.Param("tag")
 	deps, err := a.rprtr.reportByTag(tag)
 	if err != nil {
-		c.String(500, "Unable to do this: %s", err.Error())
+		a.displayFailure(c, "Unable to do this: "+err.Error())
 		return
 	}
 	res := ""
@@ -331,7 +331,7 @@ func (a *Application) listShas(c *gin.Context) {
 	fullName := f.Format("%s/%s", c.Param("org"), c.Param("repo"))
 	shas, err := a.rprtr.listShas(fullName)
 	if err != nil {
-		c.String(400, err.Error())
+		a.displayFailure(c, err.Error())
 		return
 	}
 	header := "List of Shas for " + fullName + "\n"
@@ -351,7 +351,7 @@ func (a *Application) listTagsRepo(c *gin.Context) {
 	fullName := f.Format("%s/%s", c.Param("org"), c.Param("repo"))
 	tags, err := a.rprtr.listTagsRepo(fullName)
 	if err != nil {
-		c.String(400, err.Error())
+		a.displayFailure(c, err.Error())
 		return
 	}
 	header := "List of tags for " + fullName + "\n"
@@ -370,7 +370,7 @@ func (a *Application) listTags(c *gin.Context) {
 	org := c.Param("org")
 	tags, num, err := a.rprtr.listTags(org)
 	if err != nil {
-		c.String(400, err.Error())
+		a.displayFailure(c, err.Error())
 		return
 	}
 	header := "List of tags for " + org + "\n"
@@ -408,7 +408,7 @@ func (a *Application) listProjectsOrg(c *gin.Context) {
 }
 func (a *Application) listProjectsWrk(ps []string, err error, header string, c *gin.Context) {
 	if err != nil {
-		c.String(400, err.Error())
+		a.displayFailure(c, err.Error())
 		return
 	}
 	t := table.NewTable(1, len(ps))
@@ -485,6 +485,14 @@ func (a *Application) displaySuccess(c *gin.Context, data string) {
 		c.String(200, data)
 	} else {
 		c.HTML(200, "back.tmpl", gin.H{"data": data})
+	}
+}
+func (a *Application) displayFailure(c *gin.Context, data string) {
+	//TODO assuming 400
+	if !a.checkForRedirect(c) {
+		c.String(400, data)
+	} else {
+		c.HTML(400, "back.tmpl", gin.H{"data": data})
 	}
 }
 
