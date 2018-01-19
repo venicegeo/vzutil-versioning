@@ -95,7 +95,7 @@ func (a *Application) Start() chan error {
 		log.Println(i.GetVersion())
 	}
 
-	a.wrkr = NewWorker(i, a.singleLocation)
+	a.wrkr = NewWorker(i, a.singleLocation, 10)
 	a.wrkr.Start()
 	a.rprtr = NewReporter(i)
 

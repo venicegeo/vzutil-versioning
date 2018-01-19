@@ -21,7 +21,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/es"
@@ -30,42 +29,65 @@ import (
 type Worker struct {
 	singleLocation string
 	index          *elasticsearch.Index
-	queue          chan *GitWebhook
-	mux            *sync.Mutex
+
+	numWorkers      int
+	checkExistQueue chan *GitWebhook
+	cloneQueue      chan *GitWebhook
+	esQueue         chan *work
 }
 
-func NewWorker(i *elasticsearch.Index, singleLocation string) *Worker {
-	wrkr := Worker{singleLocation, i, make(chan *GitWebhook, 1000), &sync.Mutex{}}
+type work struct {
+	fullName string
+	name     string
+	sha      string
+	ref      string
+	hashes   []string
+}
+
+func NewWorker(i *elasticsearch.Index, singleLocation string, numWorkers int) *Worker {
+	wrkr := Worker{singleLocation, i, numWorkers, make(chan *GitWebhook, 1000), make(chan *GitWebhook, 1000), make(chan *work, 1000)}
 	return &wrkr
 }
 
 var depRe = regexp.MustCompile(`###   (.+):(.+):(.+):(.+)`)
 
 func (w *Worker) Start() {
-	go func() {
+	w.startCheckExist()
+	w.startClone()
+	w.startEs()
+}
+
+func (w *Worker) startCheckExist() {
+	work := func(worker int) {
 		for {
-			git := <-w.queue
-			log.Println("[WORKER] Starting work on", git.Repository.FullName, git.AfterSha)
-			hashes := []string{}
-			var project *es.Project
-			var projectEntries *es.ProjectEntries
-			var exists bool
-			deps := []es.Dependency{}
-			var err error
-
+			git := <-w.checkExistQueue
+			log.Printf("[CHECK-WORKER (%d)] Starting work on %s\n", worker, git.AfterSha)
 			docName := strings.Replace(git.Repository.FullName, "/", "_", -1)
-
-			if exists, err = es.CheckShaExists(w.index, docName, git.AfterSha); err != nil {
-				log.Println("Unable to check status of current sha:", err.Error())
+			if exists, err := es.CheckShaExists(w.index, docName, git.AfterSha); err != nil {
+				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s\n", worker, err.Error())
 				continue
 			} else if exists {
-				log.Println("[WORKER] This sha already exists, skipping")
+				log.Printf("[CHECK-WORKER (%d)] This sha already exists\n", worker)
 				continue
 			}
-
+			log.Printf("[CHECK-WORKER (%d)] Adding %s to clone queue\n", worker, git.AfterSha)
+			w.cloneQueue <- git
+		}
+	}
+	for i := 1; i <= w.numWorkers; i++ {
+		go work(i)
+	}
+}
+func (w *Worker) startClone() {
+	work := func(worker int) {
+		for {
+			git := <-w.cloneQueue
+			log.Printf("[CLONE-WORKER (%d)] Starting work on %s\n", worker, git.AfterSha)
+			deps := []es.Dependency{}
+			hashes := []string{}
 			dat, err := exec.Command(w.singleLocation, git.Repository.FullName, git.AfterSha).Output()
 			if err != nil {
-				log.Println("Unable to run against", git.Repository.FullName, git.AfterSha, ":", err.Error())
+				log.Printf("[CLONE-WORKER (%d)] Unable to run against %s [%s]\n", worker, git.AfterSha, err.Error())
 				continue
 			}
 			{
@@ -77,7 +99,6 @@ func (w *Worker) Start() {
 					deps = append(deps, es.Dependency{matches[1], matches[2], matches[4]})
 				}
 			}
-			w.mux.Lock()
 			{
 
 				for _, d := range deps {
@@ -85,31 +106,53 @@ func (w *Worker) Start() {
 					hashes = append(hashes, hash)
 					exists, err := w.index.ItemExists("dependency", hash)
 					if err != nil || !exists {
-						resp, err := w.index.PostData("dependency", hash, d)
-						if err != nil {
-							log.Println("Unable to create dependency", hash, ":", err.Error())
-						} else if !resp.Created {
-							log.Println("Unable to create dependency", hash)
-						}
+						go func() {
+							resp, err := w.index.PostData("dependency", hash, d)
+							if err != nil {
+								log.Printf("[CLONE-WORKER (%d)] Unable to create dependency %s [%s]\n", worker, hash, err.Error())
+							} else if !resp.Created {
+								log.Printf("[CLONE-WORKER (%d)] Unable to create dependency %s\n", worker, hash)
+							}
+						}()
 					}
 				}
 			}
 			sort.Strings(hashes)
+			log.Printf("[CLONE-WORKER (%d)] Adding %s to es queue\n", worker, git.AfterSha)
+			w.esQueue <- &work{git.Repository.FullName, git.Repository.Name, git.AfterSha, git.Ref, hashes}
+		}
+	}
+	for i := 1; i <= w.numWorkers; i++ {
+		go work(i)
+	}
+}
+
+func (w *Worker) startEs() {
+	work := func() {
+		for {
+			workInfo := <-w.esQueue
+			log.Println("[ES-WORKER] Starting work on", workInfo.sha)
+			docName := strings.Replace(workInfo.fullName, "/", "_", -1)
+			var exists bool
+			var err error
+			var project *es.Project
+			var projectEntries *es.ProjectEntries
+
 			if exists, err = w.index.ItemExists("project", docName); err != nil {
-				log.Println("Error checking project exists:", err.Error())
+				log.Println("[ES-WORKER] Error checking project exists:", err.Error())
 				continue
 			}
 			if exists {
 				project, err = es.GetProjectById(w.index, docName)
 				if err != nil {
-					log.Println("Unable to retrieve project:", err.Error())
+					log.Println("[ES-WORKER] Unable to retrieve project:", err.Error())
 					continue
 				}
 			} else {
-				project = es.NewProject(git.Repository.FullName, git.Repository.Name)
+				project = es.NewProject(workInfo.fullName, workInfo.name)
 			}
 			if projectEntries, err = project.GetEntries(); err != nil {
-				log.Println("Unable to get entries:", err.Error())
+				log.Println("[ES-WORKER] Unable to get entries:", err.Error())
 				continue
 			}
 			if project.LastSha != "" {
@@ -120,27 +163,27 @@ func (w *Worker) Start() {
 					lastEntry = (*projectEntries)[referenceSha]
 				}
 				sort.Strings(lastEntry.Dependencies)
-				if reflect.DeepEqual(hashes, lastEntry.Dependencies) {
-					(*projectEntries)[git.AfterSha] = es.ProjectEntry{EntryReference: referenceSha}
+				if reflect.DeepEqual(workInfo.hashes, lastEntry.Dependencies) {
+					(*projectEntries)[workInfo.sha] = es.ProjectEntry{EntryReference: referenceSha}
 				} else {
-					(*projectEntries)[git.AfterSha] = es.ProjectEntry{Dependencies: hashes}
+					(*projectEntries)[workInfo.sha] = es.ProjectEntry{Dependencies: workInfo.hashes}
 				}
 			} else {
-				(*projectEntries)[git.AfterSha] = es.ProjectEntry{Dependencies: hashes}
+				(*projectEntries)[workInfo.sha] = es.ProjectEntry{Dependencies: workInfo.hashes}
 			}
 			project.SetEntries(projectEntries)
-			project.LastSha = git.AfterSha
+			project.LastSha = workInfo.sha
 
-			if strings.HasPrefix(git.Ref, "refs/tags/") {
-				tag := strings.Split(git.Ref, "/")[2]
+			if strings.HasPrefix(workInfo.ref, "refs/tags/") {
+				tag := strings.Split(workInfo.ref, "/")[2]
 				mapp, err := project.GetTagShas()
 				if err != nil {
-					log.Println("Unable to get tag shas:", err.Error())
+					log.Println("[ES-WORKER] Unable to get tag shas:", err.Error())
 					continue
 				}
-				(*mapp)[tag] = git.AfterSha
+				(*mapp)[tag] = workInfo.sha
 				if err = project.SetTagShas(mapp); err != nil {
-					log.Println("Unable to set tag shas:", err.Error())
+					log.Println("[ES-WORKER] Unable to set tag shas:", err.Error())
 					continue
 				}
 			}
@@ -148,10 +191,10 @@ func (w *Worker) Start() {
 			indexProject := func(data func(string, string, interface{}) (*elasticsearch.IndexResponse, error), method string, checkCreate bool) bool {
 				resp, err := data("project", docName, project)
 				if err != nil {
-					log.Println("unable to", method, "project:", err.Error())
+					log.Println("[ES-WORKER] Unable to", method, "project:", err.Error())
 					return true
 				} else if !resp.Created && checkCreate {
-					log.Println("project was not created")
+					log.Println("[ES-WORKER] Project was not created")
 					return true
 				}
 				return false
@@ -165,12 +208,12 @@ func (w *Worker) Start() {
 					continue
 				}
 			}
-			w.mux.Unlock()
-			log.Println("[WORKER] Finished work on", git.Repository.FullName, git.AfterSha)
+			log.Println("[ES-WORKER] Finished work on", workInfo.fullName, workInfo.sha)
 		}
-	}()
+	}
+	go work()
 }
 
 func (w *Worker) AddTask(git *GitWebhook) {
-	w.queue <- git
+	w.checkExistQueue <- git
 }
