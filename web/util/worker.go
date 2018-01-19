@@ -49,7 +49,7 @@ func NewWorker(i *elasticsearch.Index, singleLocation string, numWorkers int) *W
 	return &wrkr
 }
 
-var depRe = regexp.MustCompile(`###   (.+):(.+):(.+):(.+)`)
+var depRe = regexp.MustCompile(`###   (.*):(.*):(.*):(.*)`)
 
 func (w *Worker) Start() {
 	w.startCheckExist()
