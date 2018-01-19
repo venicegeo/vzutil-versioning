@@ -1,106 +1,133 @@
-<form>
-	<br><fieldset><br>
-		<legend>Reporting</legend>
-		<fieldset>
-			<legend>All by tag</legend>
-			Tag:
-    		<input type="text" name="reportalltag" value="">
-    		<input type="submit" name="button_reportalltag" value="Submit">
-		</fieldset><br>
-		<fieldset>
-			<legend>By tag or sha</legend>
-			<table>
-				<tr>
-					<td align="left">Org:</td>
-					<td align="left"><input type="text" name="reportorg" value=""></td>
-				</tr>
-				<tr>
-					<td align="left">Repo:</td>
-					<td align="left"><input type="text" name="reportrepo" value=""></td>
-				</tr>
-				<tr></tr>
-				<tr>
-					<td align="left">Tag:</td>
-					<td align="left"><input type="text" name="reporttag" value=""></td>
-				</tr>
-				<tr><td align="left">or<br></tr>
-				<tr>
-					<td align="left">Sha:</td>
-					<td align="left"><input type="text" name="reportsha" value=""></td>
-				</tr>
-			</table>
-			<br><td align="left"><input type="submit" name="button_reporttagsha" value="Submit"></td>
+<html>
+<head>
+	<style type="text/css">
+td {
+	vertical-align: top;
+	align: left;
+}
+	</style>
+</head>
+<body>
+	<form>
+	<table></tr>
+		<td><fieldset id="knownProjects">
+			<legend>Known Projects</legend>
+			<pre>
+{{ .projects }}
+			</pre>
+		</fieldset></td>
+		<td><fieldset id="reporting">
+			<legend>Reporting</legend>
+			
+			<table><tr>
+				<td><fieldset>
+					<legend>All by tag</legend>
+					<table>
+						<tr><td>Tag:</td>
+							<td><input type="text" name="reportalltag" value=""></td></tr>
+						<tr><td><input type="submit" name="button_reportalltag" value="Submit"></td></tr>
+					</table>
+				</fieldset></td>
+			
+				<td><fieldset>
+					<legend>By tag or sha</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="reportorg" value=""></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="reportrepo" value=""></td></tr>
+						<tr><td>Tag:</td>
+							<td><input type="text" name="reporttag" value=""></td></tr>
+						<tr><td>or</td></tr>
+						<tr><td>Sha:</td>
+							<td><input type="text" name="reportsha" value=""></td></tr>
+						<tr><td><input type="submit" name="button_reporttagsha" value="Submit"></td></tr>
+					</table>
+				</fieldset></td>
+			</tr></table>
+			
 		</fieldset>
-	</fieldset><br>
-	<fieldset><br>
-		<legend>Listing</legend>
-		<fieldset>
-			<legend>All projects</legend>
-			Org:
-			<input type="text" name="projectsorg" value="" placeholder="Optional"><br><br>
-			<input type="submit" name="button_listprojects" value="Submit">
-		</fieldset><br>
-		<fieldset>
-			<legend>All tags</legend>
-			<table>
-				<tr>
-					<td align="left">Org:</td>
-					<td align="left"><input type="text" name="tagsorg" value=""></td>
-				</tr>
-				<tr>
-					<td align="left">Repo:</td>
-					<td align="left"><input type="text" name="tagsrepo" value="" placeholder="Optional"></td>
-				</tr>
-			</table>
-			<br><input type="submit" name="button_listtags" value="Submit"> 
-		</fieldset><br>
-		<fieldset>
-			<legend>All shas</legend>
-			<table>
-				<tr>
-					<td align="left">Org:</td>
-					<td align="left"><input type="text" name="shasorg" value=""></td>
-				</tr>
-				<tr>
-					<td align="left">Repo:</td>
-					<td align="left"><input type="text" name="shasrepo" value=""></td>
-				</tr>
-				</table>
-			<br><input type="submit" name="button_listshas" value="Submit">
+		
+		
+		<fieldset id="listing">
+			<legend>Listing</legend>
+			
+			<table><tr>
+				<td><fieldset>
+					<legend>All projects</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="projectsorg" value="" placeholder="Optional"></td></tr>
+						<tr><td><input type="submit" name="button_listprojects" value="Submit"></td></tr>
+					</table>
+				</fieldset></td>
+			
+				<td><fieldset>
+					<legend>All tags</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="tagsorg" value=""></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="tagsrepo" value="" placeholder="Optional"></td></tr>
+						<tr><td><input type="submit" name="button_listtags" value="Submit"></td></tr>
+					</table>
+				</fieldset></td>
+			
+				<td><fieldset>
+					<legend>All shas</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="shasorg" value=""></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="shasrepo" value=""></td></tr>
+						<tr><td><input type="submit" name="button_listshas" value="Submit"></td></tr>
+					</table>
+				</fieldset></td>
+			</tr></table>
+			
 		</fieldset>
-	</fieldset><br>
-	<fieldset><br>
-		<legend>Generation</legend>
-  		<fieldset>
-    		<legend>All tags</legend>
-			<table>
-				<tr>
-					<td align="left">Org:</td>
-					<td align="left"><input type="text" name="alltagorg" value=""></td>
-				</tr>
-				<tr>
-					<td align="left">Repo:</td>
-					<td align="left"><input type="text" name="alltagrepo" value="" placeholder="Optional"></td>
-				</tr>
-			</table>
-			<br><input type="submit" name="button_generatetag" value="Submit">
-  		</fieldset><br>
-		<fieldset>
-			<legend>By sha</legend>
-			<table>
-				<tr>
-					<td align="left">Org:</td>
-					<td align="left"><input type="text" name="byshaorg" value=""></td>
-				</tr>
-				<tr>
-					<td align="left">Repo:</td>
-					<td align="left"><input type="text" name="bysharepo" value=""></td>
-				</tr>
-					<td align="left">Sha:</td>
-					<td align="left"><input type="text" name="byshasha" value=""></td>
-				</tr>
-			</table>
-			<br><input type="submit" name="button_generatesha" value="Submit">
-		</fieldset>
-	</fieldset>
-</form> 
+		
+		
+		<fieldset id="generation">
+			<legend>Generation</legend>
+			
+			<table><tr>
+				<td><fieldset>
+					<legend>All tags</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="alltagorg" value=""></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="alltagrepo" value="" placeholder="Optional"></td></tr>
+						<tr><td><input type="submit" name="button_generatetag" value="Submit"></td><tr>
+					</table>
+				</fieldset></td>
+			
+				<td><fieldset>
+					<legend>By sha</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="byshaorg" value=""></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="bysharepo" value=""></td></tr>
+						<tr><td>Sha:</td>
+							<td><input type="text" name="byshasha" value=""></td></tr>
+						<tr><td><input type="submit" name="button_generatesha" value="Submit"></td></tr>
+					</table>
+				</fieldset></td>
+			</tr></table>
+		</fieldset></td>
+	</td></table>
+	</form>
+	
+	<script>
+	var left = document.getElementById('knownProjects').offsetHeight;
+	var right = document.getElementById('reporting').offsetHeight+document.getElementById('listing').offsetHeight+document.getElementById('generation').offsetHeight;
+	if (left<right) {
+		document.getElementById('knownProjects').style.height = right;
+		var offset = document.getElementById('knownProjects').offsetHeight-right;
+		document.getElementById('knownProjects').style.height = right-offset;
+	}
+	</script>
+</body>
+</html>
