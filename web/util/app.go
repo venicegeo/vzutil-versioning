@@ -492,7 +492,7 @@ func (a *Application) displaySuccess(c *gin.Context, data string) {
 	if !a.checkForRedirect(c) {
 		c.String(200, data)
 	} else {
-		c.HTML(200, "back.tmpl", gin.H{"data": data})
+		c.HTML(200, "back.html", gin.H{"data": data})
 	}
 }
 func (a *Application) displayFailure(c *gin.Context, data string) {
@@ -500,7 +500,7 @@ func (a *Application) displayFailure(c *gin.Context, data string) {
 	if !a.checkForRedirect(c) {
 		c.String(400, data)
 	} else {
-		c.HTML(400, "back.tmpl", gin.H{"data": data})
+		c.HTML(400, "back.html", gin.H{"data": data})
 	}
 }
 

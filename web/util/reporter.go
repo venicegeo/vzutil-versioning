@@ -17,6 +17,7 @@ package util
 import (
 	"encoding/json"
 	"errors"
+	"sort"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/es"
@@ -148,6 +149,7 @@ func (r *Reporter) listShas(fullName string) (res []string, err error) {
 	for k, _ := range *entries {
 		res = append(res, k)
 	}
+	sort.Strings(res)
 	return res, nil
 }
 
@@ -191,6 +193,7 @@ func (r *Reporter) listTags(org string) (*map[string][]string, int, error) {
 		for tag, _ := range *tags {
 			mapp[project.FullName] = append(mapp[project.FullName], tag)
 		}
+		sort.Strings(mapp[project.FullName])
 	}
 	return &mapp, numTags, err
 }
@@ -226,5 +229,6 @@ func (r *Reporter) listProjectsWrk(resp *elasticsearch.SearchResult, err error) 
 		}
 		res = append(res, project.FullName)
 	}
+	sort.Strings(res)
 	return res, nil
 }
