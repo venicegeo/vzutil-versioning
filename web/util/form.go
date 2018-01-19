@@ -23,7 +23,6 @@ type Forms string
 
 var ReportAllTag Forms = "reportalltag"
 var ReportTagSha Forms = "reporttagsha"
-var ListProjects Forms = "listprojects"
 var ListTags Forms = "listtags"
 var ListShas Forms = "listshas"
 var GenerateTag Forms = "generatetag"
@@ -41,9 +40,6 @@ type Form struct {
 	ButtonReportTagSha string `form:"button_reporttagsha"`
 
 	//Listing
-	ProjectsOrg        string `form:"projectsorg"`
-	ButtonListProjects string `form:"button_listprojects"`
-
 	TagsOrg        string `form:"tagsorg"`
 	TagsRepo       string `form:"tagsrepo"`
 	ButtonListTags string `form:"button_listtags"`

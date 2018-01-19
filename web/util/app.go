@@ -427,7 +427,21 @@ func (a *Application) formPath(c *gin.Context) {
 		return
 	}
 	if form.isEmpty() {
-		c.HTML(200, "form.html", "")
+		ps, err := a.rprtr.listProjects()
+		h := gin.H{}
+		if err != nil {
+			h["projects"] = "Sorry... could not\nload this."
+		} else {
+			res := ""
+			for i, p := range ps {
+				if i > 0 {
+					res += "\n"
+				}
+				res += p
+			}
+			h["projects"] = res
+		}
+		c.HTML(200, "form.html", h)
 		return
 	}
 	buttonPress := form.findButtonPress()
@@ -439,12 +453,6 @@ func (a *Application) formPath(c *gin.Context) {
 			c.Redirect(307, f.Format("/report/tag/repo/%s/%s/%s", form.ReportOrg, form.ReportRepo, form.ReportTag))
 		} else {
 			c.Redirect(307, f.Format("/report/sha/%s/%s/%s", form.ReportOrg, form.ReportRepo, form.ReportSha))
-		}
-	case ListProjects:
-		if form.ProjectsOrg != "" {
-			c.Redirect(307, "/list/projects/"+form.ProjectsOrg)
-		} else {
-			c.Redirect(307, "/list/projects")
 		}
 	case ListTags:
 		if form.TagsRepo != "" {
