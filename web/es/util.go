@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/f"
@@ -66,4 +67,53 @@ func MatchAllSize(index *elasticsearch.Index, typ string, size int) (*elasticsea
 	"query":{}
 }	
 	`, size))
+}
+
+func GetAllProjects(index *elasticsearch.Index, size int) (*[]*Project, error) {
+	return hitsToProjects(MatchAllSize(index, "project", size))
+}
+
+func GetProjectsOrg(index *elasticsearch.Index, org string, size int) (*[]*Project, error) {
+	return hitsToProjects(index.SearchByJSON("project", f.Format(`
+{
+	"size": %d,
+	"query": {
+		"regexp": {
+			"full_name": "%s"
+		}
+	}
+}	
+	`, size, org)))
+
+}
+
+func hitsToProjects(resp *elasticsearch.SearchResult, err error) (*[]*Project, error) {
+	if err != nil {
+		return nil, err
+	}
+	hits := *resp.GetHits()
+	res := []*Project{}
+	mux := &sync.Mutex{}
+	errs := make(chan error, len(hits))
+	work := func(hit *elasticsearch.SearchResultHit) {
+		var project Project
+		if err = json.Unmarshal(*hit.Source, &project); err != nil {
+			errs <- err
+			return
+		}
+		mux.Lock()
+		res = append(res, &project)
+		mux.Unlock()
+		errs <- nil
+	}
+	for _, hit := range hits {
+		go work(hit)
+	}
+	for i := 0; i < len(hits); i++ {
+		err := <-errs
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &res, nil
 }

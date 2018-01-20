@@ -263,7 +263,7 @@ func (a *Application) reportSha(c *gin.Context) {
 	}
 	fullName := f.Format("%s/%s", c.Param("org"), c.Param("repo"))
 	sha := c.Param("sha")
-	deps, err := a.rprtr.reportBySha(fullName, sha)
+	deps, err := a.rprtr.reportByShaName(fullName, sha)
 	if err != nil {
 		c.String(400, "Unable to do this: %s", err.Error())
 		return
@@ -426,7 +426,7 @@ func (a *Application) formPath(c *gin.Context) {
 		ps, err := a.rprtr.listProjects()
 		h := gin.H{}
 		if err != nil {
-			h["projects"] = "Sorry... could not\nload this."
+			h["projects"] = "Sorry... could not\nload this.\n" + err.Error()
 		} else {
 			res := ""
 			for i, p := range ps {

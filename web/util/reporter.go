@@ -19,6 +19,7 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/es"
@@ -34,16 +35,20 @@ func NewReporter(index *elasticsearch.Index) *Reporter {
 	return &Reporter{index, 250}
 }
 
-func (r *Reporter) reportBySha(fullName, sha string) (res []es.Dependency, err error) {
+func (r *Reporter) reportByShaName(fullName, sha string) (res []es.Dependency, err error) {
 	var project *es.Project
-	var projectEntries *es.ProjectEntries
-	var entry es.ProjectEntry
-	var exists bool
-	var resp *elasticsearch.GetResult
 
 	if project, err = es.GetProjectById(r.index, fullName); err != nil {
 		return nil, err
 	}
+	return r.reportByShaProject(project, sha)
+
+}
+func (r *Reporter) reportByShaProject(project *es.Project, sha string) (res []es.Dependency, err error) {
+	var projectEntries *es.ProjectEntries
+	var entry es.ProjectEntry
+	var exists bool
+
 	if projectEntries, err = project.GetEntries(); err != nil {
 		return nil, err
 	}
@@ -57,21 +62,36 @@ func (r *Reporter) reportBySha(fullName, sha string) (res []es.Dependency, err e
 			return nil, errors.New("The database is corrupted, this sha points to a sha that doesnt exist: " + entry.EntryReference)
 		}
 	}
-	//TODO THREAD THIS NONSENSE
-	for _, d := range entry.Dependencies {
-		if resp, err = r.index.GetByID("dependency", d); err != nil || !resp.Found {
-			name := f.Format("Cound not find [%s]", d)
+	mux := &sync.Mutex{}
+	done := make(chan bool, len(entry.Dependencies))
+	work := func(dep string) {
+		if resp, err := r.index.GetByID("dependency", dep); err != nil || !resp.Found {
+			name := f.Format("Cound not find [%s]", dep)
 			tmp := es.Dependency{name, "", ""}
+			mux.Lock()
 			res = append(res, tmp)
+			mux.Unlock()
 		} else {
-			var dep es.Dependency
-			if err = json.Unmarshal([]byte(*resp.Source), &dep); err != nil {
-				tmp := es.Dependency{f.Format("Error getting [%s]: [%s]", d, err.Error()), "", ""}
+			var depen es.Dependency
+			if err = json.Unmarshal([]byte(*resp.Source), &depen); err != nil {
+				tmp := es.Dependency{f.Format("Error getting [%s]: [%s]", dep, err.Error()), "", ""}
+				mux.Lock()
 				res = append(res, tmp)
+				mux.Unlock()
 			} else {
-				res = append(res, dep)
+				mux.Lock()
+				res = append(res, depen)
+				mux.Unlock()
 			}
 		}
+		done <- true
+	}
+
+	for _, d := range entry.Dependencies {
+		go work(d)
+	}
+	for i := 0; i < len(entry.Dependencies); i++ {
+		<-done
 	}
 	return res, nil
 }
@@ -95,63 +115,86 @@ func (r *Reporter) reportByTag(info ...string) (map[string][]es.Dependency, erro
 }
 
 func (r *Reporter) reportByTag1(tag string) (map[string][]es.Dependency, error) {
-	resp, err := es.MatchAllSize(r.index, "project", r.searchSize)
+	projects, err := es.GetAllProjects(r.index, r.searchSize)
 	if err != nil {
 		return nil, err
 	}
-	hits := resp.GetHits()
-	projects := []es.Project{}
-	for _, hit := range *hits {
-		var project es.Project
-		if err = json.Unmarshal([]byte(*hit.Source), &project); err != nil {
-			return nil, err
-		}
-		projects = append(projects, project)
-	}
 
 	res := map[string][]es.Dependency{}
-	for _, project := range projects {
+	mux := &sync.Mutex{}
+	errs := make(chan error, len(*projects))
+	work := func(project *es.Project) {
 		tagShas, err := project.GetTagShas()
 		if err != nil {
-			return nil, err
+			errs <- err
+			return
 		}
 		sha, exists := (*tagShas)[tag]
 		if !exists {
-			continue
+			errs <- err
+			return
 		}
-		deps, err := r.reportBySha(project.FullName, sha)
+		deps, err := r.reportByShaProject(project, sha)
+		if err != nil {
+			errs <- err
+			return
+		}
+		mux.Lock()
+		{
+			res[project.FullName] = deps
+			errs <- nil
+		}
+		mux.Unlock()
+	}
+	for _, project := range *projects {
+		go work(project)
+	}
+	for i := 0; i < len(*projects); i++ {
+		err := <-errs
 		if err != nil {
 			return nil, err
 		}
-		res[project.FullName] = deps
 	}
 	return res, nil
 }
 
 func (r *Reporter) reportByTag2(org, tag string) (map[string][]es.Dependency, error) {
-	projectNames, err := r.listProjectsByOrg(org)
+	projects, err := es.GetProjectsOrg(r.index, org, r.searchSize)
 	if err != nil {
 		return nil, err
 	}
 	res := map[string][]es.Dependency{}
-	for _, name := range projectNames {
-		project, err := es.GetProjectById(r.index, name)
-		if err != nil {
-			return nil, err
-		}
+	mux := &sync.Mutex{}
+	errs := make(chan error, len(*projects))
+	work := func(project *es.Project) {
 		tagShas, err := project.GetTagShas()
 		if err != nil {
-			return nil, err
+			errs <- err
+			return
 		}
 		sha, exists := (*tagShas)[tag]
 		if !exists {
-			continue
+			errs <- nil
+			return
 		}
-		deps, err := r.reportBySha(name, sha)
+		deps, err := r.reportByShaProject(project, sha)
+		if err != nil {
+			errs <- err
+			return
+		}
+		mux.Lock()
+		res[project.FullName] = deps
+		mux.Unlock()
+		errs <- nil
+	}
+	for _, project := range *projects {
+		go work(project)
+	}
+	for i := 0; i < len(*projects); i++ {
+		err := <-errs
 		if err != nil {
 			return nil, err
 		}
-		res[name] = deps
 	}
 	return res, nil
 }
@@ -172,7 +215,7 @@ func (r *Reporter) reportByTag3(tag, docName string) (map[string][]es.Dependency
 	if sha, ok = (*tagShas)[tag]; !ok {
 		return nil, errors.New("Could not find this tag: [" + tag + "]")
 	}
-	deps, err := r.reportBySha(docName, sha)
+	deps, err := r.reportByShaProject(project, sha)
 	if err != nil {
 		return nil, err
 	}
@@ -208,70 +251,62 @@ func (r *Reporter) listTagsRepo(fullName string) (*map[string]string, error) {
 	return project.GetTagShas()
 }
 func (r *Reporter) listTags(org string) (*map[string][]string, int, error) {
-	resp, err := r.index.SearchByJSON("project", f.Format(`
-{
-	"size": %d,
-	"query": {
-		"regexp": {
-			"full_name": "%s"
-		}
-	}
-}	
-	`, r.searchSize, org))
+	projects, err := es.GetProjectsOrg(r.index, org, r.searchSize)
 	if err != nil {
 		return nil, 0, err
 	}
-	hits := resp.GetHits()
-	mapp := map[string][]string{}
-	var project es.Project
+	res := map[string][]string{}
 	numTags := 0
-	for _, h := range *hits {
-		if err = json.Unmarshal(*h.Source, &project); err != nil {
-			return nil, 0, err
-		}
-		mapp[project.FullName] = []string{}
+	errs := make(chan error, len(*projects))
+	mux := &sync.Mutex{}
+
+	work := func(project *es.Project) {
+		temp := []string{}
 		tags, err := project.GetTagShas()
+		if err != nil {
+			errs <- err
+			return
+		}
+		for tag, _ := range *tags {
+			temp = append(temp, tag)
+		}
+		sort.Strings(temp)
+		mux.Lock()
+		{
+			numTags += len(*tags)
+			res[project.FullName] = temp
+			errs <- nil
+		}
+		mux.Unlock()
+	}
+
+	for _, p := range *projects {
+		go work(p)
+	}
+	for i := 0; i < len(*projects); i++ {
+		err := <-errs
 		if err != nil {
 			return nil, 0, err
 		}
-		numTags += len(*tags)
-		for tag, _ := range *tags {
-			mapp[project.FullName] = append(mapp[project.FullName], tag)
-		}
-		sort.Strings(mapp[project.FullName])
 	}
-	return &mapp, numTags, err
+	return &res, numTags, err
 }
 
 //
 
 func (r *Reporter) listProjects() ([]string, error) {
-	return r.listProjectsWrk(es.MatchAllSize(r.index, "project", r.searchSize))
+	return r.listProjectsWrk(es.GetAllProjects(r.index, r.searchSize))
 
 }
 func (r *Reporter) listProjectsByOrg(org string) ([]string, error) {
-	return r.listProjectsWrk(r.index.SearchByJSON("project", f.Format(`
-{
-	"size": %d,
-	"query": {
-		"regexp": {
-			"full_name": "%s"
-		}
-	}
-}	
-	`, r.searchSize, org)))
+	return r.listProjectsWrk(es.GetProjectsOrg(r.index, org, r.searchSize))
 }
-func (r *Reporter) listProjectsWrk(resp *elasticsearch.SearchResult, err error) ([]string, error) {
+func (r *Reporter) listProjectsWrk(projects *[]*es.Project, err error) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	hits := *resp.GetHits()
 	res := []string{}
-	var project *es.Project
-	for _, hit := range hits {
-		if err = json.Unmarshal(*hit.Source, &project); err != nil {
-			return nil, err
-		}
+	for _, project := range *projects {
 		res = append(res, project.FullName)
 	}
 	sort.Strings(res)

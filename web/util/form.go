@@ -37,7 +37,7 @@ type Form struct {
 
 	ReportShaOrg       string `form:"reportshaorg"`
 	ReportShaRepo      string `form:"reportsharepo"`
-	ReportShaSha       string `form:"reportshatag"`
+	ReportShaSha       string `form:"reportshasha"`
 	ButtonReportTagSha string `form:"button_reportsha"`
 
 	//Listing
