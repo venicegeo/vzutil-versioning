@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"strings"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/es"
@@ -75,7 +76,25 @@ func (r *Reporter) reportBySha(fullName, sha string) (res []es.Dependency, err e
 	return res, nil
 }
 
-func (r *Reporter) reportByTag(tag string) (map[string][]es.Dependency, error) {
+func (r *Reporter) reportByTag(info ...string) (map[string][]es.Dependency, error) {
+	switch len(info) {
+	case 1: //just a tag
+		tag := info[0]
+		return r.reportByTag1(tag)
+	case 2: //org and tag
+		org := info[0]
+		tag := info[1]
+		return r.reportByTag2(org, tag)
+	case 3: //org repo and tag
+		org := info[0]
+		repo := info[1]
+		tag := info[2]
+		return r.reportByTag3(tag, org+"_"+repo)
+	}
+	return nil, errors.New("Sorry, something is wrong with the code..")
+}
+
+func (r *Reporter) reportByTag1(tag string) (map[string][]es.Dependency, error) {
 	resp, err := es.MatchAllSize(r.index, "project", r.searchSize)
 	if err != nil {
 		return nil, err
@@ -90,39 +109,61 @@ func (r *Reporter) reportByTag(tag string) (map[string][]es.Dependency, error) {
 		projects = append(projects, project)
 	}
 
-	mapp := map[string]string{}
-
+	res := map[string][]es.Dependency{}
 	for _, project := range projects {
 		tagShas, err := project.GetTagShas()
 		if err != nil {
 			return nil, err
 		}
 		sha, exists := (*tagShas)[tag]
-		if exists {
-			mapp[project.FullName] = sha
+		if !exists {
+			continue
 		}
-	}
-
-	mappp := map[string][]es.Dependency{}
-	for projectName, sha := range mapp {
-		deps, err := r.reportBySha(projectName, sha)
+		deps, err := r.reportBySha(project.FullName, sha)
 		if err != nil {
 			return nil, err
 		}
-		mappp[projectName] = deps
+		res[project.FullName] = deps
 	}
-
-	return mappp, nil
+	return res, nil
 }
 
-func (r *Reporter) reportByTag2(tag, fullName string) ([]es.Dependency, error) {
+func (r *Reporter) reportByTag2(org, tag string) (map[string][]es.Dependency, error) {
+	projectNames, err := r.listProjectsByOrg(org)
+	if err != nil {
+		return nil, err
+	}
+	res := map[string][]es.Dependency{}
+	for _, name := range projectNames {
+		project, err := es.GetProjectById(r.index, name)
+		if err != nil {
+			return nil, err
+		}
+		tagShas, err := project.GetTagShas()
+		if err != nil {
+			return nil, err
+		}
+		sha, exists := (*tagShas)[tag]
+		if !exists {
+			continue
+		}
+		deps, err := r.reportBySha(name, sha)
+		if err != nil {
+			return nil, err
+		}
+		res[name] = deps
+	}
+	return res, nil
+}
+
+func (r *Reporter) reportByTag3(tag, docName string) (map[string][]es.Dependency, error) {
 	var project *es.Project
 	var err error
 	var tagShas *map[string]string
 	var sha string
 	var ok bool
 
-	if project, err = es.GetProjectById(r.index, fullName); err != nil {
+	if project, err = es.GetProjectById(r.index, docName); err != nil {
 		return nil, err
 	}
 	if tagShas, err = project.GetTagShas(); err != nil {
@@ -131,7 +172,11 @@ func (r *Reporter) reportByTag2(tag, fullName string) ([]es.Dependency, error) {
 	if sha, ok = (*tagShas)[tag]; !ok {
 		return nil, errors.New("Could not find this tag: [" + tag + "]")
 	}
-	return r.reportBySha(fullName, sha)
+	deps, err := r.reportBySha(docName, sha)
+	if err != nil {
+		return nil, err
+	}
+	return map[string][]es.Dependency{strings.Replace(docName, "_", "/", 1): deps}, nil
 }
 
 //

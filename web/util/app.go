@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
+	"github.com/venicegeo/vzutil-versioning/web/es"
 	"github.com/venicegeo/vzutil-versioning/web/f"
 	"github.com/venicegeo/vzutil-versioning/web/util/table"
 )
@@ -113,8 +114,9 @@ func (a *Application) Start() chan error {
 		RouteData{"GET", "/generate/tags/:org", a.updateAllTagsOrg},
 		RouteData{"GET", "/generate/sha/:org/:repo/:sha", a.specificSha},
 		RouteData{"GET", "/report/sha/:org/:repo/:sha", a.reportSha},
-		RouteData{"GET", "/report/tag/repo/:org/:repo/:tag", a.reportTag},
-		RouteData{"GET", "/report/tag/all/:tag", a.reportTagAll},
+		RouteData{"GET", "/report/tag/:tagorg", a.reportTag},
+		RouteData{"GET", "/report/tag/:tagorg/:tagrepo", a.reportTag},
+		RouteData{"GET", "/report/tag/:tagorg/:tagrepo/:tag", a.reportTag},
 		RouteData{"GET", "/list/shas/:org/:repo", a.listShas},
 		RouteData{"GET", "/list/tags/:org/:repo", a.listTagsRepo},
 		RouteData{"GET", "/list/tags/:org", a.listTags},
@@ -282,28 +284,20 @@ func (a *Application) reportTag(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
+	tagorg := c.Param("tagorg")
+	tagrepo := c.Param("tagrepo")
 	tag := c.Param("tag")
-	fullName := f.Format("%s/%s", c.Param("org"), c.Param("repo"))
-	deps, err := a.rprtr.reportByTag2(c.Param("tag"), fullName)
-	if err != nil {
-		a.displayFailure(c, "Unable to do this: "+err.Error())
-		return
+
+	var deps map[string][]es.Dependency
+	var err error
+	if tagorg != "" && tagrepo != "" && tag != "" {
+		deps, err = a.rprtr.reportByTag(tagorg, tagrepo, tag)
+	} else if tagorg != "" && tagrepo != "" {
+		deps, err = a.rprtr.reportByTag(tagorg, tagrepo)
+	} else if tagorg != "" {
+		deps, err = a.rprtr.reportByTag(tagorg)
 	}
-	header := "Report for " + fullName + " at " + tag + "\n"
-	t := table.NewTable(3, len(deps))
-	for _, dep := range deps {
-		t.Fill(dep.Name)
-		t.Fill(dep.Version)
-		t.Fill(dep.Language)
-	}
-	a.displaySuccess(c, header+t.SpaceColumn(1).NoBorders().Format().String())
-}
-func (a *Application) reportTagAll(c *gin.Context) {
-	if a.checkBack(c) {
-		return
-	}
-	tag := c.Param("tag")
-	deps, err := a.rprtr.reportByTag(tag)
+
 	if err != nil {
 		a.displayFailure(c, "Unable to do this: "+err.Error())
 		return
@@ -446,14 +440,24 @@ func (a *Application) formPath(c *gin.Context) {
 	}
 	buttonPress := form.findButtonPress()
 	switch buttonPress {
-	case ReportAllTag:
-		c.Redirect(307, "/report/tag/all/"+form.ReportAllTag)
-	case ReportTagSha:
-		if form.ReportTag != "" {
-			c.Redirect(307, f.Format("/report/tag/repo/%s/%s/%s", form.ReportOrg, form.ReportRepo, form.ReportTag))
+	case ReportTag:
+		if form.ReportTagRepo != "" && form.ReportTagOrg == "" {
+			a.displayFailure(c, "Must specify an org if you specify a repo")
 		} else {
-			c.Redirect(307, f.Format("/report/sha/%s/%s/%s", form.ReportOrg, form.ReportRepo, form.ReportSha))
+			url := "/report/tag"
+			if form.ReportTagOrg != "" {
+				url += "/" + form.ReportTagOrg
+			}
+			if form.ReportTagRepo != "" {
+				url += "/" + form.ReportTagRepo
+			}
+			if form.ReportTagTag != "" {
+				url += "/" + form.ReportTagTag
+			}
+			c.Redirect(307, url)
 		}
+	case ReportSha:
+		c.Redirect(307, f.Format("/report/sha/%s/%s/%s", form.ReportShaOrg, form.ReportShaRepo, form.ReportShaSha))
 	case ListTags:
 		if form.TagsRepo != "" {
 			c.Redirect(307, f.Format("/list/tags/%s/%s", form.TagsOrg, form.TagsRepo))

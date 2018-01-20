@@ -21,27 +21,28 @@ td {
 			
 			<table><tr>
 				<td><fieldset>
-					<legend>All by tag</legend>
+					<legend>By tag</legend>
 					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="reporttagorg" value="" placeholder="Optional"></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="reporttagrepo" value="" placeholder="Optional - Needs Org"></td></tr>
 						<tr><td>Tag:</td>
-							<td><input type="text" name="reportalltag" value=""></td></tr>
-						<tr><td><input type="submit" name="button_reportalltag" value="Submit"></td></tr>
+							<td><input type="text" name="reporttagtag" value=""></td></tr>
+						<tr><td><input type="submit" name="button_reporttag" value="Submit"></td></tr>
 					</table>
 				</fieldset></td>
 			
 				<td><fieldset>
-					<legend>By tag or sha</legend>
+					<legend>By sha</legend>
 					<table>
 						<tr><td>Org:</td>
-							<td><input type="text" name="reportorg" value=""></td></tr>
+							<td><input type="text" name="reportshaorg" value=""></td></tr>
 						<tr><td>Repo:</td>
-							<td><input type="text" name="reportrepo" value=""></td></tr>
-						<tr><td>Tag:</td>
-							<td><input type="text" name="reporttag" value=""></td></tr>
-						<tr><td>or</td></tr>
+							<td><input type="text" name="reportsharepo" value=""></td></tr>
 						<tr><td>Sha:</td>
-							<td><input type="text" name="reportsha" value=""></td></tr>
-						<tr><td><input type="submit" name="button_reporttagsha" value="Submit"></td></tr>
+							<td><input type="text" name="reportshasha" value=""></td></tr>
+						<tr><td><input type="submit" name="button_reportsha" value="Submit"></td></tr>
 					</table>
 				</fieldset></td>
 			</tr></table>

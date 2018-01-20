@@ -21,8 +21,8 @@ import (
 
 type Forms string
 
-var ReportAllTag Forms = "reportalltag"
-var ReportTagSha Forms = "reporttagsha"
+var ReportTag Forms = "reporttag"
+var ReportSha Forms = "reportsha"
 var ListTags Forms = "listtags"
 var ListShas Forms = "listshas"
 var GenerateTag Forms = "generatetag"
@@ -30,14 +30,15 @@ var GenerateSha Forms = "generatesha"
 
 type Form struct {
 	//Reporting
-	ReportAllTag       string `form:"reportalltag"`
-	ButtonReportAllTag string `form:"button_reportalltag"`
+	ReportTagOrg       string `form:"reporttagorg"`
+	ReportTagRepo      string `form:"reporttagrepo"`
+	ReportTagTag       string `form:"reporttagtag"`
+	ButtonReportAllTag string `form:"button_reporttag"`
 
-	ReportOrg          string `form:"reportorg"`
-	ReportRepo         string `form:"reportrepo"`
-	ReportTag          string `form:"reporttag"`
-	ReportSha          string `form:"reportsha"`
-	ButtonReportTagSha string `form:"button_reporttagsha"`
+	ReportShaOrg       string `form:"reportshaorg"`
+	ReportShaRepo      string `form:"reportsharepo"`
+	ReportShaSha       string `form:"reportshatag"`
+	ButtonReportTagSha string `form:"button_reportsha"`
 
 	//Listing
 	TagsOrg        string `form:"tagsorg"`
