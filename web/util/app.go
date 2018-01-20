@@ -293,9 +293,11 @@ func (a *Application) reportTag(c *gin.Context) {
 	if tagorg != "" && tagrepo != "" && tag != "" {
 		deps, err = a.rprtr.reportByTag(tagorg, tagrepo, tag)
 	} else if tagorg != "" && tagrepo != "" {
-		deps, err = a.rprtr.reportByTag(tagorg, tagrepo)
+		tag = tagrepo
+		deps, err = a.rprtr.reportByTag(tagorg, tag)
 	} else if tagorg != "" {
-		deps, err = a.rprtr.reportByTag(tagorg)
+		tag = tagorg
+		deps, err = a.rprtr.reportByTag(tag)
 	}
 
 	if err != nil {
