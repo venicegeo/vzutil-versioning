@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package helpers
 
 import (
 	"encoding/json"
@@ -23,7 +23,7 @@ import (
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/es"
-	"github.com/venicegeo/vzutil-versioning/web/f"
+	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 type Reporter struct {
@@ -35,16 +35,16 @@ func NewReporter(index *elasticsearch.Index) *Reporter {
 	return &Reporter{index, 250}
 }
 
-func (r *Reporter) reportByShaName(fullName, sha string) (res []es.Dependency, err error) {
+func (r *Reporter) ReportByShaName(fullName, sha string) (res []es.Dependency, err error) {
 	var project *es.Project
 
 	if project, err = es.GetProjectById(r.index, fullName); err != nil {
 		return nil, err
 	}
-	return r.reportByShaProject(project, sha)
+	return r.ReportByShaProject(project, sha)
 
 }
-func (r *Reporter) reportByShaProject(project *es.Project, sha string) (res []es.Dependency, err error) {
+func (r *Reporter) ReportByShaProject(project *es.Project, sha string) (res []es.Dependency, err error) {
 	var projectEntries *es.ProjectEntries
 	var entry es.ProjectEntry
 	var exists bool
@@ -66,7 +66,7 @@ func (r *Reporter) reportByShaProject(project *es.Project, sha string) (res []es
 	done := make(chan bool, len(entry.Dependencies))
 	work := func(dep string) {
 		if resp, err := r.index.GetByID("dependency", dep); err != nil || !resp.Found {
-			name := f.Format("Cound not find [%s]", dep)
+			name := u.Format("Cound not find [%s]", dep)
 			tmp := es.Dependency{name, "", ""}
 			mux.Lock()
 			res = append(res, tmp)
@@ -74,7 +74,7 @@ func (r *Reporter) reportByShaProject(project *es.Project, sha string) (res []es
 		} else {
 			var depen es.Dependency
 			if err = json.Unmarshal([]byte(*resp.Source), &depen); err != nil {
-				tmp := es.Dependency{f.Format("Error getting [%s]: [%s]", dep, err.Error()), "", ""}
+				tmp := es.Dependency{u.Format("Error getting [%s]: [%s]", dep, err.Error()), "", ""}
 				mux.Lock()
 				res = append(res, tmp)
 				mux.Unlock()
@@ -96,7 +96,7 @@ func (r *Reporter) reportByShaProject(project *es.Project, sha string) (res []es
 	return res, nil
 }
 
-func (r *Reporter) reportByTag(info ...string) (map[string][]es.Dependency, error) {
+func (r *Reporter) ReportByTag(info ...string) (map[string][]es.Dependency, error) {
 	switch len(info) {
 	case 1: //just a tag
 		tag := info[0]
@@ -134,7 +134,7 @@ func (r *Reporter) reportByTag1(tag string) (map[string][]es.Dependency, error) 
 			errs <- err
 			return
 		}
-		deps, err := r.reportByShaProject(project, sha)
+		deps, err := r.ReportByShaProject(project, sha)
 		if err != nil {
 			errs <- err
 			return
@@ -177,7 +177,7 @@ func (r *Reporter) reportByTag2(org, tag string) (map[string][]es.Dependency, er
 			errs <- nil
 			return
 		}
-		deps, err := r.reportByShaProject(project, sha)
+		deps, err := r.ReportByShaProject(project, sha)
 		if err != nil {
 			errs <- err
 			return
@@ -215,7 +215,7 @@ func (r *Reporter) reportByTag3(tag, docName string) (map[string][]es.Dependency
 	if sha, ok = (*tagShas)[tag]; !ok {
 		return nil, errors.New("Could not find this tag: [" + tag + "]")
 	}
-	deps, err := r.reportByShaProject(project, sha)
+	deps, err := r.ReportByShaProject(project, sha)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func (r *Reporter) reportByTag3(tag, docName string) (map[string][]es.Dependency
 
 //
 
-func (r *Reporter) listShas(fullName string) (res []string, err error) {
+func (r *Reporter) ListShas(fullName string) (res []string, err error) {
 	var project *es.Project
 	var entries *es.ProjectEntries
 
@@ -243,14 +243,14 @@ func (r *Reporter) listShas(fullName string) (res []string, err error) {
 
 //
 
-func (r *Reporter) listTagsRepo(fullName string) (*map[string]string, error) {
+func (r *Reporter) ListTagsRepo(fullName string) (*map[string]string, error) {
 	project, err := es.GetProjectById(r.index, fullName)
 	if err != nil {
 		return nil, err
 	}
 	return project.GetTagShas()
 }
-func (r *Reporter) listTags(org string) (*map[string][]string, int, error) {
+func (r *Reporter) ListTags(org string) (*map[string][]string, int, error) {
 	projects, err := es.GetProjectsOrg(r.index, org, r.searchSize)
 	if err != nil {
 		return nil, 0, err
@@ -294,11 +294,11 @@ func (r *Reporter) listTags(org string) (*map[string][]string, int, error) {
 
 //
 
-func (r *Reporter) listProjects() ([]string, error) {
+func (r *Reporter) ListProjects() ([]string, error) {
 	return r.listProjectsWrk(es.GetAllProjects(r.index, r.searchSize))
 
 }
-func (r *Reporter) listProjectsByOrg(org string) ([]string, error) {
+func (r *Reporter) ListProjectsByOrg(org string) ([]string, error) {
 	return r.listProjectsWrk(es.GetProjectsOrg(r.index, org, r.searchSize))
 }
 func (r *Reporter) listProjectsWrk(projects *[]*es.Project, err error) ([]string, error) {

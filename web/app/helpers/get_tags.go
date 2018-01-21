@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package helpers
 
 import (
 	"errors"
@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/venicegeo/vzutil-versioning/web/f"
+	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 type tagsRunner struct {
@@ -28,15 +28,15 @@ type tagsRunner struct {
 	fullName string
 }
 
-func newTagsRunner(name, fullName string) *tagsRunner {
+func NewTagsRunner(name, fullName string) *tagsRunner {
 	return &tagsRunner{name, fullName}
 }
 
-func (tr *tagsRunner) run() (res map[string]string, err error) {
+func (tr *tagsRunner) Run() (res map[string]string, err error) {
 	res = map[string]string{}
-	tempFolder := f.Format("%d", time.Now().Unix())
+	tempFolder := u.Format("%d", time.Now().Unix())
 	defer func() { exec.Command("rm", "-rf", tempFolder).Run() }()
-	targetFolder := f.Format("%s/%s", tempFolder, tr.name)
+	targetFolder := u.Format("%s/%s", tempFolder, tr.name)
 	if err = exec.Command("mkdir", tempFolder).Run(); err != nil {
 		return res, err
 	}

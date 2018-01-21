@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package structs
 
 import (
 	"reflect"
@@ -60,7 +60,7 @@ type Form struct {
 	ButtonGenerateSha string `form:"button_generatesha"`
 }
 
-func (f *Form) isEmpty() bool {
+func (f *Form) IsEmpty() bool {
 	val := reflect.ValueOf(f).Elem()
 	for i := 0; i < val.NumField(); i++ {
 		if strings.TrimSpace(val.Field(i).String()) != "" {
@@ -70,7 +70,7 @@ func (f *Form) isEmpty() bool {
 	return true
 }
 
-func (f *Form) findButtonPress() Forms {
+func (f *Form) FindButtonPress() Forms {
 	val := reflect.ValueOf(f).Elem()
 	for i := 0; i < val.NumField(); i++ {
 		f := val.Field(i)

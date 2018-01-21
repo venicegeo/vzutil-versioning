@@ -21,7 +21,7 @@ import (
 	"sync"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
-	"github.com/venicegeo/vzutil-versioning/web/f"
+	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 func GetProjectById(index *elasticsearch.Index, fullName string) (*Project, error) {
@@ -61,7 +61,7 @@ func CheckShaExists(index *elasticsearch.Index, fullName string, sha string) (bo
 }
 
 func MatchAllSize(index *elasticsearch.Index, typ string, size int) (*elasticsearch.SearchResult, error) {
-	return index.SearchByJSON(typ, f.Format(`
+	return index.SearchByJSON(typ, u.Format(`
 {
 	"size": %d,
 	"query":{}
@@ -74,7 +74,7 @@ func GetAllProjects(index *elasticsearch.Index, size int) (*[]*Project, error) {
 }
 
 func GetProjectsOrg(index *elasticsearch.Index, org string, size int) (*[]*Project, error) {
-	return hitsToProjects(index.SearchByJSON("project", f.Format(`
+	return hitsToProjects(index.SearchByJSON("project", u.Format(`
 {
 	"size": %d,
 	"query": {

@@ -17,10 +17,10 @@ package main
 import (
 	"log"
 
-	"github.com/venicegeo/vzutil-versioning/web/util"
+	"github.com/venicegeo/vzutil-versioning/web/app"
 )
 
 func main() {
-	app := util.NewApplication("versioning_tool", "./single", false)
+	app := app.NewApplication("versioning_tool", "./single", false)
 	log.Println(<-app.Start())
 }

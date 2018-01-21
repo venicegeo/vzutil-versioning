@@ -14,16 +14,10 @@
 
 package util
 
-type GitWebhook struct {
-	Ref        string        `json:"ref"`
-	BeforeSha  string        `json:"before"`
-	AfterSha   string        `json:"after"`
-	Repository GitRepository `json:"repository"`
-}
-type GitRepository struct {
-	Id       int64  `json:"id"`
-	Name     string `json:"name"`
-	FullName string `json:"full_name"`
-	HtmlUrl  string `json:"html_url"`
-	Url      string `json:"url"`
+import (
+	"fmt"
+)
+
+func Format(format string, a ...interface{}) string {
+	return fmt.Sprintf(format, a...)
 }

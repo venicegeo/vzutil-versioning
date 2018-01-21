@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package helpers
 
 import (
 	"log"
@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
+	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 )
 
@@ -31,8 +32,8 @@ type Worker struct {
 	index          *elasticsearch.Index
 
 	numWorkers      int
-	checkExistQueue chan *GitWebhook
-	cloneQueue      chan *GitWebhook
+	checkExistQueue chan *s.GitWebhook
+	cloneQueue      chan *s.GitWebhook
 	esQueue         chan *work
 }
 
@@ -45,7 +46,7 @@ type work struct {
 }
 
 func NewWorker(i *elasticsearch.Index, singleLocation string, numWorkers int) *Worker {
-	wrkr := Worker{singleLocation, i, numWorkers, make(chan *GitWebhook, 1000), make(chan *GitWebhook, 1000), make(chan *work, 1000)}
+	wrkr := Worker{singleLocation, i, numWorkers, make(chan *s.GitWebhook, 1000), make(chan *s.GitWebhook, 1000), make(chan *work, 1000)}
 	return &wrkr
 }
 
@@ -214,6 +215,6 @@ func (w *Worker) startEs() {
 	go work()
 }
 
-func (w *Worker) AddTask(git *GitWebhook) {
+func (w *Worker) AddTask(git *s.GitWebhook) {
 	w.checkExistQueue <- git
 }

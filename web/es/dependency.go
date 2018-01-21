@@ -18,7 +18,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 
-	"github.com/venicegeo/vzutil-versioning/web/f"
+	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 type Dependency struct {
@@ -28,10 +28,10 @@ type Dependency struct {
 }
 
 func (d *Dependency) GetHashSum() string {
-	tmp := md5.Sum([]byte(f.Format("%s:%s:%s", d.Name, d.Version, d.Language)))
+	tmp := md5.Sum([]byte(u.Format("%s:%s:%s", d.Name, d.Version, d.Language)))
 	return hex.EncodeToString(tmp[:])
 }
 
 func (d *Dependency) String() string {
-	return f.Format("%s:%s:%s", d.Name, d.Version, d.Language)
+	return u.Format("%s:%s:%s", d.Name, d.Version, d.Language)
 }
