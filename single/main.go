@@ -43,10 +43,12 @@ func main() {
 	}
 
 	name := strings.Split(os.Args[1], "/")[1]
+	fmt.Println(name)
 	location, err := cloneAndCheckout(os.Args[1], os.Args[2], name)
-	cleanup := func() { exec.Command("rm", "-rf", location).Run() }
+	cleanup := func() { exec.Command("rm", "-rf", strings.TrimSuffix(location, name)).Run() }
 	defer cleanup()
 	if err != nil {
+		fmt.Println("I should be cleaning up")
 		cleanup()
 		log.Fatalln("checking out:", err)
 	}
