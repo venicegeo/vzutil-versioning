@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
@@ -175,6 +176,19 @@ func (a *Application) formPath(c *gin.Context) {
 				res += p
 			}
 			h["projects"] = res
+		}
+		diffs, err := a.diffMan.AllDiffs(250)
+		if err != nil {
+			h["differences"] = "Sorry... could not\nload this.\n" + err.Error()
+		} else {
+			res := ""
+			for i, d := range *diffs {
+				if i > 0 {
+					res += "\n"
+				}
+				res += d.FullName + " " + time.Unix(d.Time, 0).String()
+			}
+			h["differences"] = res
 		}
 		c.HTML(200, "form.html", h)
 		return

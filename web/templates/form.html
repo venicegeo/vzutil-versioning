@@ -109,6 +109,15 @@ td {
 				</fieldset></td>
 			</tr></table>
 		</fieldset></td>
+		
+		<td><fieldset id="differences">
+			<legend>Differences</legend>
+			<pre>
+{{ .differences }}
+			</pre>
+			<input type="submit" name="button_diffman" value="Manager">
+		</fieldset></td>
+		
 	</td></table>
 	</form>
 	
@@ -120,6 +129,13 @@ td {
 		var offset = document.getElementById('knownProjects').offsetHeight-right;
 		document.getElementById('knownProjects').style.height = right-offset;
 	}
+	left = document.getElementById('differences').offsetHeight;
+	if (left<right) {
+		document.getElementById('differences').style.height = right;
+		var offset = document.getElementById('differences').offsetHeight-right;
+		document.getElementById('differences').style.height = right-offset;
+	}
+
 	</script>
 </body>
 </html>

@@ -18,6 +18,8 @@ import (
 	"errors"
 	"time"
 
+	"encoding/json"
+
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 )
@@ -37,6 +39,23 @@ type Difference struct {
 	Removed  []string `json:"removed"`
 	Added    []string `json:"added"`
 	Time     int64    `json:"time"`
+}
+
+func (d *DifferenceManager) AllDiffs(size int) (*[]Difference, error) {
+	resp, err := es.MatchAllSize(d.index, "difference", size)
+	if err != nil {
+		return nil, err
+	}
+	hits := resp.GetHits()
+	diffs := []Difference{}
+	for _, hit := range *hits {
+		var diff Difference
+		if err = json.Unmarshal([]byte(*hit.Source), &diff); err != nil {
+			return nil, err
+		}
+		diffs = append(diffs, diff)
+	}
+	return &diffs, nil
 }
 
 func (d *DifferenceManager) webhookCompare(project *es.Project) (*Difference, error) {

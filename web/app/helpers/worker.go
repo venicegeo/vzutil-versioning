@@ -219,7 +219,9 @@ func (w *Worker) startEs() {
 			if workInfo.reall {
 				go func() {
 					_, err := w.diffMan.webhookCompare(project)
-					log.Println("[ES-WORKER] Error creating diff:", err.Error())
+					if err != nil {
+						log.Println("[ES-WORKER] Error creating diff:", err.Error())
+					}
 				}()
 			}
 		}
