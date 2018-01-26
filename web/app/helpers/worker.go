@@ -35,6 +35,8 @@ type Worker struct {
 	checkExistQueue chan *s.GitWebhook
 	cloneQueue      chan *s.GitWebhook
 	esQueue         chan *work
+
+	diffMan *DifferenceManager
 }
 
 type work struct {
@@ -43,10 +45,11 @@ type work struct {
 	sha      string
 	ref      string
 	hashes   []string
+	reall    bool
 }
 
-func NewWorker(i *elasticsearch.Index, singleLocation string, numWorkers int) *Worker {
-	wrkr := Worker{singleLocation, i, numWorkers, make(chan *s.GitWebhook, 1000), make(chan *s.GitWebhook, 1000), make(chan *work, 1000)}
+func NewWorker(i *elasticsearch.Index, singleLocation string, numWorkers int, diffMan *DifferenceManager) *Worker {
+	wrkr := Worker{singleLocation, i, numWorkers, make(chan *s.GitWebhook, 1000), make(chan *s.GitWebhook, 1000), make(chan *work, 1000), diffMan}
 	return &wrkr
 }
 
@@ -120,7 +123,7 @@ func (w *Worker) startClone() {
 			}
 			sort.Strings(hashes)
 			log.Printf("[CLONE-WORKER (%d)] Adding %s to es queue\n", worker, git.AfterSha)
-			w.esQueue <- &work{git.Repository.FullName, git.Repository.Name, git.AfterSha, git.Ref, hashes}
+			w.esQueue <- &work{git.Repository.FullName, git.Repository.Name, git.AfterSha, git.Ref, hashes, git.Real}
 		}
 	}
 	for i := 1; i <= w.numWorkers; i++ {
@@ -151,6 +154,9 @@ func (w *Worker) startEs() {
 				}
 			} else {
 				project = es.NewProject(workInfo.fullName, workInfo.name)
+			}
+			if workInfo.reall {
+				project.WebhookOrder = append([]string{workInfo.sha}, project.WebhookOrder...)
 			}
 			if projectEntries, err = project.GetEntries(); err != nil {
 				log.Println("[ES-WORKER] Unable to get entries:", err.Error())
@@ -210,6 +216,12 @@ func (w *Worker) startEs() {
 				}
 			}
 			log.Println("[ES-WORKER] Finished work on", workInfo.fullName, workInfo.sha)
+			if workInfo.reall {
+				go func() {
+					_, err := w.diffMan.webhookCompare(project)
+					log.Println("[ES-WORKER] Error creating diff:", err.Error())
+				}()
+			}
 		}
 	}
 	go work()

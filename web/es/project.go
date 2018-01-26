@@ -19,11 +19,12 @@ import (
 )
 
 type Project struct {
-	FullName string `json:"full_name"`
-	Name     string `json:"name"`
-	LastSha  string `json:"last_sha"`
-	TagShas  string `json:"tag_shas"`
-	Entries  string `json:"entries"`
+	FullName     string   `json:"full_name"`
+	Name         string   `json:"name"`
+	LastSha      string   `json:"last_sha"`
+	WebhookOrder []string `json:"webhook_order"`
+	TagShas      string   `json:"tag_shas"`
+	Entries      string   `json:"entries"`
 }
 
 type ProjectEntries map[string]ProjectEntry
@@ -38,7 +39,7 @@ func NewProject(fullName, name string) *Project {
 	temp2 := map[string]string{}
 	dat, _ := json.Marshal(temp)
 	dat2, _ := json.Marshal(temp2)
-	return &Project{fullName, name, "", string(dat2), string(dat)}
+	return &Project{fullName, name, "", []string{}, string(dat2), string(dat)}
 }
 
 func (p *Project) GetEntries() (*ProjectEntries, error) {

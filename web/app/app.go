@@ -35,6 +35,7 @@ type Application struct {
 
 	wrkr     *h.Worker
 	rprtr    *h.Reporter
+	diffMan  *h.DifferenceManager
 	killChan chan bool
 }
 
@@ -70,20 +71,32 @@ func (a *Application) Start() chan error {
 		"project":{
 			"dynamic":"strict",
 			"properties":{
-				"full_name":{"type":"string"},
-				"name":{"type":"string"},
-				"last_sha":{"type":"string"},
-				"tag_shas":{"type":"string"},
-				"entries":{"type":"string"}
+				"full_name":{"type":"text"},
+				"name":{"type":"text"},
+				"last_sha":{"type":"text"},
+				"webhook_order":{"type":"text"},
+				"tag_shas":{"type":"text"},
+				"entries":{"type":"text"}
 			}
 		},
 		"dependency":{
 			"dynamic":"strict",
 			"properties":{
-				"hashsum":{"type":"string"},
-				"name":{"type":"string"},
-				"version":{"type":"string"},
-				"language":{"type":"string"}
+				"hashsum":{"type":"text"},
+				"name":{"type":"text"},
+				"version":{"type":"text"},
+				"language":{"type":"text"}
+			}
+		},
+		"difference":{
+			"dynamic":"strict",
+			"properties":{
+				"full_name":{"type":"text"},
+				"old_sha":{"type":"text"},
+				"new_sha":{"type":"text"},
+				"removed":{"type":"text"},
+				"added":{"type":"text"},
+				"time":{"type":"long"}
 			}
 		}
 	}
@@ -94,7 +107,8 @@ func (a *Application) Start() chan error {
 		log.Println(i.GetVersion())
 	}
 
-	a.wrkr = h.NewWorker(i, a.singleLocation, 10)
+	a.diffMan = h.NewDifferenceManager(i)
+	a.wrkr = h.NewWorker(i, a.singleLocation, 10, a.diffMan)
 	a.wrkr.Start()
 	a.rprtr = h.NewReporter(i)
 

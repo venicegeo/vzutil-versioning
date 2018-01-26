@@ -26,7 +26,7 @@ import (
 )
 
 func (a *Application) webhookPath(c *gin.Context) {
-	git := s.GitWebhook{}
+	git := s.GitWebhook{Real: true}
 
 	if err := c.BindJSON(&git); err != nil {
 		log.Println("Unable to bind json:", err.Error())
@@ -34,7 +34,7 @@ func (a *Application) webhookPath(c *gin.Context) {
 		return
 	}
 
-	log.Println(git.Repository.FullName, git.AfterSha, git.Ref)
+	log.Println("[RECIEVED WEBHOOK]", git.Repository.FullName, git.AfterSha, git.Ref)
 	c.String(200, "Thanks!")
 
 	a.wrkr.AddTask(&git)
