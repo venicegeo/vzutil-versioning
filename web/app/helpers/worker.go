@@ -107,14 +107,14 @@ func (w *Worker) startClone() {
 					hashes = append(hashes, hash)
 					exists, err := w.index.ItemExists("dependency", hash)
 					if err != nil || !exists {
-						go func() {
-							resp, err := w.index.PostData("dependency", hash, d)
+						go func(dep es.Dependency, h string) {
+							resp, err := w.index.PostData("dependency", h, dep)
 							if err != nil {
-								log.Printf("[CLONE-WORKER (%d)] Unable to create dependency %s [%s]\n", worker, hash, err.Error())
+								log.Printf("[CLONE-WORKER (%d)] Unable to create dependency %s [%s]\n", worker, h, err.Error())
 							} else if !resp.Created {
-								log.Printf("[CLONE-WORKER (%d)] Unable to create dependency %s\n", worker, hash)
+								log.Printf("[CLONE-WORKER (%d)] Unable to create dependency %s\n", worker, h)
 							}
-						}()
+						}(d, hash)
 					}
 				}
 			}
