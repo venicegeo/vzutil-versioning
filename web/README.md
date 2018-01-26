@@ -17,4 +17,4 @@ Rest Endpoints
 /list/projects/:org             List known projects in an organization
 ```
 
-For normal users, simply use the `/ui` endpoint in browser
+For normal users, simply use the `/ui` endpoint in a browser. This provides all the above functionality with an easier to use interface.
