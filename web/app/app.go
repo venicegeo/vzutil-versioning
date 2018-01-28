@@ -139,6 +139,7 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/list/projects/:org", a.listProjectsOrg},
 
 		u.RouteData{"GET", "/ui", a.formPath},
+		u.RouteData{"GET", "/diff", a.diffPath},
 	})
 	select {
 	case err = <-server.Start(":" + port):
@@ -229,9 +230,21 @@ func (a *Application) formPath(c *gin.Context) {
 		}
 	case s.GenerateSha:
 		c.Redirect(307, u.Format("/generate/sha/%s/%s/%s", form.ByShaOrg, form.ByShaRepo, form.ByShaSha))
+	case s.Differences:
+		c.Redirect(307, "/diff")
 	default:
 		c.String(400, "What did you do? :(")
 	}
+}
+func (a *Application) diffPath(c *gin.Context) {
+	if a.checkBack(c) {
+		return
+	}
+	h := gin.H{}
+	h["buttons"] = "TODO"
+	h["data"] = "TODO"
+	c.HTML(200, "differences.html", h)
+
 }
 
 func (a *Application) checkBack(c *gin.Context) (wasHandled bool) {

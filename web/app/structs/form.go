@@ -27,6 +27,7 @@ var ListTags Forms = "listtags"
 var ListShas Forms = "listshas"
 var GenerateTag Forms = "generatetag"
 var GenerateSha Forms = "generatesha"
+var Differences Forms = "diffman"
 
 type Form struct {
 	//Reporting
@@ -58,6 +59,9 @@ type Form struct {
 	ByShaRepo         string `form:"bysharepo"`
 	ByShaSha          string `form:"byshasha"`
 	ButtonGenerateSha string `form:"button_generatesha"`
+
+	//Differences
+	ButtonDifferences string `form:"button_diffman"`
 }
 
 func (f *Form) IsEmpty() bool {
