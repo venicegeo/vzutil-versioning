@@ -261,12 +261,12 @@ func (r *Reporter) ListTags(org string) (*map[string][]string, int, error) {
 	mux := &sync.Mutex{}
 
 	work := func(project *es.Project) {
-		temp := []string{}
 		tags, err := project.GetTagShas()
 		if err != nil {
 			errs <- err
 			return
 		}
+		temp := make([]string, 0, len(*tags))
 		for tag, _ := range *tags {
 			temp = append(temp, tag)
 		}
@@ -305,9 +305,9 @@ func (r *Reporter) listProjectsWrk(projects *[]*es.Project, err error) ([]string
 	if err != nil {
 		return nil, err
 	}
-	res := []string{}
-	for _, project := range *projects {
-		res = append(res, project.FullName)
+	res := make([]string, len(*projects))
+	for i, project := range *projects {
+		res[i] = project.FullName
 	}
 	sort.Strings(res)
 	return res, nil

@@ -28,9 +28,9 @@ type Table struct {
 func NewTable(width, height int) *Table {
 	table := &Table{[][]string{}, []bool{}, 0, 0, true, true}
 	for i := 0; i < height; i++ {
-		temp := []string{}
+		temp := make([]string, width)
 		for j := 0; j < width; j++ {
-			temp = append(temp, "")
+			temp[j] = ""
 		}
 		table.table = append(table.table, temp)
 	}

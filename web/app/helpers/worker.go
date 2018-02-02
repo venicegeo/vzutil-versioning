@@ -87,15 +87,17 @@ func (w *Worker) startClone() {
 		for {
 			git := <-w.cloneQueue
 			log.Printf("[CLONE-WORKER (%d)] Starting work on %s\n", worker, git.AfterSha)
-			deps := []es.Dependency{}
-			hashes := []string{}
+			var deps []es.Dependency
+			var hashes []string
 			dat, err := exec.Command(w.singleLocation, git.Repository.FullName, git.AfterSha).Output()
 			if err != nil {
 				log.Printf("[CLONE-WORKER (%d)] Unable to run against %s [%s]\n", worker, git.AfterSha, err.Error())
 				continue
 			}
 			{
-				for _, p := range strings.Split(string(dat), "\n")[2:] {
+				tmp := strings.Split(string(dat), "\n")[2:]
+				deps = make([]es.Dependency, 0, len(tmp))
+				for _, p := range tmp {
 					if p == "" {
 						continue
 					}
@@ -104,10 +106,11 @@ func (w *Worker) startClone() {
 				}
 			}
 			{
-
-				for _, d := range deps {
+				log.Println(deps)
+				hashes = make([]string, len(deps))
+				for i, d := range deps {
 					hash := d.GetHashSum()
-					hashes = append(hashes, hash)
+					hashes[i] = hash
 					exists, err := w.index.ItemExists("dependency", hash)
 					if err != nil || !exists {
 						go func(dep es.Dependency, h string) {
@@ -121,8 +124,8 @@ func (w *Worker) startClone() {
 					}
 				}
 			}
-			sort.Strings(hashes)
 			log.Printf("[CLONE-WORKER (%d)] Adding %s to es queue\n", worker, git.AfterSha)
+			log.Println(hashes)
 			w.esQueue <- &work{git.Repository.FullName, git.Repository.Name, git.AfterSha, git.Ref, hashes, git.Real}
 		}
 	}

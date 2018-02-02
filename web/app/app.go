@@ -254,9 +254,9 @@ func (a *Application) diffPath(c *gin.Context) {
 			c.HTML(500, "differences.html", gh)
 			return
 		}
-		buttons := []template.HTML{}
-		for _, d := range diffs {
-			buttons = append(buttons, s.NewHtmlButton(d).Template())
+		buttons := make([]template.HTML, len(diffs))
+		for i, d := range diffs {
+			buttons[i] = s.NewHtmlButton(d).Template()
 		}
 		gh["buttons"] = buttons
 	}
@@ -328,7 +328,10 @@ func (a *Application) handleMaven() error {
 			return err
 		}
 	}
-	dat, _ := exec.Command("mvn", "-X").Output()
+	dat, err := exec.Command("mvn", "-X").Output()
+	if err != nil {
+		return err
+	}
 	re := regexp.MustCompile(`Reading user settings from (.+)\/`)
 	finds := re.FindStringSubmatch(string(dat))
 	if len(finds) != 2 {

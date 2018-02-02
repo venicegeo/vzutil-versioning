@@ -92,22 +92,22 @@ func hitsToProjects(resp *elasticsearch.SearchResult, err error) (*[]*Project, e
 		return nil, err
 	}
 	hits := *resp.GetHits()
-	res := []*Project{}
+	res := make([]*Project, len(hits))
 	mux := &sync.Mutex{}
 	errs := make(chan error, len(hits))
-	work := func(hit *elasticsearch.SearchResultHit) {
+	work := func(i int, hit *elasticsearch.SearchResultHit) {
 		var project Project
 		if err = json.Unmarshal(*hit.Source, &project); err != nil {
 			errs <- err
 			return
 		}
 		mux.Lock()
-		res = append(res, &project)
+		res[i] = &project
 		mux.Unlock()
 		errs <- nil
 	}
-	for _, hit := range hits {
-		go work(hit)
+	for i, hit := range hits {
+		go work(i, hit)
 	}
 	for i := 0; i < len(hits); i++ {
 		err := <-errs

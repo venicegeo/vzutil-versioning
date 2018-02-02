@@ -103,13 +103,13 @@ func (d *DifferenceManager) AllDiffs(size int) (*[]Difference, error) {
 		return nil, err
 	}
 	hits := resp.GetHits()
-	diffs := []Difference{}
-	for _, hit := range *hits {
+	diffs := make([]Difference, len(*hits))
+	for i, hit := range *hits {
 		var diff Difference
 		if err = json.Unmarshal([]byte(*hit.Source), &diff); err != nil {
 			return nil, err
 		}
-		diffs = append(diffs, diff)
+		diffs[i] = diff
 	}
 	sort.Sort(diffSort(diffs))
 	return &diffs, nil
@@ -120,9 +120,9 @@ func (d *DifferenceManager) DiffList(size int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	res := []string{}
-	for _, diff := range *diffs {
-		res = append(res, diff.SimpleString())
+	res := make([]string, len(*diffs))
+	for i, diff := range *diffs {
+		res[i] = diff.SimpleString()
 	}
 	return res, nil
 }
