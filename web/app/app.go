@@ -328,10 +328,7 @@ func (a *Application) handleMaven() error {
 			return err
 		}
 	}
-	dat, err := exec.Command("mvn", "-X").Output()
-	if err != nil {
-		return err
-	}
+	dat, _ := exec.Command("mvn", "-X").Output()
 	re := regexp.MustCompile(`Reading user settings from (.+)\/`)
 	finds := re.FindStringSubmatch(string(dat))
 	if len(finds) != 2 {
