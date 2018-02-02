@@ -5,12 +5,18 @@
 	<table>
 	<td>
 <fieldset>
-{{ .buttons }}
+	{{ range .buttons }}
+	<form>
+		{{.}}
+	</form>
+	{{end}}
 </fieldset>
 	</td>
 	<td>
 <fieldset>
+<pre>
 {{ .data }}
+</pre>
 </fieldset>
 	</td>
 	</table>

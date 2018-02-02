@@ -15,13 +15,14 @@
 package helpers
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
-	"encoding/json"
-
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/es"
+	u "github.com/venicegeo/vzutil-versioning/web/util"
+	t "github.com/venicegeo/vzutil-versioning/web/util/table"
 )
 
 type DifferenceManager struct {
@@ -41,6 +42,44 @@ type Difference struct {
 	Time     int64    `json:"time"`
 }
 
+func (dm *DifferenceManager) GenerateReport(d *Difference) string {
+	getDep := func(dep string) string {
+		if resp, err := dm.index.GetByID("dependency", dep); err != nil || !resp.Found {
+			name := u.Format("Cound not find [%s]", dep)
+			tmp := es.Dependency{name, "", ""}
+			return u.Format("%s:%s:%s", tmp.Name, tmp.Version, tmp.Language)
+		} else {
+			var depen es.Dependency
+			if err = json.Unmarshal([]byte(*resp.Source), &depen); err != nil {
+				tmp := es.Dependency{u.Format("Error getting [%s]: [%s]", dep, err.Error()), "", ""}
+				return u.Format("%s:%s:%s", tmp.Name, tmp.Version, tmp.Language)
+			} else {
+				return u.Format("%s:%s:%s", depen.Name, depen.Version, depen.Language)
+			}
+		}
+	}
+	height := len(d.Removed)
+	if height < len(d.Added) {
+		height = len(d.Added)
+	}
+	table := t.NewTable(2, height+1)
+	table.Fill("Removed")
+	table.Fill("Added")
+	for i := 0; i < height; i++ {
+		r := ""
+		a := ""
+		if i < len(d.Removed) {
+			r = d.Removed[i]
+		}
+		if i < len(d.Added) {
+			a = d.Added[i]
+		}
+		table.Fill(getDep(r))
+		table.Fill(getDep(a))
+	}
+	return table.Format().NoBorders().SpaceAllColumns().String()
+}
+
 func (d *DifferenceManager) AllDiffs(size int) (*[]Difference, error) {
 	resp, err := es.MatchAllSize(d.index, "difference", size)
 	if err != nil {
@@ -56,6 +95,18 @@ func (d *DifferenceManager) AllDiffs(size int) (*[]Difference, error) {
 		diffs = append(diffs, diff)
 	}
 	return &diffs, nil
+}
+
+func (d *DifferenceManager) DiffList(size int) ([]string, error) {
+	diffs, err := d.AllDiffs(size)
+	if err != nil {
+		return nil, err
+	}
+	res := []string{}
+	for _, diff := range *diffs {
+		res = append(res, diff.FullName+" "+time.Unix(diff.Time, 0).String())
+	}
+	return res, nil
 }
 
 func (d *DifferenceManager) webhookCompare(project *es.Project) (*Difference, error) {

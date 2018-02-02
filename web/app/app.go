@@ -16,6 +16,7 @@ package app
 
 import (
 	"errors"
+	"html/template"
 	"log"
 	"os"
 	"os/exec"
@@ -178,16 +179,16 @@ func (a *Application) formPath(c *gin.Context) {
 			}
 			h["projects"] = res
 		}
-		diffs, err := a.diffMan.AllDiffs(250)
+		diffs, err := a.diffMan.DiffList(250)
 		if err != nil {
 			h["differences"] = "Sorry... could not\nload this.\n" + err.Error()
 		} else {
 			res := ""
-			for i, d := range *diffs {
+			for i, d := range diffs {
 				if i > 0 {
 					res += "\n"
 				}
-				res += d.FullName + " " + time.Unix(d.Time, 0).String()
+				res += d
 			}
 			h["differences"] = res
 		}
@@ -240,11 +241,51 @@ func (a *Application) diffPath(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
-	h := gin.H{}
-	h["buttons"] = "TODO"
-	h["data"] = "TODO"
-	c.HTML(200, "differences.html", h)
-
+	gh := gin.H{}
+	if err := c.Request.ParseForm(); err != nil {
+		gh["buttons"] = "Error loading the form.\n" + err.Error()
+		c.HTML(500, "differences.html", gh)
+		return
+	}
+	form := map[string][]string(c.Request.Form)
+	{
+		diffs, err := a.diffMan.DiffList(250)
+		if err != nil {
+			gh["buttons"] = "Could not load this.\n" + err.Error()
+			c.HTML(500, "differences.html", gh)
+			return
+		}
+		buttons := []template.HTML{}
+		for _, d := range diffs {
+			buttons = append(buttons, s.NewHtmlButton(d).Template())
+		}
+		gh["buttons"] = buttons
+	}
+	{
+		var diffs *[]h.Difference
+		var err error
+		if len(form) > 0 {
+			if diffs, err = a.diffMan.AllDiffs(250); err != nil {
+				gh["data"] = "Error loading this.\n" + err.Error()
+				c.HTML(500, "differences.html", gh)
+				return
+			}
+		}
+		res := ""
+		for _, value := range form {
+			if len(value) == 0 {
+				continue
+			}
+			log.Println(value[0])
+			for _, diff := range *diffs {
+				if (diff.FullName + " " + time.Unix(diff.Time, 0).String()) == value[0] {
+					res += a.diffMan.GenerateReport(&diff) + "\n"
+				}
+			}
+		}
+		gh["data"] = res
+	}
+	c.HTML(200, "differences.html", gh)
 }
 
 func (a *Application) checkBack(c *gin.Context) (wasHandled bool) {
