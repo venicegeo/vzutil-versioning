@@ -17,15 +17,16 @@ package table
 import "strings"
 
 type Table struct {
-	table      [][]string
-	spaceColum []bool
-	nextRow    int
-	nextColumn int
-	drawBorder bool
+	table            [][]string
+	spaceColum       []bool
+	nextRow          int
+	nextColumn       int
+	drawRowBorder    bool
+	drawColumnBorder bool
 }
 
 func NewTable(width, height int) *Table {
-	table := &Table{[][]string{}, []bool{}, 0, 0, true}
+	table := &Table{[][]string{}, []bool{}, 0, 0, true, true}
 	for i := 0; i < height; i++ {
 		temp := []string{}
 		for j := 0; j < width; j++ {
@@ -85,18 +86,26 @@ func (t *Table) Format() *Table {
 	}
 	return t
 }
-func (t *Table) DrawBorders() *Table {
-	t.drawBorder = true
+func (t *Table) DrawRowBorders() *Table {
+	t.drawRowBorder = true
 	return t
 }
-func (t *Table) NoBorders() *Table {
-	t.drawBorder = false
+func (t *Table) DrawColumnBorders() *Table {
+	t.drawColumnBorder = true
+	return t
+}
+func (t *Table) NoRowBorders() *Table {
+	t.drawRowBorder = false
+	return t
+}
+func (t *Table) NoColumnBorders() *Table {
+	t.drawColumnBorder = false
 	return t
 }
 func (t *Table) String() string {
 	res := ""
 	pipe := "|"
-	if !t.drawBorder {
+	if !t.drawColumnBorder {
 		pipe = ""
 	}
 	for r := 0; r < len(t.table); r++ {
@@ -109,7 +118,7 @@ func (t *Table) String() string {
 			}
 		}
 		res += pipe + line + "\n"
-		if t.drawBorder {
+		if t.drawRowBorder {
 			for i := 0; i < len(line)+1; i++ {
 				res += "-"
 			}

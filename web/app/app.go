@@ -21,7 +21,6 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
@@ -276,9 +275,8 @@ func (a *Application) diffPath(c *gin.Context) {
 			if len(value) == 0 {
 				continue
 			}
-			log.Println(value[0])
 			for _, diff := range *diffs {
-				if (diff.FullName + " " + time.Unix(diff.Time, 0).String()) == value[0] {
+				if diff.SimpleString() == value[0] {
 					res += a.diffMan.GenerateReport(&diff) + "\n"
 				}
 			}

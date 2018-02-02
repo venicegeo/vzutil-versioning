@@ -39,7 +39,7 @@ func (a *Application) reportSha(c *gin.Context) {
 		t.Fill(dep.Version)
 		t.Fill(dep.Language)
 	}
-	a.displaySuccess(c, header+t.SpaceColumn(1).NoBorders().Format().String())
+	a.displaySuccess(c, header+t.SpaceColumn(1).NoRowBorders().Format().String())
 }
 
 func (a *Application) reportTag(c *gin.Context) {
@@ -75,7 +75,7 @@ func (a *Application) reportTag(c *gin.Context) {
 			t.Fill(dep.Version)
 			t.Fill(dep.Language)
 		}
-		res += "\n" + t.NoBorders().SpaceColumn(1).Format().String() + "\n\n"
+		res += "\n" + t.NoRowBorders().SpaceColumn(1).Format().String() + "\n\n"
 	}
 	a.displaySuccess(c, res)
 }

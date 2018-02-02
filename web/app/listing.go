@@ -35,7 +35,7 @@ func (a *Application) listShas(c *gin.Context) {
 	for _, sha := range shas {
 		t.Fill(sha)
 	}
-	a.displaySuccess(c, header+t.NoBorders().Format().String())
+	a.displaySuccess(c, header+t.NoRowBorders().Format().String())
 }
 
 func (a *Application) listTagsRepo(c *gin.Context) {
@@ -55,7 +55,7 @@ func (a *Application) listTagsRepo(c *gin.Context) {
 		t.Fill("")
 		t.Fill(v)
 	}
-	a.displaySuccess(c, header+t.SpaceColumn(1).NoBorders().Format().String())
+	a.displaySuccess(c, header+t.SpaceColumn(1).NoRowBorders().NoColumnBorders().Format().String())
 }
 func (a *Application) listTags(c *gin.Context) {
 	if a.checkBack(c) {
@@ -80,7 +80,7 @@ func (a *Application) listTags(c *gin.Context) {
 			}
 		}
 	}
-	a.displaySuccess(c, header+t.SpaceColumn(1).NoBorders().Format().String())
+	a.displaySuccess(c, header+t.SpaceColumn(1).NoRowBorders().NoColumnBorders().Format().String())
 }
 
 func (a *Application) listProjects(c *gin.Context) {
@@ -109,5 +109,5 @@ func (a *Application) listProjectsWrk(ps []string, err error, header string, c *
 	for _, v := range ps {
 		t.Fill(v)
 	}
-	a.displaySuccess(c, header+t.NoBorders().Format().String())
+	a.displaySuccess(c, header+t.NoRowBorders().NoColumnBorders().Format().String())
 }

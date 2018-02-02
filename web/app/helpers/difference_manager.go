@@ -17,6 +17,7 @@ package helpers
 import (
 	"encoding/json"
 	"errors"
+	"sort"
 	"time"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
@@ -39,7 +40,23 @@ type Difference struct {
 	NewSha   string   `json:"new_sha"`
 	Removed  []string `json:"removed"`
 	Added    []string `json:"added"`
-	Time     int64    `json:"time"`
+	NanoTime int64    `json:"time"`
+}
+
+func (d *Difference) SimpleString() string {
+	return d.FullName + " " + time.Unix(0, d.NanoTime).Format(time.RFC3339)
+}
+
+type diffSort []Difference
+
+func (d diffSort) Len() int {
+	return len(d)
+}
+func (d diffSort) Swap(i, j int) {
+	d[i], d[j] = d[j], d[i]
+}
+func (d diffSort) Less(i, j int) bool {
+	return d[i].NanoTime > d[j].NanoTime
 }
 
 func (dm *DifferenceManager) GenerateReport(d *Difference) string {
@@ -66,18 +83,18 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 	table.Fill("Removed")
 	table.Fill("Added")
 	for i := 0; i < height; i++ {
-		r := ""
-		a := ""
 		if i < len(d.Removed) {
-			r = d.Removed[i]
+			table.Fill(getDep(d.Removed[i]))
+		} else {
+			table.Fill("")
 		}
 		if i < len(d.Added) {
-			a = d.Added[i]
+			table.Fill(getDep(d.Added[i]))
+		} else {
+			table.Fill("")
 		}
-		table.Fill(getDep(r))
-		table.Fill(getDep(a))
 	}
-	return table.Format().NoBorders().SpaceAllColumns().String()
+	return u.Format("Project %s from\n%s -> %s\n%s", d.FullName, d.OldSha, d.NewSha, table.Format().NoRowBorders().SpaceAllColumns().String())
 }
 
 func (d *DifferenceManager) AllDiffs(size int) (*[]Difference, error) {
@@ -94,6 +111,7 @@ func (d *DifferenceManager) AllDiffs(size int) (*[]Difference, error) {
 		}
 		diffs = append(diffs, diff)
 	}
+	sort.Sort(diffSort(diffs))
 	return &diffs, nil
 }
 
@@ -104,7 +122,7 @@ func (d *DifferenceManager) DiffList(size int) ([]string, error) {
 	}
 	res := []string{}
 	for _, diff := range *diffs {
-		res = append(res, diff.FullName+" "+time.Unix(diff.Time, 0).String())
+		res = append(res, diff.SimpleString())
 	}
 	return res, nil
 }
@@ -113,7 +131,7 @@ func (d *DifferenceManager) webhookCompare(project *es.Project) (*Difference, er
 	if len(project.WebhookOrder) < 2 {
 		return nil, nil
 	}
-	t := time.Now().Unix()
+	t := time.Now().UnixNano()
 	oldSha := project.WebhookOrder[1]
 	newSha := project.WebhookOrder[0]
 
