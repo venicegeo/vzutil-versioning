@@ -193,7 +193,7 @@ func (d *DifferenceManager) webhookCompare(project *es.Project) (*Difference, er
 }
 
 func (d *DifferenceManager) Delete(id string) {
-	d.index.DeleteByID("difference", id)
+	es.DeleteAndWait(d.index, "difference", id)
 }
 
 func strscont(sl []string, s string) bool {

@@ -13,18 +13,14 @@ td {
 	<table>
 	<td>
 <fieldset>
-	{{ range .buttons }}
 	<form>
-		{{.}}
+		{{ .buttons }}
 	</form>
-	{{end}}
 </fieldset>
 	</td>
 	<td>
 <fieldset>
-<pre>
 {{ .data }}
-</pre>
 </fieldset>
 	</td>
 	</table>
