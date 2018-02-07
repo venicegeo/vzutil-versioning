@@ -15,9 +15,10 @@
 package util
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"log"
 	"os"
-
 	"strings"
 )
 
@@ -34,4 +35,9 @@ func getRequiredEnv(env string) string {
 		log.Fatal("Missing env var", env)
 	}
 	return temp
+}
+
+func Hash(a string) string {
+	tmp := md5.Sum([]byte(a))
+	return hex.EncodeToString(tmp[:])
 }

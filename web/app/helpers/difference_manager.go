@@ -28,13 +28,16 @@ import (
 
 type DifferenceManager struct {
 	index *elasticsearch.Index
+
+	CurrentDisplay string
 }
 
 func NewDifferenceManager(index *elasticsearch.Index) *DifferenceManager {
-	return &DifferenceManager{index}
+	return &DifferenceManager{index, ""}
 }
 
 type Difference struct {
+	Id       string   `json:"id"`
 	FullName string   `json:"full_name"`
 	OldSha   string   `json:"old_sha"`
 	NewSha   string   `json:"new_sha"`
@@ -177,8 +180,9 @@ func (d *DifferenceManager) webhookCompare(project *es.Project) (*Difference, er
 	if len(added) == 0 && len(removed) == 0 {
 		return nil, nil
 	}
-	diff := Difference{project.FullName, oldSha, newSha, removed, added, t}
-	resp, err := d.index.PostData("difference", "", diff)
+	id := u.Hash(u.Format("%s%d", project.FullName, t))
+	diff := Difference{id, project.FullName, oldSha, newSha, removed, added, t}
+	resp, err := d.index.PostData("difference", id, diff)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +190,10 @@ func (d *DifferenceManager) webhookCompare(project *es.Project) (*Difference, er
 		return nil, errors.New("Diff was not created")
 	}
 	return &diff, nil
+}
 
+func (d *DifferenceManager) Delete(id string) {
+	d.index.DeleteByID("difference", id)
 }
 
 func strscont(sl []string, s string) bool {

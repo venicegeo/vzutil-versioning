@@ -92,6 +92,7 @@ func (a *Application) Start() chan error {
 		"difference":{
 			"dynamic":"strict",
 			"properties":{
+				"id":{"type":"keyword"},
 				"full_name":{"type":"text"},
 				"old_sha":{"type":"text"},
 				"new_sha":{"type":"text"},
@@ -241,47 +242,48 @@ func (a *Application) diffPath(c *gin.Context) {
 		return
 	}
 	gh := gin.H{}
+	gh["buttons"] = "Differences will appear here"
+	gh["data"] = "Details will appear here"
 	if err := c.Request.ParseForm(); err != nil {
 		gh["buttons"] = "Error loading the form.\n" + err.Error()
 		c.HTML(500, "differences.html", gh)
 		return
 	}
+	diffs, err := a.diffMan.AllDiffs(250)
+	if err != nil {
+		gh["buttons"] = "Could not load this.\n" + err.Error()
+		gh["data"] = "Error loading this.\n" + err.Error()
+		c.HTML(500, "differences.html", gh)
+		return
+	}
 	form := map[string][]string(c.Request.Form)
 	{
-		diffs, err := a.diffMan.DiffList(250)
-		if err != nil {
-			gh["buttons"] = "Could not load this.\n" + err.Error()
-			c.HTML(500, "differences.html", gh)
-			return
-		}
-		buttons := make([]template.HTML, len(diffs))
-		for i, d := range diffs {
-			buttons[i] = s.NewHtmlButton(d).Template()
+
+		buttons := make([]template.HTML, len(*diffs))
+		for i, d := range *diffs {
+			buttons[i] = s.NewHtmlButton2(d.Id, d.SimpleString()).Template()
 		}
 		gh["buttons"] = buttons
 	}
-	{
-		var diffs *[]h.Difference
-		var err error
-		if len(form) > 0 {
-			if diffs, err = a.diffMan.AllDiffs(250); err != nil {
-				gh["data"] = "Error loading this.\n" + err.Error()
-				c.HTML(500, "differences.html", gh)
+	if len(form) > 0 {
+		var res string
+		for diffId, _ := range form {
+			if diffId == "button_delete" {
+				a.diffMan.Delete(a.diffMan.CurrentDisplay)
+				a.diffMan.CurrentDisplay = ""
+				c.Redirect(307, "/diff")
 				return
-			}
-		}
-		res := ""
-		for _, value := range form {
-			if len(value) == 0 {
-				continue
-			}
-			for _, diff := range *diffs {
-				if diff.SimpleString() == value[0] {
-					res += a.diffMan.GenerateReport(&diff) + "\n"
+			} else {
+				for _, diff := range *diffs {
+					if diff.Id == diffId {
+						res = a.diffMan.GenerateReport(&diff) + "\n"
+						a.diffMan.CurrentDisplay = diffId
+						break
+					}
 				}
 			}
 		}
-		gh["data"] = res
+		gh["data"] = template.HTML(s.NewHtmlCollection(s.NewHtmlBasic("pre", res), s.NewHtmlBasic("form", s.NewHtmlButton("Delete").String())).Template())
 	}
 	c.HTML(200, "differences.html", gh)
 }
