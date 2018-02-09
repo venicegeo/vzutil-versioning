@@ -282,12 +282,7 @@ func (p *PomProjectWrapper) generateMvnDependencies() ([]*MvnDependency, error) 
 		return nil, fmt.Errorf("Unable to generate maven report at %s", p.location)
 	}
 	data := string(dat)
-	re := regexp.MustCompile(`\[INFO\] -+\s*[\n\r]\[INFO\] BUILD SUCCESS\s*[\n\r]\[INFO\] -+`)
-	if !re.MatchString(data) {
-		//	if !strings.Contains(data, `
-		//[INFO] ------------------------------------------------------------------------
-		//[INFO] BUILD SUCCESS
-		//[INFO] ------------------------------------------------------------------------`) {
+	if !strings.Contains(data, "BUILD SUCCESS") {
 		return nil, errors.New("Maven build failure. Check authentication\n" + data)
 	}
 	lines := strings.Split(data, "\n")
