@@ -56,12 +56,12 @@ node {
               mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/web/templates" .
               mv ${root}/gopath/bin/* .
               rm -rf gopath/
-              ls 
             """
       withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${env.ARTIFACT_STORAGE_CREDS}", usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS']]) {
         sh """
           ./write_settings.sh
           rm write_settings.sh
+	  mv settings.xml settings.xml.tmp
         """
       }
          if(!fileExists('.cf')) {
@@ -69,6 +69,7 @@ node {
     }
     withEnv(['CF_HOME=.cf']) {
       withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${env.PCF_CREDS}", usernameVariable: 'CFUSER', passwordVariable: 'CFPASS']]) {
+	sh "ls"
         sh "cf api ${env.PCF_API_ENDPOINT}"
         sh "cf auth ${CFUSER} ${CFPASS}"
         sh "cf target -o ${env.PCF_ORG} -s ${env.PROVISION_SPACE}"
