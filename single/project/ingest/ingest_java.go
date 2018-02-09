@@ -286,7 +286,7 @@ func (p *PomProjectWrapper) generateMvnDependencies() ([]*MvnDependency, error) 
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
 [INFO] ------------------------------------------------------------------------`) {
-		return nil, errors.New("Maven build failure. Check authentication")
+		return nil, errors.New("Maven build failure. Check authentication\n" + data)
 	}
 	lines := strings.Split(data, "\n")
 	{
