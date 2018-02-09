@@ -1,1 +1,1 @@
-web: mv settings.xml.tmp settings.xml && ./web
+web: ./web

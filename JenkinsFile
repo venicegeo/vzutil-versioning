@@ -61,7 +61,6 @@ node {
         sh """
           ./write_settings.sh
           rm write_settings.sh
-	  mv settings.xml settings.xml.tmp
         """
       }
          if(!fileExists('.cf')) {
