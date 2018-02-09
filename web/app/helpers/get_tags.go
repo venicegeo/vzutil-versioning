@@ -55,7 +55,7 @@ func (tr *tagsRunner) Run() (res map[string]string, err error) {
 		}
 		shaRef := strings.Split(l, " ")
 		if len(shaRef) != 2 {
-			return res, errors.New("Problem parsing this line [%" + l + "]")
+			return res, errors.New("Problem parsing this line [" + l + "]")
 		}
 		tmp[strings.TrimSuffix(shaRef[1], "^{}")] = shaRef[0]
 	}
