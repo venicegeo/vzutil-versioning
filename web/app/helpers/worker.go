@@ -91,7 +91,7 @@ func (w *Worker) startClone() {
 			var hashes []string
 			dat, err := exec.Command(w.singleLocation, git.Repository.FullName, git.AfterSha).Output()
 			if err != nil {
-				log.Printf("[CLONE-WORKER (%d)] Unable to run against %s [%s]\n", worker, git.AfterSha, err.Error())
+				log.Printf("[CLONE-WORKER (%d)] Unable to run against %s [%s]\n[%s]\n", worker, git.AfterSha, err.Error(), string(dat))
 				continue
 			}
 			{
