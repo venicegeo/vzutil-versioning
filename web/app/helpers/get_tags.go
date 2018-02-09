@@ -34,6 +34,7 @@ func NewTagsRunner(name, fullName string) *tagsRunner {
 
 func (tr *tagsRunner) Run() (res map[string]string, err error) {
 	res = map[string]string{}
+	tmp := map[string]string{}
 	tempFolder := u.Format("%d", time.Now().Unix())
 	defer func() { exec.Command("rm", "-rf", tempFolder).Run() }()
 	targetFolder := u.Format("%s/%s", tempFolder, tr.name)
@@ -44,7 +45,7 @@ func (tr *tagsRunner) Run() (res map[string]string, err error) {
 		return res, err
 	}
 	var dat []byte
-	if dat, err = exec.Command("git", "-C", targetFolder, "show-ref", "--tags").Output(); err != nil {
+	if dat, err = exec.Command("git", "-C", targetFolder, "show-ref", "--tags", "-d").Output(); err != nil {
 		return res, err
 	}
 	lines := strings.Split(string(dat), "\n")
@@ -56,7 +57,10 @@ func (tr *tagsRunner) Run() (res map[string]string, err error) {
 		if len(shaRef) != 2 {
 			return res, errors.New("Problem parsing this line [%" + l + "]")
 		}
-		res[shaRef[0]] = shaRef[1]
+		tmp[strings.TrimSuffix(shaRef[1], "^{}")] = shaRef[0]
+	}
+	for k, v := range tmp {
+		res[v] = k
 	}
 	return res, nil
 
