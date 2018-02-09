@@ -15,8 +15,6 @@
 package app
 
 import (
-	"log"
-
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -73,7 +71,6 @@ func (a *Application) reportTag(c *gin.Context) {
 		res += name + " at " + tag
 		t := table.NewTable(3, len(depss))
 		for _, dep := range depss {
-			log.Println(dep)
 			t.Fill(dep.Name)
 			t.Fill(dep.Version)
 			t.Fill(dep.Language)

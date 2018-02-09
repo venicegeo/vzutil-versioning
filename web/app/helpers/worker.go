@@ -106,7 +106,6 @@ func (w *Worker) startClone() {
 				}
 			}
 			{
-				log.Println(deps)
 				hashes = make([]string, len(deps))
 				for i, d := range deps {
 					hash := d.GetHashSum()
@@ -125,7 +124,6 @@ func (w *Worker) startClone() {
 				}
 			}
 			log.Printf("[CLONE-WORKER (%d)] Adding %s to es queue\n", worker, git.AfterSha)
-			log.Println(hashes)
 			w.esQueue <- &work{git.Repository.FullName, git.Repository.Name, git.AfterSha, git.Ref, hashes, git.Real}
 		}
 	}
