@@ -101,6 +101,7 @@ func (w *Worker) startClone() {
 			if err != nil {
 				log.Printf("[CLONE-WORKER (%d)] Unable to run against %s [%s]\n", worker, git.AfterSha, err.Error())
 				w.logWriter.WriteString(u.Format("[CLONE-WORKER (%d)] Unable to run against %s [%s]\n[%s]\n", worker, git.AfterSha, err.Error(), string(dat)))
+				w.logWriter.Flush()
 				continue
 			}
 			{
