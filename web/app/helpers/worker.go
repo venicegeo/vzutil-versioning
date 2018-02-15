@@ -15,7 +15,9 @@
 package helpers
 
 import (
+	"bufio"
 	"log"
+	"os"
 	"os/exec"
 	"reflect"
 	"regexp"
@@ -25,6 +27,7 @@ import (
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
+	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 type Worker struct {
@@ -37,6 +40,9 @@ type Worker struct {
 	esQueue         chan *work
 
 	diffMan *DifferenceManager
+
+	logFile   *os.File
+	logWriter *bufio.Writer
 }
 
 type work struct {
@@ -49,7 +55,9 @@ type work struct {
 }
 
 func NewWorker(i *elasticsearch.Index, singleLocation string, numWorkers int, diffMan *DifferenceManager) *Worker {
-	wrkr := Worker{singleLocation, i, numWorkers, make(chan *s.GitWebhook, 1000), make(chan *s.GitWebhook, 1000), make(chan *work, 1000), diffMan}
+	wrkr := Worker{singleLocation, i, numWorkers, make(chan *s.GitWebhook, 1000), make(chan *s.GitWebhook, 1000), make(chan *work, 1000), diffMan, nil, nil}
+	wrkr.logFile, _ = os.Create("log.txt")
+	wrkr.logWriter = bufio.NewWriter(wrkr.logFile)
 	return &wrkr
 }
 
@@ -91,7 +99,8 @@ func (w *Worker) startClone() {
 			var hashes []string
 			dat, err := exec.Command(w.singleLocation, git.Repository.FullName, git.AfterSha).Output()
 			if err != nil {
-				log.Printf("[CLONE-WORKER (%d)] Unable to run against %s [%s]\n[%s]\n", worker, git.AfterSha, err.Error(), string(dat))
+				log.Printf("[CLONE-WORKER (%d)] Unable to run against %s [%s]\n", worker, git.AfterSha, err.Error())
+				w.logWriter.WriteString(u.Format("[CLONE-WORKER (%d)] Unable to run against %s [%s]\n[%s]\n", worker, git.AfterSha, err.Error(), string(dat)))
 				continue
 			}
 			{
