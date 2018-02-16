@@ -263,7 +263,12 @@ func (a *Application) diffPath(c *gin.Context) {
 			buttons[i] = s.NewHtmlButton2(d.Id, d.SimpleString())
 		}
 		if len(buttons) > 0 {
-			gh["buttons"] = s.NewHtmlCollection(buttons...).Template()
+			tmp := s.NewHtmlCollection()
+			for _, b := range buttons {
+				tmp.Add(b)
+				tmp.Add(&s.HtmlBr{})
+			}
+			gh["buttons"] = tmp.Template()
 		}
 	}
 	if len(form) > 0 {

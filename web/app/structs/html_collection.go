@@ -24,6 +24,9 @@ func NewHtmlCollection(items ...HtmlInter) *HtmlCollection {
 	return &HtmlCollection{items}
 }
 
+func (h *HtmlCollection) Add(item HtmlInter) {
+	h.html = append(h.html, item)
+}
 func (h *HtmlCollection) Template() template.HTML {
 	return template.HTML(h.String())
 }

@@ -20,3 +20,12 @@ type HtmlInter interface {
 	Template() template.HTML
 	String() string
 }
+
+type HtmlBr struct{}
+
+func (h *HtmlBr) Template() template.HTML {
+	return template.HTML(h.String())
+}
+func (h *HtmlBr) String() string {
+	return "<br>"
+}
