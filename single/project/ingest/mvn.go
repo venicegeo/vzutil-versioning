@@ -16,8 +16,12 @@ limitations under the License.
 package ingest
 
 import (
+	"sync"
+
 	"github.com/venicegeo/vzutil-versioning/single/project/util"
 )
+
+var mvnMux = sync.Mutex{}
 
 type MvnDependency struct {
 	GroupId    string `json:"groupId"`
@@ -27,5 +31,8 @@ type MvnDependency struct {
 }
 
 func GenerateMvnReport(location string) util.CmdRet {
-	return util.RunCommand("mvn", "-f", location, "dependency:resolve")
+	mvnMux.Lock()
+	cmd := util.RunCommand("mvn", "-f", location, "dependency:resolve")
+	mvnMux.Unlock()
+	return cmd
 }
