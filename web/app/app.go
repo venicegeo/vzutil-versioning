@@ -110,7 +110,7 @@ func (a *Application) Start() chan error {
 	}
 
 	a.diffMan = h.NewDifferenceManager(i)
-	a.wrkr = h.NewWorker(i, a.singleLocation, 10, a.diffMan)
+	a.wrkr = h.NewWorker(i, a.singleLocation, 4, a.diffMan)
 	a.wrkr.Start()
 	a.rprtr = h.NewReporter(i)
 
