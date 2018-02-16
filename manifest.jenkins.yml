@@ -2,7 +2,7 @@ applications:
 - name: vzutil-versioning
   host: vzutil-versioning
   buildpack: python_buildpack
-  memory: 512M
+  memory: 2048M
   instances: 1
   timeout: 180
   services:
