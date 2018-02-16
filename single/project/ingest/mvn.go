@@ -16,7 +16,6 @@ limitations under the License.
 package ingest
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/venicegeo/vzutil-versioning/single/project/util"
@@ -35,7 +34,8 @@ func GenerateMvnReport(location string) util.CmdRet {
 	mvnMux.Lock()
 	cmd := util.RunCommand("mvn", "-f", location, "dependency:resolve")
 	if cmd.IsError() {
-		fmt.Println(util.RunCommand("ls", location))
+		tmp := util.RunCommand("ls", location)
+		cmd.Stdout += "\n" + tmp.String()
 	}
 	mvnMux.Unlock()
 	return cmd
