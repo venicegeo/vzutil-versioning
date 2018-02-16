@@ -16,7 +16,7 @@ limitations under the License.
 package ingest
 
 import (
-	"os/exec"
+	"github.com/venicegeo/vzutil-versioning/single/project/util"
 )
 
 type MvnDependency struct {
@@ -26,6 +26,6 @@ type MvnDependency struct {
 	Version    string `json:"version,omitempty"`
 }
 
-func GenerateMvnReport(location string) ([]byte, error) {
-	return exec.Command("mvn", "-f", location, "dependency:resolve").Output()
+func GenerateMvnReport(location string) util.CmdRet {
+	return util.RunCommand("mvn", "-f", location, "dependency:resolve")
 }

@@ -17,9 +17,7 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -27,6 +25,7 @@ import (
 	"time"
 
 	proj "github.com/venicegeo/vzutil-versioning/single/project"
+	"github.com/venicegeo/vzutil-versioning/single/project/util"
 )
 
 func main() {
@@ -39,25 +38,29 @@ func main() {
 	var project *proj.Project
 
 	if len(os.Args) != 3 {
-		log.Fatalln("Not enough args")
+		fmt.Println("The program arguments were incorrect. Usage: single [org/repo] [sha]")
+		os.Exit(1)
 	}
 
 	name := strings.Split(os.Args[1], "/")[1]
 	location, err := cloneAndCheckout(os.Args[1], os.Args[2], name)
-	cleanup := func() { exec.Command("rm", "-rf", strings.TrimSuffix(location, name)).Run() }
+	cleanup := func() { util.RunCommand("rm", "-rf", strings.TrimSuffix(location, name)) }
 	defer cleanup()
 	if err != nil {
 		cleanup()
-		log.Fatalln("checking out:", err)
+		fmt.Println("Error checking out:", err)
+		os.Exit(1)
 	}
 
 	if project, err = proj.NewProject(fmt.Sprintf("%s/%s", location, name)); err != nil {
 		cleanup()
-		log.Fatalln("creating project:", err)
+		fmt.Println("Error creating project:", err)
+		os.Exit(1)
 	}
 	if err = proj.Ingest(project, false); err != nil {
 		cleanup()
-		log.Fatalln("ingesting:", err)
+		fmt.Println("Error ingesting project:", err)
+		os.Exit(1)
 	}
 
 	fmt.Printf("### Direct dependencies found for %s version %s\n", project.FolderName, project.Sha)
@@ -69,23 +72,20 @@ func main() {
 
 func cloneAndCheckout(full_name, checkout, name string) (t string, err error) {
 	t = fmt.Sprintf("%d", time.Now().UnixNano())
-	if err = exec.Command("mkdir", t).Run(); err != nil {
-		return t, err
+	var cmdRet util.CmdRet
+	if cmdRet = util.RunCommand("mkdir", t); cmdRet.IsError() {
+		return t, cmdRet.Error()
 	}
 	if t, err = filepath.Abs(t); err != nil {
 		return t, err
 	}
 	rest := t
 	t = fmt.Sprintf("%s/%s", t, name)
-	var dat []byte
-	if dat, err = exec.Command("git", "clone", "https://github.com/"+full_name, t).Output(); err != nil {
-		log.Println("clone:", string(dat))
-		return t, err
+	if cmdRet = util.RunCommand("git", "clone", "https://github.com/"+full_name, t); cmdRet.IsError() {
+		return t, cmdRet.Error()
 	}
-	cmd := exec.Command("git", "-C", t, "checkout", checkout)
-	if dat, err = cmd.Output(); err != nil {
-		log.Println("checkout:", string(dat))
-		return t, err
+	if cmdRet = util.RunCommand("git", "-C", t, "checkout", checkout); cmdRet.IsError() {
+		return t, cmdRet.Error()
 	}
 	return rest, nil
 }

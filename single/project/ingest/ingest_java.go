@@ -277,11 +277,11 @@ func (p *PomProjectWrapper) replaceVariables() error {
 }
 
 func (p *PomProjectWrapper) generateMvnDependencies() ([]*MvnDependency, error) {
-	dat, err := GenerateMvnReport(p.location)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to generate maven report at %s", p.location)
+	cmdRet := GenerateMvnReport(p.location)
+	if cmdRet.IsError() {
+		return nil, fmt.Errorf("Unable to generate maven report at %s\n%s", p.location, cmdRet.String())
 	}
-	data := string(dat)
+	data := cmdRet.Stdout
 	if !strings.Contains(data, "BUILD SUCCESS") {
 		return nil, errors.New("Maven build failure. Check authentication\n" + data)
 	}

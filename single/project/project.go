@@ -44,20 +44,20 @@ func NewProject(folderLocation string) (proj *Project, err error) {
 		return nil, err
 	}
 	var currentDir string
-	var dat []byte
+	var cmdRet util.CmdRet
 	if currentDir, err = os.Getwd(); err != nil {
 		return nil, err
 	}
 	if err = os.Chdir(folderLocation); err != nil {
 		return nil, err
 	}
-	if dat, err = util.RunCommand("git", "rev-parse", "HEAD"); err != nil {
-		return nil, err
+	if cmdRet = util.RunCommand("git", "rev-parse", "HEAD"); cmdRet.IsError() {
+		return nil, cmdRet.Error()
 	}
 	if err = os.Chdir(currentDir); err != nil {
 		return nil, err
 	}
-	proj = &Project{FolderName: folderName, FolderLocation: folderLocation, Sha: strings.TrimSpace(string(dat))}
+	proj = &Project{FolderName: folderName, FolderLocation: folderLocation, Sha: strings.TrimSpace(cmdRet.Stdout)}
 	return proj, nil
 }
 

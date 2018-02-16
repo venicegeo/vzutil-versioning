@@ -16,6 +16,7 @@ limitations under the License.
 package util
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -46,8 +47,12 @@ func Exists(path string) (bool, error) {
 	return true, err
 }
 
-func RunCommand(name string, arg ...string) ([]byte, error) {
-	return exec.Command(name, arg...).Output()
+func RunCommand(name string, arg ...string) CmdRet {
+	cmd := exec.Command(name, arg...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	err := cmd.Run()
+	return CmdRet{cmd.Args, stdout.String(), stderr.String(), err}
 }
 
 func GetJson(i interface{}) (string, error) {
@@ -59,4 +64,22 @@ func StringSliceToLower(s []string) {
 	for i, v := range s {
 		s[i] = strings.ToLower(v)
 	}
+}
+
+type CmdRet struct {
+	args   []string
+	Stdout string
+	Stderr string
+	Err    error
+}
+
+func (c *CmdRet) IsError() bool {
+	return c.Err != nil
+}
+
+func (c *CmdRet) String() string {
+	return fmt.Sprintf("Command %s failed:\n\t[STDOUT]: %s\n\t[STDERR]: %s\n\t[Error ]: %s", c.args, c.Stdout, c.Stderr, c.Err)
+}
+func (c *CmdRet) Error() error {
+	return fmt.Errorf("%s", c.String())
 }
