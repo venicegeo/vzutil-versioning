@@ -16,6 +16,8 @@ limitations under the License.
 package ingest
 
 import (
+	"regexp"
+
 	"github.com/venicegeo/vzutil-versioning/single/project/util"
 )
 
@@ -26,6 +28,12 @@ type MvnDependency struct {
 	Version    string `json:"version,omitempty"`
 }
 
+var re = regexp.MustCompile(`Download(?:(?:ing)|(?:ed)): .+(?:\n|\r)`)
+
 func GenerateMvnReport(location string) util.CmdRet {
-	return util.RunCommand("mvn", "--file", location+"pom.xml", "dependency:resolve")
+	cmd := util.RunCommand("mvn", "--file", location+"pom.xml", "dependency:resolve")
+	if cmd.IsError() {
+		cmd.Stdout = re.ReplaceAllString(cmd.Stdout, "")
+	}
+	return cmd
 }
