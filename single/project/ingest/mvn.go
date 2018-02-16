@@ -32,7 +32,7 @@ type MvnDependency struct {
 
 func GenerateMvnReport(location string) util.CmdRet {
 	mvnMux.Lock()
-	cmd := util.RunCommand("mvn", "-f", location, "dependency:resolve")
+	cmd := util.RunCommand("mvn", "--file", location+"pom.xml", "dependency:resolve")
 	if cmd.IsError() {
 		tmp := util.RunCommand("ls", location)
 		cmd.Stdout += "\n" + tmp.String()
