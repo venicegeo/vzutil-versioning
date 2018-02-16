@@ -46,12 +46,21 @@ func (a *Application) updateAllTags(c *gin.Context) {
 	}
 	name := c.Param("repo")
 	fullName := u.Format("%s/%s", c.Param("org"), name)
-	dat, err := h.NewTagsRunner(name, fullName).Run()
+	runner := h.NewTagsRunner(name, fullName)
+	canDo, err := runner.CanDo()
 	if err != nil {
 		a.displayFailure(c, "Sorry, no can do. Problem: ["+err.Error()+"]")
 		return
+	} else if !canDo {
+		a.displayFailure(c, "That repo doesnt appear to exist")
+		return
 	}
-	go func(dat map[string]string, name, fullName string) {
+	go func(name, fullName string, runner *h.TagsRunner) {
+		dat, err := h.NewTagsRunner(name, fullName).Run()
+		if err != nil {
+			log.Println("Error running tags on", fullName, ":", err.Error())
+			return
+		}
 		for sha, ref := range dat {
 			git := s.GitWebhook{
 				Ref:      ref,
@@ -64,7 +73,7 @@ func (a *Application) updateAllTags(c *gin.Context) {
 			log.Println(fullName, sha, ref)
 			a.wrkr.AddTask(&git)
 		}
-	}(dat, name, fullName)
+	}(name, fullName, runner)
 	a.displaySuccess(c, "Yeah, I can do that. Check back in a minute")
 }
 

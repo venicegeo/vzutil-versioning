@@ -20,19 +20,25 @@ import (
 	"strings"
 	"time"
 
+	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-type tagsRunner struct {
+type TagsRunner struct {
 	name     string
 	fullName string
 }
 
-func NewTagsRunner(name, fullName string) *tagsRunner {
-	return &tagsRunner{name, fullName}
+func NewTagsRunner(name, fullName string) *TagsRunner {
+	return &TagsRunner{name, fullName}
 }
 
-func (tr *tagsRunner) Run() (res map[string]string, err error) {
+func (tr *TagsRunner) CanDo() (bool, error) {
+	code, _, _, err := nt.HTTP(nt.HEAD, "https://github.com/"+tr.fullName, nt.NewHeaderBuilder().GetHeader(), nil)
+	return code == 200, err
+}
+
+func (tr *TagsRunner) Run() (res map[string]string, err error) {
 	res = map[string]string{}
 	tmp := map[string]string{}
 	tempFolder := u.Format("%d", time.Now().Unix())
