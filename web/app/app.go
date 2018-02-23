@@ -31,6 +31,7 @@ import (
 
 type Application struct {
 	indexName      string
+	searchSize     int
 	singleLocation string
 	debugMode      bool
 
@@ -38,6 +39,8 @@ type Application struct {
 	rprtr    *h.Reporter
 	diffMan  *h.DifferenceManager
 	killChan chan bool
+
+	index *elasticsearch.Index
 }
 
 type Back struct {
@@ -47,6 +50,7 @@ type Back struct {
 func NewApplication(indexName, singleLocation string, debugMode bool) *Application {
 	return &Application{
 		indexName:      indexName,
+		searchSize:     250,
 		singleLocation: singleLocation,
 		debugMode:      debugMode,
 		killChan:       make(chan bool),
@@ -73,7 +77,7 @@ func (a *Application) Start() chan error {
 			"dynamic":"strict",
 			"properties":{
 				"full_name":{"type":"text"},
-				"name":{"type":"text"},
+				"name":{"type":"keyword"},
 				"last_sha":{"type":"text"},
 				"webhook_order":{"type":"text"},
 				"tag_shas":{"type":"text"},
@@ -83,10 +87,10 @@ func (a *Application) Start() chan error {
 		"dependency":{
 			"dynamic":"strict",
 			"properties":{
-				"hashsum":{"type":"text"},
-				"name":{"type":"text"},
-				"version":{"type":"text"},
-				"language":{"type":"text"}
+				"hashsum":{"type":"keyword"},
+				"name":{"type":"keyword"},
+				"version":{"type":"keyword"},
+				"language":{"type":"keyword"}
 			}
 		},
 		"difference":{
@@ -108,6 +112,7 @@ func (a *Application) Start() chan error {
 	} else {
 		log.Println(i.GetVersion())
 	}
+	a.index = i
 
 	a.diffMan = h.NewDifferenceManager(i)
 	a.wrkr = h.NewWorker(i, a.singleLocation, 4, a.diffMan)
@@ -138,6 +143,9 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/list/tags/:org", a.listTags},
 		u.RouteData{"GET", "/list/projects", a.listProjects},
 		u.RouteData{"GET", "/list/projects/:org", a.listProjectsOrg},
+
+		u.RouteData{"GET", "/search/:dep", a.searchForDep},
+		u.RouteData{"GET", "/search/:dep/:version", a.searchForDep},
 
 		u.RouteData{"GET", "/ui", a.formPath},
 		u.RouteData{"GET", "/diff", a.diffPath},
@@ -179,7 +187,7 @@ func (a *Application) formPath(c *gin.Context) {
 			}
 			h["projects"] = res
 		}
-		diffs, err := a.diffMan.DiffList(250)
+		diffs, err := a.diffMan.DiffList(a.searchSize)
 		if err != nil {
 			h["differences"] = "Sorry... could not\nload this.\n" + err.Error()
 		} else {
@@ -249,7 +257,7 @@ func (a *Application) diffPath(c *gin.Context) {
 		c.HTML(500, "differences.html", gh)
 		return
 	}
-	diffs, err := a.diffMan.AllDiffs(250)
+	diffs, err := a.diffMan.AllDiffs(a.searchSize)
 	if err != nil {
 		gh["buttons"] = "Could not load this.\n" + err.Error()
 		gh["data"] = "Error loading this.\n" + err.Error()
