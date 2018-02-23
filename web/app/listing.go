@@ -70,6 +70,9 @@ func (a *Application) listTags(c *gin.Context) {
 	header := "List of tags for " + org + "\n"
 	t := table.NewTable(2, num+len(*tags))
 	for k, v := range *tags {
+		if len(v) == 0 {
+			continue
+		}
 		t.Fill("")
 		t.Fill("")
 		t.Fill(k)

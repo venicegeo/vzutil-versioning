@@ -23,10 +23,11 @@ type Table struct {
 	nextColumn       int
 	drawRowBorder    bool
 	drawColumnBorder bool
+	fillCount        int
 }
 
 func NewTable(width, height int) *Table {
-	table := &Table{[][]string{}, []bool{}, 0, 0, true, true}
+	table := &Table{[][]string{}, []bool{}, 0, 0, true, true, 0}
 	for i := 0; i < height; i++ {
 		temp := make([]string, width)
 		for j := 0; j < width; j++ {
@@ -68,6 +69,7 @@ func (t *Table) Fill(toFill string) {
 	} else {
 		t.nextColumn++
 	}
+	t.fillCount++
 }
 func (t *Table) Format() *Table {
 	if len(t.table) == 0 {
