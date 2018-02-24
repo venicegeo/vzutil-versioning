@@ -22,7 +22,6 @@ import (
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-//TODO THREAD ALL THE TINGS
 func (a *Application) searchForDep(c *gin.Context) {
 	depName := c.Param("dep")
 	depVersion := c.Param("version")
@@ -74,6 +73,7 @@ func (a *Application) searchForDep(c *gin.Context) {
 	projectEntries := map[string]*es.ProjectEntries{}
 	containingProjects := map[string][]string{}
 	comeBackTo := map[string][][]string{}
+	projectTagShas := map[string]*map[string]string{}
 	breakk := false
 	for _, project := range *projects {
 		entries, err := project.GetEntries()
@@ -81,6 +81,12 @@ func (a *Application) searchForDep(c *gin.Context) {
 			c.String(500, "Error getting project entries")
 			return
 		}
+		tagShas, err := project.GetTagShas()
+		if err != nil {
+			c.String(500, "Error getting project tag shas")
+			return
+		}
+		projectTagShas[project.FullName] = tagShas
 		projectEntries[project.FullName] = entries
 		for sha, entry := range *entries {
 			if entry.EntryReference != "" {
@@ -130,9 +136,19 @@ func (a *Application) searchForDep(c *gin.Context) {
 		tmp := ""
 		for projectName, shas := range containingProjects {
 			tmp += projectName + "\n"
+			tagShas := projectTagShas[projectName]
 			for _, sha := range shas {
-				tmp += u.Format("\t%s\n", sha)
+				tmp += "\t" + sha
+				if tagShas != nil {
+					for tag, shaa := range *tagShas {
+						if shaa == sha {
+							tmp += " " + tag
+						}
+					}
+				}
+				tmp += "\n"
 			}
+			tmp += "\n"
 		}
 		c.String(200, tmp)
 	}
