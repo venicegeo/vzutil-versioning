@@ -16,6 +16,7 @@ package helpers
 
 import (
 	"bufio"
+	"encoding/json"
 	"log"
 	"os"
 	"os/exec"
@@ -61,7 +62,7 @@ func NewWorker(i *elasticsearch.Index, singleLocation string, numWorkers int, di
 	return &wrkr
 }
 
-var depRe = regexp.MustCompile(`###   (.*):(.*):(.*):(.*)`)
+var depRe = regexp.MustCompile(`(.*):(.*):(.*):(.*)`)
 
 func (w *Worker) Start() {
 	w.startCheckExist()
@@ -96,6 +97,11 @@ func (w *Worker) startClone() {
 			log.Printf("[CLONE-WORKER (%d)] Starting work on %s\n", worker, git.AfterSha)
 			var deps []es.Dependency
 			var hashes []string
+			type SingleReturn struct {
+				Name string
+				Sha  string
+				Deps []string
+			}
 			dat, err := exec.Command(w.singleLocation, git.Repository.FullName, git.AfterSha).Output()
 			if err != nil {
 				log.Printf("[CLONE-WORKER (%d)] Unable to run against %s [%s]\n", worker, git.AfterSha, err.Error())
@@ -103,14 +109,19 @@ func (w *Worker) startClone() {
 				w.logWriter.Flush()
 				continue
 			}
+			var singleRet SingleReturn
+			if err = json.Unmarshal(dat, &singleRet); err != nil {
+				log.Printf("[CLONE-WORKER (%d) Unable to run against %s [%s]\n", worker, git.AfterSha, err.Error())
+				continue
+			}
+			if singleRet.Sha != git.AfterSha {
+				log.Printf("[CLONE-WORKER (%d)] Generation failed to run against %s, it ran against sha %s\n", git.AfterSha, singleRet.Sha)
+				continue
+			}
 			{
-				tmp := strings.Split(string(dat), "\n")[2:]
-				deps = make([]es.Dependency, 0, len(tmp))
-				for _, p := range tmp {
-					if p == "" {
-						continue
-					}
-					matches := depRe.FindStringSubmatch(p)
+				deps = make([]es.Dependency, 0, len(singleRet.Deps))
+				for _, d := range singleRet.Deps {
+					matches := depRe.FindStringSubmatch(d)
 					deps = append(deps, es.Dependency{matches[1], matches[2], matches[4]})
 				}
 			}
