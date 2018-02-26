@@ -73,8 +73,10 @@ func (a *Application) searchForDep(c *gin.Context) {
 			"should":[`, a.searchSize)
 	for i, dep := range deps {
 		query += u.Format(`{
-			"refs.entries.dependencies":"%s"
-		}`, dep)
+			"term":{
+				"refs.entries.dependencies":"%s"
+			}
+		}`, dep.GetHashSum())
 		if i != len(deps)-1 {
 			query += ","
 		}
@@ -84,7 +86,6 @@ func (a *Application) searchForDep(c *gin.Context) {
 	}
 }
 `
-
 	projects, err := es.HitsToProjects(a.index.SearchByJSON("project", query))
 	if err != nil {
 		c.String(500, "Error getting projects:", err)
