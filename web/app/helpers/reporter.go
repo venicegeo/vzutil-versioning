@@ -45,20 +45,13 @@ func (r *Reporter) ReportByShaName(fullName, sha string) (res []es.Dependency, e
 
 }
 func (r *Reporter) ReportByShaProject(project *es.Project, sha string) (res []es.Dependency, err error) {
-	var projectEntries *es.ProjectEntries
-	var entry es.ProjectEntry
-	var exists bool
+	ref, entry, exists := project.GetEntry(sha)
 
-	if projectEntries, err = project.GetEntries(); err != nil {
-		return nil, err
-	}
-	entry, exists = (*projectEntries)[sha]
 	if !exists {
 		return nil, errors.New("Sorry, this sha was not found")
 	}
 	if entry.EntryReference != "" {
-		entry, exists = (*projectEntries)[entry.EntryReference]
-		if !exists {
+		if entry, exists = ref.GetEntry(entry.EntryReference); !exists {
 			return nil, errors.New("The database is corrupted, this sha points to a sha that doesnt exist: " + entry.EntryReference)
 		}
 	}
@@ -124,14 +117,9 @@ func (r *Reporter) reportByTag1(tag string) (map[string][]es.Dependency, error) 
 	mux := &sync.Mutex{}
 	errs := make(chan error, len(*projects))
 	work := func(project *es.Project) {
-		tagShas, err := project.GetTagShas()
-		if err != nil {
-			errs <- err
-			return
-		}
-		sha, exists := (*tagShas)[tag]
+		sha, exists := project.GetShaFromTag(tag)
 		if !exists {
-			errs <- err
+			errs <- errors.New("Could not find a sha for tag " + tag)
 			return
 		}
 		deps, err := r.ReportByShaProject(project, sha)
@@ -167,14 +155,9 @@ func (r *Reporter) reportByTag2(org, tag string) (map[string][]es.Dependency, er
 	mux := &sync.Mutex{}
 	errs := make(chan error, len(*projects))
 	work := func(project *es.Project) {
-		tagShas, err := project.GetTagShas()
-		if err != nil {
-			errs <- err
-			return
-		}
-		sha, exists := (*tagShas)[tag]
+		sha, exists := project.GetTagFromSha(tag)
 		if !exists {
-			errs <- nil
+			errs <- errors.New("Could not find sha for tag " + tag)
 			return
 		}
 		deps, err := r.ReportByShaProject(project, sha)
@@ -202,17 +185,21 @@ func (r *Reporter) reportByTag2(org, tag string) (map[string][]es.Dependency, er
 func (r *Reporter) reportByTag3(tag, docName string) (map[string][]es.Dependency, error) {
 	var project *es.Project
 	var err error
-	var tagShas *map[string]string
 	var sha string
 	var ok bool
 
 	if project, err = es.GetProjectById(r.index, docName); err != nil {
 		return nil, err
 	}
-	if tagShas, err = project.GetTagShas(); err != nil {
-		return nil, err
+
+	for _, ts := range project.TagShas {
+		if ts.Tag == tag {
+			sha = ts.Sha
+			ok = true
+			break
+		}
 	}
-	if sha, ok = (*tagShas)[tag]; !ok {
+	if !ok {
 		return nil, errors.New("Could not find this tag: [" + tag + "]")
 	}
 	deps, err := r.ReportByShaProject(project, sha)
@@ -224,21 +211,24 @@ func (r *Reporter) reportByTag3(tag, docName string) (map[string][]es.Dependency
 
 //
 
-func (r *Reporter) ListShas(fullName string) (res []string, err error) {
+func (r *Reporter) ListShas(fullName string) (map[string][]string, int, error) {
 	var project *es.Project
-	var entries *es.ProjectEntries
+	res := map[string][]string{}
+	count := 0
+	var err error
 
 	if project, err = es.GetProjectById(r.index, fullName); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	if entries, err = project.GetEntries(); err != nil {
-		return nil, err
+
+	for _, ref := range project.Refs {
+		res[ref.Name] = make([]string, len(ref.Entries), len(ref.Entries))
+		for i, s := range ref.Entries {
+			res[ref.Name][i] = s.Sha
+		}
+		count += len(ref.Entries)
 	}
-	for k, _ := range *entries {
-		res = append(res, k)
-	}
-	sort.Strings(res)
-	return res, nil
+	return res, count, nil
 }
 
 //
@@ -248,7 +238,11 @@ func (r *Reporter) ListTagsRepo(fullName string) (*map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return project.GetTagShas()
+	res := map[string]string{}
+	for _, ts := range project.TagShas {
+		res[ts.Tag] = ts.Sha
+	}
+	return &res, nil
 }
 func (r *Reporter) ListTags(org string) (*map[string][]string, int, error) {
 	projects, err := es.GetProjectsOrg(r.index, org, r.searchSize)
@@ -261,19 +255,16 @@ func (r *Reporter) ListTags(org string) (*map[string][]string, int, error) {
 	mux := &sync.Mutex{}
 
 	work := func(project *es.Project) {
-		tags, err := project.GetTagShas()
-		if err != nil {
-			errs <- err
-			return
-		}
-		temp := make([]string, 0, len(*tags))
-		for tag, _ := range *tags {
-			temp = append(temp, tag)
+		ts := project.TagShas
+		num := len(ts)
+		temp := make([]string, num, num)
+		for i, e := range ts {
+			temp[i] = e.Tag
 		}
 		sort.Strings(temp)
 		mux.Lock()
 		{
-			numTags += len(*tags)
+			numTags += num
 			res[project.FullName] = temp
 			errs <- nil
 		}

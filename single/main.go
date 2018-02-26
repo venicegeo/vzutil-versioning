@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -28,12 +29,18 @@ import (
 	"github.com/venicegeo/vzutil-versioning/single/project/util"
 )
 
+type Return struct {
+	Name string
+	Sha  string
+	Deps []string
+}
+
 func main() {
 	var err error
 
 	runInterruptHandler()
 
-	fmt.Println("### Generating direct dependencies...")
+	//fmt.Println("### Generating direct dependencies...")
 
 	var project *proj.Project
 
@@ -63,10 +70,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("### Direct dependencies found for %s version %s\n", project.FolderName, project.Sha)
+	//fmt.Printf("### Direct dependencies found for %s version %s\n", project.FolderName, project.Sha)
+
+	ret := Return{project.FolderName, project.Sha, []string{}}
 	for _, s := range project.GetDependencies() {
-		fmt.Printf("###   %s\n", s.FullString())
+		ret.Deps = append(ret.Deps, s.FullString())
 	}
+
+	dat, err := json.MarshalIndent(ret, " ", "   ")
+	if err != nil {
+		cleanup()
+		fmt.Println("Could not marshal return value:", err)
+		os.Exit(1)
+	}
+	fmt.Println(string(dat))
 
 }
 

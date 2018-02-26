@@ -34,8 +34,8 @@ func (a *Application) webhookPath(c *gin.Context) {
 		return
 	}
 
-	log.Println("[RECIEVED WEBHOOK]", git.Repository.FullName, git.AfterSha, git.Ref)
 	c.String(200, "Thanks!")
+	log.Println("[RECIEVED WEBHOOK]", git.Repository.FullName, git.AfterSha, git.Ref)
 
 	a.wrkr.AddTask(&git)
 }

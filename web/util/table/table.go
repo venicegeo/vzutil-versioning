@@ -61,7 +61,12 @@ func (t *Table) UnspaceAllColumns() *Table {
 	}
 	return t
 }
-func (t *Table) Fill(toFill string) {
+func (t *Table) Fill(toFill ...string) {
+	for _, f := range toFill {
+		t.fill(f)
+	}
+}
+func (t *Table) fill(toFill string) {
 	t.table[t.nextRow][t.nextColumn] = toFill
 	if t.nextColumn == len(t.table[0])-1 {
 		t.nextRow++

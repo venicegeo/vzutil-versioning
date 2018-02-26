@@ -16,7 +16,6 @@ package helpers
 
 import (
 	"encoding/json"
-	"errors"
 	"sort"
 	"time"
 
@@ -130,27 +129,23 @@ func (d *DifferenceManager) DiffList(size int) ([]string, error) {
 	return res, nil
 }
 
-func (d *DifferenceManager) webhookCompare(project *es.Project) (*Difference, error) {
-	if len(project.WebhookOrder) < 2 {
+func (d *DifferenceManager) webhookCompare(fullName string, ref *es.Ref) (*Difference, error) {
+	if len(ref.WebhookOrder) < 2 {
 		return nil, nil
 	}
 	t := time.Now().UnixNano()
-	oldSha := project.WebhookOrder[1]
-	newSha := project.WebhookOrder[0]
+	oldSha := ref.WebhookOrder[1]
+	newSha := ref.WebhookOrder[0]
 
-	entries, err := project.GetEntries()
-	if err != nil {
-		return nil, err
-	}
-	newEntry, ok := (*entries)[newSha]
+	newEntry, ok := ref.GetEntry(newSha)
 	if !ok {
-		return nil, errors.New("Could not get new entry")
+		return nil, u.Error("Could not get new entry")
 	} else if newEntry.EntryReference == oldSha {
 		return nil, nil
 	}
-	oldEntry, ok := (*entries)[oldSha]
+	oldEntry, ok := ref.GetEntry(oldSha)
 	if !ok {
-		return nil, errors.New("Could not get old entry")
+		return nil, u.Error("Could not get old entry")
 	}
 
 	added := []string{}
@@ -180,14 +175,14 @@ func (d *DifferenceManager) webhookCompare(project *es.Project) (*Difference, er
 	if len(added) == 0 && len(removed) == 0 {
 		return nil, nil
 	}
-	id := u.Hash(u.Format("%s%d", project.FullName, t))
-	diff := Difference{id, project.FullName, oldSha, newSha, removed, added, t}
+	id := u.Hash(u.Format("%s%d", fullName, t))
+	diff := Difference{id, fullName, oldSha, newSha, removed, added, t}
 	resp, err := d.index.PostData("difference", id, diff)
 	if err != nil {
 		return nil, err
 	}
 	if !resp.Created {
-		return nil, errors.New("Diff was not created")
+		return nil, u.Error("Diff was not created")
 	}
 	return &diff, nil
 }
