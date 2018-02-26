@@ -14,58 +14,89 @@
 
 package es
 
-import (
-	"encoding/json"
-)
-
 type Project struct {
-	FullName     string   `json:"full_name"`
-	Name         string   `json:"name"`
-	LastSha      string   `json:"last_sha"`
-	WebhookOrder []string `json:"webhook_order"`
-	TagShas      string   `json:"tag_shas"`
-	Entries      string   `json:"entries"`
+	FullName string   `json:"full_name"`
+	Name     string   `json:"name"`
+	TagShas  []TagSha `json:"tag_shas"`
+	Refs     []Ref    `json:"refs"`
 }
 
-type ProjectEntries map[string]ProjectEntry
+type Ref struct {
+	Name         string         `json:"name"`
+	WebhookOrder []string       `json:"webhook_order"`
+	Entries      []ProjectEntry `json:"entries"`
+}
 
 type ProjectEntry struct {
+	Sha            string   `json:"sha"`
 	EntryReference string   `json:"entry_reference"`
 	Dependencies   []string `json:"dependencies"`
 }
 
+type TagSha struct {
+	Tag string `json:"tag"`
+	Sha string `json:"sha"`
+}
+
 func NewProject(fullName, name string) *Project {
-	temp := ProjectEntries{}
-	temp2 := map[string]string{}
-	dat, _ := json.Marshal(temp)
-	dat2, _ := json.Marshal(temp2)
-	return &Project{fullName, name, "", []string{}, string(dat2), string(dat)}
+	return &Project{
+		FullName: fullName,
+		Name:     name,
+		TagShas:  []TagSha{},
+		Refs:     []Ref{}}
 }
 
-func (p *Project) GetEntries() (*ProjectEntries, error) {
-	var entries ProjectEntries
-	return &entries, json.Unmarshal([]byte(p.Entries), &entries)
-}
-
-func (p *Project) SetEntries(entries *ProjectEntries) error {
-	dat, err := json.Marshal(entries)
-	if err != nil {
-		return err
+func NewRef(refName string) *Ref {
+	return &Ref{
+		Name:         refName,
+		WebhookOrder: []string{},
+		Entries:      []ProjectEntry{},
 	}
-	p.Entries = string(dat)
-	return nil
 }
 
-func (p *Project) GetTagShas() (*map[string]string, error) {
-	var shas map[string]string
-	return &shas, json.Unmarshal([]byte(p.TagShas), &shas)
-}
-
-func (p *Project) SetTagShas(shas *map[string]string) error {
-	dat, err := json.Marshal(shas)
-	if err != nil {
-		return err
+func (p *Project) GetShaFromTag(tag string) (string, bool) {
+	for _, ts := range p.TagShas {
+		if ts.Tag == tag {
+			return ts.Sha, true
+		}
 	}
-	p.TagShas = string(dat)
-	return nil
+	return "", false
+}
+func (p *Project) GetTagFromSha(sha string) (string, bool) {
+	for _, ts := range p.TagShas {
+		if ts.Sha == sha {
+			return ts.Tag, true
+		}
+	}
+	return "", false
+}
+
+func (p *Project) GetEntry(sha string) (ref Ref, entry ProjectEntry, found bool) {
+	for _, ref := range p.Refs {
+		if entry, found = ref.GetEntry(sha); found {
+			return ref, entry, found
+		}
+	}
+	return ref, entry, false
+}
+
+func (r *Ref) MustGetEntry(sha string) (entry ProjectEntry) {
+	for _, e := range r.Entries {
+		if e.Sha == sha {
+			entry = e
+			break
+		}
+	}
+	return entry
+}
+
+func (r *Ref) GetEntry(sha string) (entry ProjectEntry, found bool) {
+	for _, e := range r.Entries {
+		if e.Sha == sha {
+			entry = e
+			found = true
+			break
+		}
+	}
+	return entry, found
 }

@@ -74,8 +74,7 @@ func (w *Worker) startCheckExist() {
 		for {
 			git := <-w.checkExistQueue
 			log.Printf("[CHECK-WORKER (%d)] Starting work on %s\n", worker, git.AfterSha)
-			docName := strings.Replace(git.Repository.FullName, "/", "_", -1)
-			if exists, err := es.CheckShaExists(w.index, docName, git.AfterSha); err != nil {
+			if exists, err := es.CheckShaExists(w.index, git.Repository.FullName, git.AfterSha); err != nil {
 				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s\n", worker, err.Error())
 				continue
 			} else if exists {
@@ -132,6 +131,7 @@ func (w *Worker) startClone() {
 						}(d, hash)
 					}
 				}
+				sort.Strings(hashes)
 			}
 			log.Printf("[CLONE-WORKER (%d)] Adding %s to es queue\n", worker, git.AfterSha)
 			w.esQueue <- &work{git.Repository.FullName, git.Repository.Name, git.AfterSha, git.Ref, hashes, git.Real}
@@ -151,7 +151,7 @@ func (w *Worker) startEs() {
 			var exists bool
 			var err error
 			var project *es.Project
-			var projectEntries *es.ProjectEntries
+			var ref *es.Ref
 
 			if exists, err = w.index.ItemExists("project", docName); err != nil {
 				log.Println("[ES-WORKER] Error checking project exists:", err.Error())
@@ -166,44 +166,42 @@ func (w *Worker) startEs() {
 			} else {
 				project = es.NewProject(workInfo.fullName, workInfo.name)
 			}
+			for _, r := range project.Refs {
+				if r.Name == workInfo.ref {
+					ref = &r
+					break
+				}
+			}
+			if ref == nil {
+				project.Refs = append(project.Refs, *es.NewRef(workInfo.ref))
+				ref = &project.Refs[len(project.Refs)-1]
+			}
+			newEntry := es.ProjectEntry{Sha: workInfo.sha}
 			if workInfo.reall {
-				project.WebhookOrder = append([]string{workInfo.sha}, project.WebhookOrder...)
-			}
-			if projectEntries, err = project.GetEntries(); err != nil {
-				log.Println("[ES-WORKER] Unable to get entries:", err.Error())
-				continue
-			}
-			if project.LastSha != "" {
-				referenceSha := project.LastSha
-				lastEntry := (*projectEntries)[referenceSha]
-				if lastEntry.EntryReference != "" {
-					referenceSha = lastEntry.EntryReference
-					lastEntry = (*projectEntries)[referenceSha]
+				if len(ref.WebhookOrder) > 0 {
+					testReferenceSha := ref.WebhookOrder[0]
+					testReference := ref.MustGetEntry(testReferenceSha)
+					if testReference.EntryReference != "" {
+						testReferenceSha = testReference.EntryReference
+						testReference = ref.MustGetEntry(testReferenceSha)
+					}
+					if reflect.DeepEqual(workInfo.hashes, testReference.Dependencies) {
+						newEntry.EntryReference = testReferenceSha
+					} else {
+						newEntry.Dependencies = workInfo.hashes
+					}
+
 				}
-				sort.Strings(lastEntry.Dependencies)
-				if reflect.DeepEqual(workInfo.hashes, lastEntry.Dependencies) {
-					(*projectEntries)[workInfo.sha] = es.ProjectEntry{EntryReference: referenceSha}
-				} else {
-					(*projectEntries)[workInfo.sha] = es.ProjectEntry{Dependencies: workInfo.hashes}
-				}
+				ref.WebhookOrder = append([]string{workInfo.sha}, ref.WebhookOrder...)
 			} else {
-				(*projectEntries)[workInfo.sha] = es.ProjectEntry{Dependencies: workInfo.hashes}
+				newEntry.Dependencies = workInfo.hashes
 			}
-			project.SetEntries(projectEntries)
-			project.LastSha = workInfo.sha
+
+			ref.Entries = append(ref.Entries, newEntry)
 
 			if strings.HasPrefix(workInfo.ref, "refs/tags/") {
 				tag := strings.Split(workInfo.ref, "/")[2]
-				mapp, err := project.GetTagShas()
-				if err != nil {
-					log.Println("[ES-WORKER] Unable to get tag shas:", err.Error())
-					continue
-				}
-				(*mapp)[tag] = workInfo.sha
-				if err = project.SetTagShas(mapp); err != nil {
-					log.Println("[ES-WORKER] Unable to set tag shas:", err.Error())
-					continue
-				}
+				project.TagShas = append(project.TagShas, es.TagSha{Tag: tag, Sha: workInfo.sha})
 			}
 
 			indexProject := func(data func(string, string, interface{}) (*elasticsearch.IndexResponse, error), method string, checkCreate bool) bool {
@@ -229,7 +227,7 @@ func (w *Worker) startEs() {
 			log.Println("[ES-WORKER] Finished work on", workInfo.fullName, workInfo.sha)
 			if workInfo.reall {
 				go func() {
-					_, err := w.diffMan.webhookCompare(project)
+					_, err := w.diffMan.webhookCompare(project.FullName, ref)
 					if err != nil {
 						log.Println("[ES-WORKER] Error creating diff:", err.Error())
 					}

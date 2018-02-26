@@ -41,23 +41,61 @@ func GetProjectById(index *elasticsearch.Index, fullName string) (*Project, erro
 }
 
 func CheckShaExists(index *elasticsearch.Index, fullName string, sha string) (bool, error) {
-	exists, err := index.ItemExists("project", fullName)
+	resp, err := index.SearchByJSON("project", u.Format(`
+{
+	"query": {
+		"bool":{
+			"must":[{
+				"term":{
+					"full_name":"%s"
+				}	
+			},{
+				"term": {
+					"refs.entries.sha": "%s"
+				}
+			}]
+		}
+	}
+}`, fullName, sha))
 	if err != nil {
 		return false, err
 	}
-	if !exists {
-		return false, nil
+	return resp.NumHits() > 0, nil
+}
+
+func GetShaFromTag(index *elasticsearch.Index, fullName, tag string) (string, bool, error) {
+	resp, err := index.SearchByJSON("project", u.Format(`
+{
+	"query": {
+		"bool":{
+			"must":[{
+				"term":{
+					"full_name":"%s"
+				}	
+			},{
+				"term": {
+					"tag_shas.tag": "%s"
+				}
+			}]
+		}
 	}
-	project, err := GetProjectById(index, fullName)
+}`, fullName, tag))
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
-	entries, err := project.GetEntries()
-	if err != nil {
-		return false, err
+	if resp.NumHits() <= 0 {
+		return "", false, nil
 	}
-	_, exists = (*entries)[sha]
-	return exists, nil
+	var ts []TagSha
+	if err = json.Unmarshal([]byte(*resp.GetHit(0).Source), &ts); err != nil {
+		return "", false, err
+	}
+	for _, e := range ts {
+		if e.Tag == tag {
+			return e.Sha, true, nil
+		}
+	}
+	return "", false, nil
 }
 
 func MatchAllSize(index *elasticsearch.Index, typ string, size int) (*elasticsearch.SearchResult, error) {
@@ -70,16 +108,16 @@ func MatchAllSize(index *elasticsearch.Index, typ string, size int) (*elasticsea
 }
 
 func GetAllProjects(index *elasticsearch.Index, size int) (*[]*Project, error) {
-	return hitsToProjects(MatchAllSize(index, "project", size))
+	return HitsToProjects(MatchAllSize(index, "project", size))
 }
 
 func GetProjectsOrg(index *elasticsearch.Index, org string, size int) (*[]*Project, error) {
-	return hitsToProjects(index.SearchByJSON("project", u.Format(`
+	return HitsToProjects(index.SearchByJSON("project", u.Format(`
 {
 	"size": %d,
 	"query": {
-		"regexp": {
-			"full_name": "%s"
+		"wildcard": {
+			"full_name": "%s/*"
 		}
 	}
 }	
@@ -87,7 +125,7 @@ func GetProjectsOrg(index *elasticsearch.Index, org string, size int) (*[]*Proje
 
 }
 
-func hitsToProjects(resp *elasticsearch.SearchResult, err error) (*[]*Project, error) {
+func HitsToProjects(resp *elasticsearch.SearchResult, err error) (*[]*Project, error) {
 	if err != nil {
 		return nil, err
 	}

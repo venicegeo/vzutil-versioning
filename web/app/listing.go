@@ -25,15 +25,18 @@ func (a *Application) listShas(c *gin.Context) {
 		return
 	}
 	fullName := u.Format("%s/%s", c.Param("org"), c.Param("repo"))
-	shas, err := a.rprtr.ListShas(fullName)
+	refShas, count, err := a.rprtr.ListShas(fullName)
 	if err != nil {
 		a.displayFailure(c, err.Error())
 		return
 	}
 	header := "List of Shas for " + fullName + "\n"
-	t := table.NewTable(1, len(header))
-	for _, sha := range shas {
-		t.Fill(sha)
+	t := table.NewTable(2, count+len(refShas))
+	for refName, shas := range refShas {
+		t.Fill(refName, "")
+		for _, sha := range shas {
+			t.Fill("", sha)
+		}
 	}
 	a.displaySuccess(c, header+t.NoRowBorders().Format().String())
 }

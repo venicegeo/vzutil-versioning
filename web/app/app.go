@@ -76,12 +76,30 @@ func (a *Application) Start() chan error {
 		"project":{
 			"dynamic":"strict",
 			"properties":{
-				"full_name":{"type":"text"},
+				"full_name":{"type":"keyword"},
 				"name":{"type":"keyword"},
-				"last_sha":{"type":"text"},
-				"webhook_order":{"type":"text"},
-				"tag_shas":{"type":"text"},
-				"entries":{"type":"text"}
+				"tag_shas":{
+					"dynamic":"strict",
+					"properties":{
+						"tag":{"type":"keyword"},
+						"sha":{"type":"keyword"}
+					}
+				},
+				"refs":{
+					"dynamic":"strict",
+					"properties":{
+						"name":{"type":"keyword"},
+						"webhook_order":{"type":"keyword"},
+						"entries":{
+							"dynamic":"strict",
+							"properties":{
+								"sha":{"type":"keyword"},
+								"entry_reference":{"type":"keyword"},
+								"dependencies":{"type":"keyword"}
+							}
+						}
+					}
+				}
 			}
 		},
 		"dependency":{
@@ -97,11 +115,11 @@ func (a *Application) Start() chan error {
 			"dynamic":"strict",
 			"properties":{
 				"id":{"type":"keyword"},
-				"full_name":{"type":"text"},
-				"old_sha":{"type":"text"},
-				"new_sha":{"type":"text"},
-				"removed":{"type":"text"},
-				"added":{"type":"text"},
+				"full_name":{"type":"keyword"},
+				"old_sha":{"type":"keyword"},
+				"new_sha":{"type":"keyword"},
+				"removed":{"type":"keyword"},
+				"added":{"type":"keyword"},
 				"time":{"type":"long"}
 			}
 		}
