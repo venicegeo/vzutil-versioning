@@ -114,7 +114,6 @@ func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) 
 }
 `
 
-	println(query)
 	projects, err := es.HitsToProjects(a.index.SearchByJSON("project", query))
 	if err != nil {
 		return 500, "Error getting projects: " + err.Error()
