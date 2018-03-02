@@ -113,6 +113,8 @@ func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) 
 	}
 }
 `
+
+	println(query)
 	projects, err := es.HitsToProjects(a.index.SearchByJSON("project", query))
 	if err != nil {
 		return 500, "Error getting projects: " + err.Error()
@@ -134,7 +136,9 @@ func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) 
 								containingProjects[project.FullName][ref.Name] = append(containingProjects[project.FullName][ref.Name], entry.Sha)
 							}
 						}
-						break
+						if breakk {
+							break
+						}
 					}
 					if breakk {
 						break

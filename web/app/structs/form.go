@@ -21,15 +21,15 @@ import (
 
 type Forms string
 
-var DepSearch Forms = "depsearch"
-var ReportTag Forms = "reporttag"
-var ReportSha Forms = "reportsha"
-var ListTags Forms = "listtags"
-var ListShas Forms = "listshas"
-var GenerateTag Forms = "generatetag"
-var GenerateSha Forms = "generatesha"
-var Differences Forms = "diffman"
-var CustomDifference Forms = "customdiff"
+const DepSearch Forms = "depsearch"
+const ReportTag Forms = "reporttag"
+const ReportSha Forms = "reportsha"
+const ListTags Forms = "listtags"
+const ListShas Forms = "listshas"
+const GenerateTag Forms = "generatetag"
+const GenerateSha Forms = "generatesha"
+const Differences Forms = "diffman"
+const CustomDifference Forms = "customdiff"
 
 type Form struct {
 	ButtonDepSearch string `form:"button_depsearch"`
