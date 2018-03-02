@@ -21,6 +21,7 @@ import (
 
 type Forms string
 
+var DepSearch Forms = "depsearch"
 var ReportTag Forms = "reporttag"
 var ReportSha Forms = "reportsha"
 var ListTags Forms = "listtags"
@@ -28,8 +29,11 @@ var ListShas Forms = "listshas"
 var GenerateTag Forms = "generatetag"
 var GenerateSha Forms = "generatesha"
 var Differences Forms = "diffman"
+var CustomDifference Forms = "customdiff"
 
 type Form struct {
+	ButtonDepSearch string `form:"button_depsearch"`
+
 	//Reporting
 	ReportTagOrg       string `form:"reporttagorg"`
 	ReportTagRepo      string `form:"reporttagrepo"`
@@ -61,7 +65,8 @@ type Form struct {
 	ButtonGenerateSha string `form:"button_generatesha"`
 
 	//Differences
-	ButtonDifferences string `form:"button_diffman"`
+	ButtonDifferences      string `form:"button_diffman"`
+	ButtonCustomDifference string `form:"button_customdiff"`
 }
 
 func (f *Form) IsEmpty() bool {

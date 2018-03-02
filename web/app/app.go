@@ -16,7 +16,6 @@ package app
 
 import (
 	"errors"
-	"html/template"
 	"log"
 	"os"
 	"os/exec"
@@ -162,11 +161,14 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/list/projects", a.listProjects},
 		u.RouteData{"GET", "/list/projects/:org", a.listProjectsOrg},
 
+		u.RouteData{"GET", "/search", a.uiSearchForDep},
 		u.RouteData{"GET", "/search/:dep", a.searchForDep},
 		u.RouteData{"GET", "/search/:dep/:version", a.searchForDep},
 
 		u.RouteData{"GET", "/ui", a.formPath},
+
 		u.RouteData{"GET", "/diff", a.diffPath},
+		u.RouteData{"GET", "/cdiff", a.customDiffPath},
 	})
 	select {
 	case err = <-server.Start(":" + port):
@@ -223,6 +225,8 @@ func (a *Application) formPath(c *gin.Context) {
 	}
 	buttonPress := form.FindButtonPress()
 	switch buttonPress {
+	case s.DepSearch:
+		c.Redirect(307, "/search")
 	case s.ReportTag:
 		if form.ReportTagRepo != "" && form.ReportTagOrg == "" {
 			a.displayFailure(c, "Must specify an org if you specify a repo")
@@ -259,65 +263,11 @@ func (a *Application) formPath(c *gin.Context) {
 		c.Redirect(307, u.Format("/generate/sha/%s/%s/%s", form.ByShaOrg, form.ByShaRepo, form.ByShaSha))
 	case s.Differences:
 		c.Redirect(307, "/diff")
+	case s.CustomDifference:
+		c.Redirect(307, "/cdiff")
 	default:
 		c.String(400, "What did you do? :(")
 	}
-}
-func (a *Application) diffPath(c *gin.Context) {
-	if a.checkBack(c) {
-		return
-	}
-	gh := gin.H{}
-	gh["buttons"] = "Differences will appear here"
-	gh["data"] = "Details will appear here"
-	if err := c.Request.ParseForm(); err != nil {
-		gh["buttons"] = "Error loading the form.\n" + err.Error()
-		c.HTML(500, "differences.html", gh)
-		return
-	}
-	diffs, err := a.diffMan.AllDiffs(a.searchSize)
-	if err != nil {
-		gh["buttons"] = "Could not load this.\n" + err.Error()
-		gh["data"] = "Error loading this.\n" + err.Error()
-		c.HTML(500, "differences.html", gh)
-		return
-	}
-	form := map[string][]string(c.Request.Form)
-	{
-		buttons := make([]s.HtmlInter, len(*diffs))
-		for i, d := range *diffs {
-			buttons[i] = s.NewHtmlButton2(d.Id, d.SimpleString())
-		}
-		if len(buttons) > 0 {
-			tmp := s.NewHtmlCollection()
-			for _, b := range buttons {
-				tmp.Add(b)
-				tmp.Add(&s.HtmlBr{})
-			}
-			gh["buttons"] = tmp.Template()
-		}
-	}
-	if len(form) > 0 {
-		var res string
-		for diffId, _ := range form {
-			if diffId == "button_delete" {
-				a.diffMan.Delete(a.diffMan.CurrentDisplay)
-				a.diffMan.CurrentDisplay = ""
-				c.Redirect(307, "/diff")
-				return
-			} else {
-				for _, diff := range *diffs {
-					if diff.Id == diffId {
-						res = a.diffMan.GenerateReport(&diff) + "\n"
-						a.diffMan.CurrentDisplay = diffId
-						break
-					}
-				}
-			}
-		}
-		gh["data"] = template.HTML(s.NewHtmlCollection(s.NewHtmlBasic("pre", res), s.NewHtmlBasic("form", s.NewHtmlButton("Delete").String())).Template())
-	}
-	c.HTML(200, "differences.html", gh)
 }
 
 func (a *Application) checkBack(c *gin.Context) (wasHandled bool) {

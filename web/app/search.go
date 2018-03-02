@@ -22,9 +22,37 @@ import (
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
+func (a *Application) uiSearchForDep(c *gin.Context) {
+	type Search struct {
+		Ui           string `form:"button_back"`
+		DepName      string `form:"depsearchname"`
+		DepVersion   string `form:"depsearchversion"`
+		ButtonSearch string `form:"button_depsearch"`
+	}
+	var tmp Search
+	if err := c.Bind(&tmp); err != nil {
+		return
+	}
+	h := gin.H{"data": "Search Results will appear here"}
+	if tmp.Ui != "" {
+		c.Redirect(307, "/ui")
+	} else if tmp.ButtonSearch != "" {
+		code, dat := a.searchForDepWrk(tmp.DepName, tmp.DepVersion)
+		h["data"] = dat
+		c.HTML(code, "depsearch.html", h)
+	} else {
+		c.HTML(200, "depsearch.html", h)
+	}
+}
+
 func (a *Application) searchForDep(c *gin.Context) {
 	depName := c.Param("dep")
 	depVersion := c.Param("version")
+	c.String(a.searchForDepWrk(depName, depVersion))
+}
+
+func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) {
+	tmp := ""
 	query := u.Format(`
 {
 	"size": %d,
@@ -46,24 +74,23 @@ func (a *Application) searchForDep(c *gin.Context) {
 }`, a.searchSize, depName, depVersion)
 	resp, err := a.index.SearchByJSON("dependency", query)
 	if err != nil {
-		c.String(500, "Error querying database:", err.Error())
-		return
+		return 500, "Error querying database: " + err.Error()
 	}
 	hits := resp.GetHits()
 	deps := make([]es.Dependency, resp.NumHits(), resp.NumHits())
 	for i, hit := range *hits {
 		var dep es.Dependency
 		if err = json.Unmarshal(*hit.Source, &dep); err != nil {
-			c.String(500, "Error unmarshalling dependency:", err)
+			return 500, "Error unmarshalling dependency: " + err.Error()
 		}
 		deps[i] = dep
 	}
 	{
-		tmp := "Searching for:\n"
+		tmp = "Searching for:\n"
 		for _, dep := range deps {
 			tmp += u.Format("\t%s\n", dep.String())
 		}
-		c.String(200, tmp+"\n\n\n")
+		tmp += "\n\n\n"
 	}
 
 	query = u.Format(`{
@@ -88,8 +115,7 @@ func (a *Application) searchForDep(c *gin.Context) {
 `
 	projects, err := es.HitsToProjects(a.index.SearchByJSON("project", query))
 	if err != nil {
-		c.String(500, "Error getting projects:", err)
-		return
+		return 500, "Error getting projects: " + err.Error()
 	}
 	//projectEntries := map[string]*es.ProjectEntries{}
 	//						 projectName   ref   shas
@@ -117,7 +143,6 @@ func (a *Application) searchForDep(c *gin.Context) {
 			}
 		}
 	}
-	tmp := ""
 	for projectName, e1 := range containingProjects {
 		tmp += projectName + "\n"
 		for refName, e2 := range e1 {
@@ -127,5 +152,5 @@ func (a *Application) searchForDep(c *gin.Context) {
 			}
 		}
 	}
-	c.String(200, tmp)
+	return 200, tmp
 }

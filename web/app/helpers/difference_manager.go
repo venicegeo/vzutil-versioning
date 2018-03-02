@@ -129,6 +129,23 @@ func (d *DifferenceManager) DiffList(size int) ([]string, error) {
 	return res, nil
 }
 
+func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Difference, error) {
+	t := time.Now().UnixNano()
+	project, err := es.GetProjectById(d.index, fullName)
+	if err != nil {
+		return nil, err
+	}
+	_, oldEntry, ok := project.GetEntry(oldSha)
+	if !ok {
+		return nil, u.Error("Could not get old entry")
+	}
+	_, newEntry, ok := project.GetEntry(newSha)
+	if !ok {
+		return nil, u.Error("Could not get new entry")
+	}
+	return d.diffCompareWrk(fullName, oldEntry, newEntry, oldSha, newSha, t)
+}
+
 func (d *DifferenceManager) webhookCompare(fullName string, ref *es.Ref) (*Difference, error) {
 	if len(ref.WebhookOrder) < 2 {
 		return nil, nil
@@ -147,7 +164,10 @@ func (d *DifferenceManager) webhookCompare(fullName string, ref *es.Ref) (*Diffe
 	if !ok {
 		return nil, u.Error("Could not get old entry")
 	}
+	return d.diffCompareWrk(fullName, oldEntry, newEntry, oldSha, newSha, t)
+}
 
+func (d *DifferenceManager) diffCompareWrk(fullName string, oldEntry, newEntry es.ProjectEntry, oldSha, newSha string, t int64) (*Difference, error) {
 	added := []string{}
 	removed := []string{}
 
