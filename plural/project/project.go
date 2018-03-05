@@ -16,6 +16,7 @@ limitations under the License.
 package project
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -89,7 +90,11 @@ func (p *Project) CloneAndMove(cloneChan chan<- error) {
 	if branch == "" {
 		branch = "master"
 	}
-	cloneChan <- exec.Command("git", "clone", "-b", branch, p.CloneUrl, p.FolderLocation).Run()
+	err := exec.Command("git", "clone", "-b", branch, p.CloneUrl, p.FolderLocation).Run()
+	if err != nil {
+		err = fmt.Errorf("Error cloning %s on branch %s: %s", p.CloneUrl, branch, err.Error())
+	}
+	cloneChan <- err
 }
 
 func (p *Project) findDepFiles() (err error) {
