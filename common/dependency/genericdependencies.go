@@ -19,11 +19,17 @@ import (
 	"regexp"
 	"strings"
 
-	lan "github.com/venicegeo/vzutil-versioning/list/language"
+	lan "github.com/venicegeo/vzutil-versioning/common/language"
 )
 
+type GenericDependencyMap map[string]GenericDependencies
 type GenericDependencies []*GenericDependency
 
+//func SwapShaVersions(shaStore sha.ShaStore, depss ...*GenericDependencies) {
+//	for _, deps := range depss {
+//		deps.SwapShaVersions(shaStore)
+//	}
+//}
 func CondenseBundles(bundles map[string][]string, depss ...*GenericDependencies) {
 	for _, deps := range depss {
 		deps.CondenseBundles(bundles)
@@ -101,6 +107,20 @@ func (deps *GenericDependencies) RemoveDuplicatesByProject() {
 	}
 	*deps = res
 }
+
+//func (deps *GenericDependencies) SwapShaVersions(shaStore sha.ShaStore) {
+//	for _, dep := range *deps {
+//		if dep.language != lan.Go {
+//			continue
+//		}
+//		for _, store := range shaStore {
+//			if store.Sha == dep.version {
+//				dep.version = store.Version
+//				break
+//			}
+//		}
+//	}
+//}
 func (deps *GenericDependencies) CondenseBundles(bundles map[string][]string) {
 	sortedByProject := map[string]GenericDependencies{}
 	langs := map[string]lan.Language{}

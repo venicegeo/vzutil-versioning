@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"strings"
 
-	lan "github.com/venicegeo/vzutil-versioning/list/language"
+	lan "github.com/venicegeo/vzutil-versioning/common/language"
 )
 
 type GenericDependency struct {

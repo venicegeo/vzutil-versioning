@@ -16,7 +16,7 @@ limitations under the License.
 package ingest
 
 import (
-	"github.com/venicegeo/vzutil-versioning/single/project/dependency"
+	"github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/single/project/issue"
 )
 

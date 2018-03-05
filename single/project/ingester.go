@@ -23,10 +23,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/venicegeo/vzutil-versioning/single/project/dependency"
+	"github.com/venicegeo/vzutil-versioning/common/dependency"
+	lan "github.com/venicegeo/vzutil-versioning/common/language"
 	"github.com/venicegeo/vzutil-versioning/single/project/ingest"
 	"github.com/venicegeo/vzutil-versioning/single/project/issue"
-	lan "github.com/venicegeo/vzutil-versioning/single/project/language"
 
 	"gopkg.in/yaml.v2"
 )

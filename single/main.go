@@ -25,15 +25,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/venicegeo/vzutil-versioning/common"
 	proj "github.com/venicegeo/vzutil-versioning/single/project"
 	"github.com/venicegeo/vzutil-versioning/single/project/util"
 )
-
-type Return struct {
-	Name string
-	Sha  string
-	Deps []string
-}
 
 func main() {
 	var err error
@@ -72,7 +67,7 @@ func main() {
 
 	//fmt.Printf("### Direct dependencies found for %s version %s\n", project.FolderName, project.Sha)
 
-	ret := Return{project.FolderName, project.Sha, []string{}}
+	ret := com.SingleReturn{project.FolderName, project.Sha, []string{}}
 	for _, s := range project.GetDependencies() {
 		ret.Deps = append(ret.Deps, s.FullString())
 	}

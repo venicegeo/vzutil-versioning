@@ -29,8 +29,8 @@ import (
 	"strconv"
 	"strings"
 
-	deps "github.com/venicegeo/vzutil-versioning/list/dependency"
-	lan "github.com/venicegeo/vzutil-versioning/list/language"
+	deps "github.com/venicegeo/vzutil-versioning/common/dependency"
+	lan "github.com/venicegeo/vzutil-versioning/common/language"
 )
 
 var codeRE = regexp.MustCompile(`^(?:[0-9]|[a-z]|[A-Z]){4}$`)
@@ -38,8 +38,10 @@ var codeRE = regexp.MustCompile(`^(?:[0-9]|[a-z]|[A-Z]){4}$`)
 func main() {
 	var fileLocation string
 	var listCode string
+	var outFile string
 	flag.StringVar(&fileLocation, "f", "", "File Location")
 	flag.StringVar(&listCode, "c", "", "List Code")
+	flag.StringVar(&outFile, "o", "", "Output File")
 	flag.Parse()
 	_, err := os.Stat(fileLocation)
 	if err != nil {
@@ -59,7 +61,7 @@ func main() {
 	byProj := map[string][]string{}
 	for _, dep := range ddeps {
 		if _, ok := byProj[dep.GetProject()]; !ok {
-			byProj[dep.GetProject()] = []string{dep.String()}
+			byProj[dep.GetProject()] = []string{dep.FullString()}
 		} else {
 			byProj[dep.GetProject()] = append(byProj[dep.GetProject()], dep.String())
 		}
@@ -68,7 +70,11 @@ func main() {
 		sort.Strings(d)
 	}
 	dat, _ = json.MarshalIndent(byProj, " ", "   ")
-	fmt.Println(string(dat))
+	if outFile != "" {
+		ioutil.WriteFile(outFile, dat, 0644)
+	} else {
+		fmt.Println(string(dat))
+	}
 }
 
 func getDepsFromSoftwareList(listDat []byte, indicesCode string) (deps.GenericDependencies, error) {
