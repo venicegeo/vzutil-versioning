@@ -63,7 +63,7 @@ func main() {
 		if _, ok := byProj[dep.GetProject()]; !ok {
 			byProj[dep.GetProject()] = []string{dep.FullString()}
 		} else {
-			byProj[dep.GetProject()] = append(byProj[dep.GetProject()], dep.String())
+			byProj[dep.GetProject()] = append(byProj[dep.GetProject()], dep.FullString())
 		}
 	}
 	for _, d := range byProj {
