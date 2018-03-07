@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
+	t "github.com/venicegeo/vzutil-versioning/common/table"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
-	t "github.com/venicegeo/vzutil-versioning/web/util/table"
 )
 
 type DifferenceManager struct {

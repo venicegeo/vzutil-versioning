@@ -18,7 +18,7 @@ type Project struct {
 	FullName string   `json:"full_name"`
 	Name     string   `json:"name"`
 	TagShas  []TagSha `json:"tag_shas"`
-	Refs     []Ref    `json:"refs"`
+	Refs     []*Ref   `json:"refs"`
 }
 
 type Ref struct {
@@ -43,7 +43,7 @@ func NewProject(fullName, name string) *Project {
 		FullName: fullName,
 		Name:     name,
 		TagShas:  []TagSha{},
-		Refs:     []Ref{}}
+		Refs:     []*Ref{}}
 }
 
 func NewRef(refName string) *Ref {
@@ -71,7 +71,7 @@ func (p *Project) GetTagFromSha(sha string) (string, bool) {
 	return "", false
 }
 
-func (p *Project) GetEntry(sha string) (ref Ref, entry ProjectEntry, found bool) {
+func (p *Project) GetEntry(sha string) (ref *Ref, entry ProjectEntry, found bool) {
 	for _, ref := range p.Refs {
 		if entry, found = ref.GetEntry(sha); found {
 			return ref, entry, found

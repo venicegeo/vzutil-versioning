@@ -16,8 +16,8 @@ package app
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/venicegeo/vzutil-versioning/common/table"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
-	"github.com/venicegeo/vzutil-versioning/web/util/table"
 )
 
 func (a *Application) listShas(c *gin.Context) {

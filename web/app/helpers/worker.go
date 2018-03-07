@@ -179,13 +179,13 @@ func (w *Worker) startEs() {
 			}
 			for _, r := range project.Refs {
 				if r.Name == workInfo.ref {
-					ref = &r
+					ref = r
 					break
 				}
 			}
 			if ref == nil {
-				project.Refs = append(project.Refs, *es.NewRef(workInfo.ref))
-				ref = &project.Refs[len(project.Refs)-1]
+				project.Refs = append(project.Refs, es.NewRef(workInfo.ref))
+				ref = project.Refs[len(project.Refs)-1]
 			}
 			newEntry := es.ProjectEntry{Sha: workInfo.sha}
 			if workInfo.reall {
