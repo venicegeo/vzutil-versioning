@@ -16,7 +16,6 @@ package es
 
 import (
 	"encoding/json"
-	"errors"
 	"strings"
 	"sync"
 
@@ -24,20 +23,20 @@ import (
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-func GetProjectById(index *elasticsearch.Index, fullName string) (*Project, error) {
+func GetProjectById(index *elasticsearch.Index, fullName string) (*Project, bool, error) {
 	docName := strings.Replace(fullName, "/", "_", -1)
 	resp, err := index.GetByID("project", docName)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if !resp.Found {
-		return nil, errors.New("Could not find this document: [" + docName + "]")
+		return nil, false, nil
 	}
 	project := &Project{}
 	if err = json.Unmarshal([]byte(*resp.Source), project); err != nil {
-		return nil, err
+		return nil, true, err
 	}
-	return project, nil
+	return project, true, nil
 }
 
 func CheckShaExists(index *elasticsearch.Index, fullName string, sha string) (bool, error) {

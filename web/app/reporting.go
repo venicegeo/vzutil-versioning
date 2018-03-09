@@ -17,6 +17,7 @@ package app
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/vzutil-versioning/common/table"
+	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -27,10 +28,16 @@ func (a *Application) reportSha(c *gin.Context) {
 	}
 	fullName := u.Format("%s/%s", c.Param("org"), c.Param("repo"))
 	sha := c.Param("sha")
-	deps, err := a.rprtr.ReportByShaName(fullName, sha)
-	if err != nil {
-		c.String(400, "Unable to do this: %s", err.Error())
-		return
+	deps, found, err := a.rprtr.ReportByShaName(fullName, sha)
+	if err != nil || !found {
+		//new stuff
+		git := s.GitWebhook{AfterSha: sha, Repository: s.GitRepository{FullName: fullName}}
+		res := a.wrkr.CloneWork(&git)
+		if res == nil {
+			c.String(400, "Sha [%s] did not previously exist and could not be generated", sha)
+			return
+		}
+		deps = res.Deps
 	}
 	header := "Report for " + fullName + " at " + sha + "\n"
 	t := table.NewTable(3, len(deps))

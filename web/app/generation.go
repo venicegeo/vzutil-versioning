@@ -120,7 +120,7 @@ func (a *Application) updateAllTagsOrg(c *gin.Context) {
 	a.displaySuccess(c, res)
 }
 
-func (a *Application) specificSha(c *gin.Context) {
+func (a *Application) specificShDEPa(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
