@@ -47,7 +47,6 @@ type SingleResult struct {
 	ref      string
 	Deps     []es.Dependency
 	hashes   []string
-	//	reall    bool
 }
 
 func NewWorker(i *elasticsearch.Index, singleLocation string, numWorkers int, diffMan *DifferenceManager) *Worker {
