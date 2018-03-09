@@ -24,7 +24,7 @@ type Forms string
 const DepSearch Forms = "depsearch"
 const ReportTag Forms = "reporttag"
 const ReportSha Forms = "reportsha"
-const ListTags Forms = "listtags"
+const ListRefs Forms = "listrefs"
 const ListShas Forms = "listshas"
 const GenerateTag Forms = "generatetag"
 const GenerateSha Forms = "generatesha"
@@ -46,9 +46,9 @@ type Form struct {
 	ButtonReportTagSha string `form:"button_reportsha"`
 
 	//Listing
-	TagsOrg        string `form:"tagsorg"`
-	TagsRepo       string `form:"tagsrepo"`
-	ButtonListTags string `form:"button_listtags"`
+	RefsOrg        string `form:"refsorg"`
+	RefsRepo       string `form:"refsrepo"`
+	ButtonListRefs string `form:"button_listrefs"`
 
 	ShasOrg        string `form:"shasorg"`
 	ShasRepo       string `form:"shasrepo"`

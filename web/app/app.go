@@ -155,8 +155,8 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/report/tag/:tagorg/:tagrepo/:tag", a.reportTag},
 
 		u.RouteData{"GET", "/list/shas/:org/:repo", a.listShas},
-		u.RouteData{"GET", "/list/tags/:org/:repo", a.listTagsRepo},
-		u.RouteData{"GET", "/list/tags/:org", a.listTags},
+		u.RouteData{"GET", "/list/refs/:org/:repo", a.listRefsRepo},
+		u.RouteData{"GET", "/list/refs/:org", a.listRefs},
 		u.RouteData{"GET", "/list/projects", a.listProjects},
 		u.RouteData{"GET", "/list/projects/:org", a.listProjectsOrg},
 
@@ -244,11 +244,11 @@ func (a *Application) formPath(c *gin.Context) {
 		}
 	case s.ReportSha:
 		c.Redirect(307, u.Format("/report/sha/%s/%s/%s", form.ReportShaOrg, form.ReportShaRepo, form.ReportShaSha))
-	case s.ListTags:
-		if form.TagsRepo != "" {
-			c.Redirect(307, u.Format("/list/tags/%s/%s", form.TagsOrg, form.TagsRepo))
+	case s.ListRefs:
+		if form.RefsRepo != "" {
+			c.Redirect(307, u.Format("/list/refs/%s/%s", form.RefsOrg, form.RefsRepo))
 		} else {
-			c.Redirect(307, "/list/tags/"+form.TagsOrg)
+			c.Redirect(307, "/list/refs/"+form.RefsOrg)
 		}
 	case s.ListShas:
 		c.Redirect(307, u.Format("/list/shas/%s/%s", form.ShasOrg, form.ShasRepo))

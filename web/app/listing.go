@@ -41,36 +41,34 @@ func (a *Application) listShas(c *gin.Context) {
 	a.displaySuccess(c, header+t.NoRowBorders().Format().String())
 }
 
-func (a *Application) listTagsRepo(c *gin.Context) {
+func (a *Application) listRefsRepo(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
 	fullName := u.Format("%s/%s", c.Param("org"), c.Param("repo"))
-	tags, err := a.rprtr.ListTagsRepo(fullName)
+	refs, err := a.rprtr.ListRefsRepo(fullName)
 	if err != nil {
 		a.displayFailure(c, err.Error())
 		return
 	}
-	header := "List of tags for " + fullName + "\n"
-	t := table.NewTable(3, len(*tags))
-	for k, v := range *tags {
-		t.Fill(k)
-		t.Fill("")
-		t.Fill(v)
+	header := "List of refs for " + fullName + "\n"
+	t := table.NewTable(1, len(*refs))
+	for _, r := range *refs {
+		t.Fill(r)
 	}
-	a.displaySuccess(c, header+t.SpaceColumn(1).NoRowBorders().NoColumnBorders().Format().String())
+	a.displaySuccess(c, header+t.NoRowBorders().NoColumnBorders().Format().String())
 }
-func (a *Application) listTags(c *gin.Context) {
+func (a *Application) listRefs(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
 	org := c.Param("org")
-	tags, num, err := a.rprtr.ListTags(org)
+	tags, num, err := a.rprtr.ListRefs(org)
 	if err != nil {
 		a.displayFailure(c, err.Error())
 		return
 	}
-	header := "List of tags for " + org + "\n"
+	header := "List of refs for " + org + "\n"
 	t := table.NewTable(2, num+len(*tags))
 	for k, v := range *tags {
 		if len(v) == 0 {

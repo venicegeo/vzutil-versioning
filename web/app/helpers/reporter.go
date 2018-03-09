@@ -249,20 +249,20 @@ func (r *Reporter) ListShas(fullName string) (map[string][]string, int, error) {
 
 //
 
-func (r *Reporter) ListTagsRepo(fullName string) (*map[string]string, error) {
+func (r *Reporter) ListRefsRepo(fullName string) (*[]string, error) {
 	project, found, err := es.GetProjectById(r.index, fullName)
 	if err != nil {
 		return nil, err
 	} else if !found {
 		return nil, u.Error("Could not find project [%s]", fullName)
 	}
-	res := map[string]string{}
-	for _, ts := range project.TagShas {
-		res[ts.Tag] = ts.Sha
+	res := make([]string, len(project.Refs), len(project.Refs))
+	for i, r := range project.Refs {
+		res[i] = strings.TrimPrefix(r.Name, `refs/`)
 	}
 	return &res, nil
 }
-func (r *Reporter) ListTags(org string) (*map[string][]string, int, error) {
+func (r *Reporter) ListRefs(org string) (*map[string][]string, int, error) {
 	projects, err := es.GetProjectsOrg(r.index, org, r.searchSize)
 	if err != nil {
 		return nil, 0, err
@@ -273,11 +273,10 @@ func (r *Reporter) ListTags(org string) (*map[string][]string, int, error) {
 	mux := &sync.Mutex{}
 
 	work := func(project *es.Project) {
-		ts := project.TagShas
-		num := len(ts)
+		num := len(project.Refs)
 		temp := make([]string, num, num)
-		for i, e := range ts {
-			temp[i] = e.Tag
+		for i, r := range project.Refs {
+			temp[i] = strings.TrimPrefix(r.Name, `refs/`)
 		}
 		sort.Strings(temp)
 		mux.Lock()
