@@ -15,10 +15,8 @@
 package helpers
 
 import (
-	"bufio"
 	"encoding/json"
 	"log"
-	"os"
 	"os/exec"
 	"reflect"
 	"regexp"
@@ -28,7 +26,6 @@ import (
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
-	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 type Worker struct {
@@ -38,27 +35,22 @@ type Worker struct {
 	numWorkers      int
 	checkExistQueue chan *s.GitWebhook
 	cloneQueue      chan *s.GitWebhook
-	esQueue         chan *work
+	esQueue         chan *SingleResult
 
 	diffMan *DifferenceManager
-
-	logFile   *os.File
-	logWriter *bufio.Writer
 }
 
-type work struct {
+type SingleResult struct {
 	fullName string
 	name     string
 	sha      string
 	ref      string
+	Deps     []es.Dependency
 	hashes   []string
-	reall    bool
 }
 
 func NewWorker(i *elasticsearch.Index, singleLocation string, numWorkers int, diffMan *DifferenceManager) *Worker {
-	wrkr := Worker{singleLocation, i, numWorkers, make(chan *s.GitWebhook, 1000), make(chan *s.GitWebhook, 1000), make(chan *work, 1000), diffMan, nil, nil}
-	wrkr.logFile, _ = os.Create("log.txt")
-	wrkr.logWriter = bufio.NewWriter(wrkr.logFile)
+	wrkr := Worker{singleLocation, i, numWorkers, make(chan *s.GitWebhook, 1000), make(chan *s.GitWebhook, 1000), make(chan *SingleResult, 1000), diffMan}
 	return &wrkr
 }
 
@@ -90,62 +82,84 @@ func (w *Worker) startCheckExist() {
 		go work(i)
 	}
 }
+
+func printIfRoutine(routine bool, format string, v ...interface{}) {
+	if routine {
+		log.Printf(format, v...)
+	}
+}
+func injectNilNotRoutine(routine bool, out chan *SingleResult) {
+	if !routine {
+		out <- nil
+	}
+}
+func (w *Worker) CloneWork(git *s.GitWebhook) *SingleResult {
+	in := make(chan *s.GitWebhook, 1)
+	out := make(chan *SingleResult, 1)
+	in <- git
+	cloneWork(false, 0, w.singleLocation, w.index, in, out)
+	return <-out
+}
+func cloneWork(routine bool, worker int, singleLocation string, index *elasticsearch.Index, pullFrom chan *s.GitWebhook, pushTo chan *SingleResult) {
+	git := <-pullFrom
+	printIfRoutine(routine, "[CLONE-WORKER (%d)] Starting work on %s\n", worker, git.AfterSha)
+	var deps []es.Dependency
+	var hashes []string
+	type SingleReturn struct {
+		Name string
+		Sha  string
+		Deps []string
+	}
+	dat, err := exec.Command(singleLocation, git.Repository.FullName, git.AfterSha).Output()
+	if err != nil {
+		printIfRoutine(routine, "[CLONE-WORKER (%d)] Unable to run against %s [%s]\n", worker, git.AfterSha, err.Error())
+		injectNilNotRoutine(routine, pushTo)
+		return
+	}
+	var singleRet SingleReturn
+	if err = json.Unmarshal(dat, &singleRet); err != nil {
+		printIfRoutine(routine, "[CLONE-WORKER (%d) Unable to run against %s [%s]\n", worker, git.AfterSha, err.Error())
+		injectNilNotRoutine(routine, pushTo)
+		return
+	}
+	if singleRet.Sha != git.AfterSha {
+		printIfRoutine(routine, "[CLONE-WORKER (%d)] Generation failed to run against %s, it ran against sha %s\n", git.AfterSha, singleRet.Sha)
+		injectNilNotRoutine(routine, pushTo)
+		return
+	}
+	{
+		deps = make([]es.Dependency, 0, len(singleRet.Deps))
+		for _, d := range singleRet.Deps {
+			matches := depRe.FindStringSubmatch(d)
+			deps = append(deps, es.Dependency{matches[1], matches[2], matches[4]})
+		}
+	}
+	{
+		hashes = make([]string, len(deps))
+		for i, d := range deps {
+			hash := d.GetHashSum()
+			hashes[i] = hash
+			exists, err := index.ItemExists("dependency", hash)
+			if err != nil || !exists {
+				go func(dep es.Dependency, h string) {
+					resp, err := index.PostData("dependency", h, dep)
+					if err != nil {
+						printIfRoutine(routine, "[CLONE-WORKER (%d)] Unable to create dependency %s [%s]\n", worker, h, err.Error())
+					} else if !resp.Created {
+						printIfRoutine(routine, "[CLONE-WORKER (%d)] Unable to create dependency %s\n", worker, h)
+					}
+				}(d, hash)
+			}
+		}
+		sort.Strings(hashes)
+	}
+	printIfRoutine(routine, "[CLONE-WORKER (%d)] Adding %s to es queue\n", worker, git.AfterSha)
+	pushTo <- &SingleResult{git.Repository.FullName, git.Repository.Name, git.AfterSha, git.Ref, deps, hashes} //, git.Real}
+}
 func (w *Worker) startClone() {
 	work := func(worker int) {
 		for {
-			git := <-w.cloneQueue
-			log.Printf("[CLONE-WORKER (%d)] Starting work on %s\n", worker, git.AfterSha)
-			var deps []es.Dependency
-			var hashes []string
-			type SingleReturn struct {
-				Name string
-				Sha  string
-				Deps []string
-			}
-			dat, err := exec.Command(w.singleLocation, git.Repository.FullName, git.AfterSha).Output()
-			if err != nil {
-				log.Printf("[CLONE-WORKER (%d)] Unable to run against %s [%s]\n", worker, git.AfterSha, err.Error())
-				w.logWriter.WriteString(u.Format("[CLONE-WORKER (%d)] Unable to run against %s [%s]\n[%s]\n", worker, git.AfterSha, err.Error(), string(dat)))
-				w.logWriter.Flush()
-				continue
-			}
-			var singleRet SingleReturn
-			if err = json.Unmarshal(dat, &singleRet); err != nil {
-				log.Printf("[CLONE-WORKER (%d) Unable to run against %s [%s]\n", worker, git.AfterSha, err.Error())
-				continue
-			}
-			if singleRet.Sha != git.AfterSha {
-				log.Printf("[CLONE-WORKER (%d)] Generation failed to run against %s, it ran against sha %s\n", git.AfterSha, singleRet.Sha)
-				continue
-			}
-			{
-				deps = make([]es.Dependency, 0, len(singleRet.Deps))
-				for _, d := range singleRet.Deps {
-					matches := depRe.FindStringSubmatch(d)
-					deps = append(deps, es.Dependency{matches[1], matches[2], matches[4]})
-				}
-			}
-			{
-				hashes = make([]string, len(deps))
-				for i, d := range deps {
-					hash := d.GetHashSum()
-					hashes[i] = hash
-					exists, err := w.index.ItemExists("dependency", hash)
-					if err != nil || !exists {
-						go func(dep es.Dependency, h string) {
-							resp, err := w.index.PostData("dependency", h, dep)
-							if err != nil {
-								log.Printf("[CLONE-WORKER (%d)] Unable to create dependency %s [%s]\n", worker, h, err.Error())
-							} else if !resp.Created {
-								log.Printf("[CLONE-WORKER (%d)] Unable to create dependency %s\n", worker, h)
-							}
-						}(d, hash)
-					}
-				}
-				sort.Strings(hashes)
-			}
-			log.Printf("[CLONE-WORKER (%d)] Adding %s to es queue\n", worker, git.AfterSha)
-			w.esQueue <- &work{git.Repository.FullName, git.Repository.Name, git.AfterSha, git.Ref, hashes, git.Real}
+			cloneWork(true, worker, w.singleLocation, w.index, w.cloneQueue, w.esQueue)
 		}
 	}
 	for i := 1; i <= w.numWorkers; i++ {
@@ -169,7 +183,7 @@ func (w *Worker) startEs() {
 				continue
 			}
 			if exists {
-				project, err = es.GetProjectById(w.index, docName)
+				project, _, err = es.GetProjectById(w.index, docName)
 				if err != nil {
 					log.Println("[ES-WORKER] Unable to retrieve project:", err.Error())
 					continue
@@ -188,25 +202,22 @@ func (w *Worker) startEs() {
 				ref = project.Refs[len(project.Refs)-1]
 			}
 			newEntry := es.ProjectEntry{Sha: workInfo.sha}
-			if workInfo.reall {
-				if len(ref.WebhookOrder) > 0 {
-					testReferenceSha := ref.WebhookOrder[0]
-					testReference := ref.MustGetEntry(testReferenceSha)
-					if testReference.EntryReference != "" {
-						testReferenceSha = testReference.EntryReference
-						testReference = ref.MustGetEntry(testReferenceSha)
-					}
-					if reflect.DeepEqual(workInfo.hashes, testReference.Dependencies) {
-						newEntry.EntryReference = testReferenceSha
-					} else {
-						newEntry.Dependencies = workInfo.hashes
-					}
-
+			if len(ref.WebhookOrder) > 0 {
+				testReferenceSha := ref.WebhookOrder[0]
+				testReference := ref.MustGetEntry(testReferenceSha)
+				if testReference.EntryReference != "" {
+					testReferenceSha = testReference.EntryReference
+					testReference = ref.MustGetEntry(testReferenceSha)
 				}
-				ref.WebhookOrder = append([]string{workInfo.sha}, ref.WebhookOrder...)
+				if reflect.DeepEqual(workInfo.hashes, testReference.Dependencies) {
+					newEntry.EntryReference = testReferenceSha
+				} else {
+					newEntry.Dependencies = workInfo.hashes
+				}
 			} else {
 				newEntry.Dependencies = workInfo.hashes
 			}
+			ref.WebhookOrder = append([]string{workInfo.sha}, ref.WebhookOrder...)
 
 			ref.Entries = append(ref.Entries, newEntry)
 
@@ -236,14 +247,12 @@ func (w *Worker) startEs() {
 				}
 			}
 			log.Println("[ES-WORKER] Finished work on", workInfo.fullName, workInfo.sha)
-			if workInfo.reall {
-				go func() {
-					_, err := w.diffMan.webhookCompare(project.FullName, ref)
-					if err != nil {
-						log.Println("[ES-WORKER] Error creating diff:", err.Error())
-					}
-				}()
-			}
+			go func() {
+				_, err := w.diffMan.webhookCompare(project.FullName, ref)
+				if err != nil {
+					log.Println("[ES-WORKER] Error creating diff:", err.Error())
+				}
+			}()
 		}
 	}
 	go work()

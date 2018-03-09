@@ -131,9 +131,12 @@ func (d *DifferenceManager) DiffList(size int) ([]string, error) {
 
 func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Difference, error) {
 	t := time.Now().UnixNano()
-	project, err := es.GetProjectById(d.index, fullName)
+	project, found, err := es.GetProjectById(d.index, fullName)
 	if err != nil {
 		return nil, err
+	}
+	if !found {
+		return nil, u.Error("Project [%s] was not found", fullName)
 	}
 	_, oldEntry, ok := project.GetEntry(oldSha)
 	if !ok {

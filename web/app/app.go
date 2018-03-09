@@ -148,7 +148,6 @@ func (a *Application) Start() chan error {
 		u.RouteData{"POST", "/webhook", a.webhookPath},
 		u.RouteData{"GET", "/generate/tags/:org/:repo", a.updateAllTags},
 		u.RouteData{"GET", "/generate/tags/:org", a.updateAllTagsOrg},
-		u.RouteData{"GET", "/generate/sha/:org/:repo/:sha", a.specificSha},
 
 		u.RouteData{"GET", "/report/sha/:org/:repo/:sha", a.reportSha},
 		u.RouteData{"GET", "/report/tag/:tagorg", a.reportTag},

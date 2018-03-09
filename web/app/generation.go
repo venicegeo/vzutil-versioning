@@ -19,15 +19,13 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	h "github.com/venicegeo/vzutil-versioning/web/app/helpers"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 func (a *Application) webhookPath(c *gin.Context) {
-	git := s.GitWebhook{Real: true}
-
+	git := s.GitWebhook{}
 	if err := c.BindJSON(&git); err != nil {
 		log.Println("Unable to bind json:", err.Error())
 		c.Status(400)
@@ -118,34 +116,4 @@ func (a *Application) updateAllTagsOrg(c *gin.Context) {
 	}
 
 	a.displaySuccess(c, res)
-}
-
-func (a *Application) specificSha(c *gin.Context) {
-	if a.checkBack(c) {
-		return
-	}
-	name := c.Param("repo")
-	fullName := u.Format("%s/%s", c.Param("org"), name)
-	sha := c.Param("sha")
-	code, _, _, err := nt.HTTP(nt.HEAD, u.Format("https://github.com/%s/commit/%s", fullName, sha), nt.NewHeaderBuilder().GetHeader(), nil)
-	if err != nil {
-		a.displayFailure(c, "could not verify this sha: "+err.Error())
-		return
-	}
-	if code != 200 {
-		a.displayFailure(c, u.Format("could not verify this sha, head code: %d", code))
-		return
-	}
-	go func(name, fullName, sha string) {
-		git := s.GitWebhook{
-			AfterSha: sha,
-			Repository: s.GitRepository{
-				Name:     name,
-				FullName: fullName,
-			},
-		}
-		log.Println(fullName, sha)
-		a.wrkr.AddTask(&git)
-	}(name, fullName, sha)
-	a.displaySuccess(c, "I got this, check back in a bit")
 }

@@ -35,24 +35,27 @@ func NewReporter(index *elasticsearch.Index) *Reporter {
 	return &Reporter{index, 250}
 }
 
-func (r *Reporter) ReportByShaName(fullName, sha string) (res []es.Dependency, err error) {
+func (r *Reporter) ReportByShaName(fullName, sha string) ([]es.Dependency, bool, error) {
 	var project *es.Project
+	var err error
+	var found bool
 
-	if project, err = es.GetProjectById(r.index, fullName); err != nil {
-		return nil, err
+	if project, found, err = es.GetProjectById(r.index, fullName); err != nil {
+		return nil, found, err
+	} else if !found {
+		return nil, false, nil
 	}
 	return r.ReportByShaProject(project, sha)
 
 }
-func (r *Reporter) ReportByShaProject(project *es.Project, sha string) (res []es.Dependency, err error) {
+func (r *Reporter) ReportByShaProject(project *es.Project, sha string) (res []es.Dependency, exists bool, err error) {
 	ref, entry, exists := project.GetEntry(sha)
-
 	if !exists {
-		return nil, errors.New("Sorry, this sha was not found")
+		return nil, false, nil
 	}
 	if entry.EntryReference != "" {
 		if entry, exists = ref.GetEntry(entry.EntryReference); !exists {
-			return nil, errors.New("The database is corrupted, this sha points to a sha that doesnt exist: " + entry.EntryReference)
+			return nil, true, errors.New("The database is corrupted, this sha points to a sha that doesnt exist: " + entry.EntryReference)
 		}
 	}
 	mux := &sync.Mutex{}
@@ -86,7 +89,7 @@ func (r *Reporter) ReportByShaProject(project *es.Project, sha string) (res []es
 	for i := 0; i < len(entry.Dependencies); i++ {
 		<-done
 	}
-	return res, nil
+	return res, true, nil
 }
 
 func (r *Reporter) ReportByTag(info ...string) (map[string][]es.Dependency, error) {
@@ -122,10 +125,12 @@ func (r *Reporter) reportByTag1(tag string) (map[string][]es.Dependency, error) 
 			errs <- errors.New("Could not find a sha for tag " + tag)
 			return
 		}
-		deps, err := r.ReportByShaProject(project, sha)
+		deps, found, err := r.ReportByShaProject(project, sha)
 		if err != nil {
 			errs <- err
 			return
+		} else if !found {
+
 		}
 		mux.Lock()
 		{
@@ -160,9 +165,12 @@ func (r *Reporter) reportByTag2(org, tag string) (map[string][]es.Dependency, er
 			errs <- errors.New("Could not find sha for tag " + tag)
 			return
 		}
-		deps, err := r.ReportByShaProject(project, sha)
+		deps, found, err := r.ReportByShaProject(project, sha)
 		if err != nil {
 			errs <- err
+			return
+		} else if !found {
+			errs <- u.Error("Project [%s] not found", project.FullName)
 			return
 		}
 		mux.Lock()
@@ -188,9 +196,12 @@ func (r *Reporter) reportByTag3(tag, docName string) (map[string][]es.Dependency
 	var sha string
 	var ok bool
 
-	if project, err = es.GetProjectById(r.index, docName); err != nil {
+	if project, ok, err = es.GetProjectById(r.index, docName); err != nil {
 		return nil, err
+	} else if !ok {
+		return nil, u.Error("Could not find [%s]", docName)
 	}
+	ok = false
 
 	for _, ts := range project.TagShas {
 		if ts.Tag == tag {
@@ -202,9 +213,11 @@ func (r *Reporter) reportByTag3(tag, docName string) (map[string][]es.Dependency
 	if !ok {
 		return nil, errors.New("Could not find this tag: [" + tag + "]")
 	}
-	deps, err := r.ReportByShaProject(project, sha)
+	deps, found, err := r.ReportByShaProject(project, sha)
 	if err != nil {
 		return nil, err
+	} else if !found {
+		return nil, u.Error("Could not find p")
 	}
 	return map[string][]es.Dependency{strings.Replace(docName, "_", "/", 1): deps}, nil
 }
@@ -216,9 +229,12 @@ func (r *Reporter) ListShas(fullName string) (map[string][]string, int, error) {
 	res := map[string][]string{}
 	count := 0
 	var err error
+	var found bool
 
-	if project, err = es.GetProjectById(r.index, fullName); err != nil {
+	if project, found, err = es.GetProjectById(r.index, fullName); err != nil {
 		return nil, 0, err
+	} else if !found {
+		return nil, 0, u.Error("Could not find project [%s]", fullName)
 	}
 
 	for _, ref := range project.Refs {
@@ -234,9 +250,11 @@ func (r *Reporter) ListShas(fullName string) (map[string][]string, int, error) {
 //
 
 func (r *Reporter) ListTagsRepo(fullName string) (*map[string]string, error) {
-	project, err := es.GetProjectById(r.index, fullName)
+	project, found, err := es.GetProjectById(r.index, fullName)
 	if err != nil {
 		return nil, err
+	} else if !found {
+		return nil, u.Error("Could not find project [%s]", fullName)
 	}
 	res := map[string]string{}
 	for _, ts := range project.TagShas {
