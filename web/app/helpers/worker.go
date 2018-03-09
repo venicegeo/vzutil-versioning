@@ -15,10 +15,8 @@
 package helpers
 
 import (
-	"bufio"
 	"encoding/json"
 	"log"
-	"os"
 	"os/exec"
 	"reflect"
 	"regexp"
@@ -40,9 +38,6 @@ type Worker struct {
 	esQueue         chan *SingleResult
 
 	diffMan *DifferenceManager
-
-	logFile   *os.File
-	logWriter *bufio.Writer
 }
 
 type SingleResult struct {
@@ -56,9 +51,7 @@ type SingleResult struct {
 }
 
 func NewWorker(i *elasticsearch.Index, singleLocation string, numWorkers int, diffMan *DifferenceManager) *Worker {
-	wrkr := Worker{singleLocation, i, numWorkers, make(chan *s.GitWebhook, 1000), make(chan *s.GitWebhook, 1000), make(chan *SingleResult, 1000), diffMan, nil, nil}
-	wrkr.logFile, _ = os.Create("log.txt")
-	wrkr.logWriter = bufio.NewWriter(wrkr.logFile)
+	wrkr := Worker{singleLocation, i, numWorkers, make(chan *s.GitWebhook, 1000), make(chan *s.GitWebhook, 1000), make(chan *SingleResult, 1000), diffMan}
 	return &wrkr
 }
 
@@ -210,7 +203,6 @@ func (w *Worker) startEs() {
 				ref = project.Refs[len(project.Refs)-1]
 			}
 			newEntry := es.ProjectEntry{Sha: workInfo.sha}
-			//	if workInfo.reall {
 			if len(ref.WebhookOrder) > 0 {
 				testReferenceSha := ref.WebhookOrder[0]
 				testReference := ref.MustGetEntry(testReferenceSha)
@@ -223,12 +215,10 @@ func (w *Worker) startEs() {
 				} else {
 					newEntry.Dependencies = workInfo.hashes
 				}
-
+			} else {
+				newEntry.Dependencies = workInfo.hashes
 			}
 			ref.WebhookOrder = append([]string{workInfo.sha}, ref.WebhookOrder...)
-			//		} else {
-			//			newEntry.Dependencies = workInfo.hashes
-			//		}
 
 			ref.Entries = append(ref.Entries, newEntry)
 
@@ -258,14 +248,12 @@ func (w *Worker) startEs() {
 				}
 			}
 			log.Println("[ES-WORKER] Finished work on", workInfo.fullName, workInfo.sha)
-			//			if workInfo.reall {
 			go func() {
 				_, err := w.diffMan.webhookCompare(project.FullName, ref)
 				if err != nil {
 					log.Println("[ES-WORKER] Error creating diff:", err.Error())
 				}
 			}()
-			//		}
 		}
 	}
 	go work()

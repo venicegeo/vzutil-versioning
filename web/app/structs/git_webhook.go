@@ -19,7 +19,6 @@ type GitWebhook struct {
 	BeforeSha  string        `json:"before"`
 	AfterSha   string        `json:"after"`
 	Repository GitRepository `json:"repository"`
-	Real       bool
 }
 type GitRepository struct {
 	Id       int64  `json:"id"`
