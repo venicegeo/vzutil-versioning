@@ -22,7 +22,7 @@ import (
 type Forms string
 
 const DepSearch Forms = "depsearch"
-const ReportTag Forms = "reporttag"
+const ReportRef Forms = "reportref"
 const ReportSha Forms = "reportsha"
 const ListRefs Forms = "listrefs"
 const ListShas Forms = "listshas"
@@ -35,10 +35,10 @@ type Form struct {
 	ButtonDepSearch string `form:"button_depsearch"`
 
 	//Reporting
-	ReportTagOrg       string `form:"reporttagorg"`
-	ReportTagRepo      string `form:"reporttagrepo"`
-	ReportTagTag       string `form:"reporttagtag"`
-	ButtonReportAllTag string `form:"button_reporttag"`
+	ReportRefOrg       string `form:"reportreforg"`
+	ReportRefRepo      string `form:"reportrefrepo"`
+	ReportRefRef       string `form:"reportreftag"`
+	ButtonReportAllRef string `form:"button_reportref"`
 
 	ReportShaOrg       string `form:"reportshaorg"`
 	ReportShaRepo      string `form:"reportsharepo"`

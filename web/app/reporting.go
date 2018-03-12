@@ -15,6 +15,8 @@
 package app
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	"github.com/venicegeo/vzutil-versioning/common/table"
@@ -59,24 +61,25 @@ func (a *Application) reportSha(c *gin.Context) {
 	a.displaySuccess(c, header+t.SpaceColumn(1).NoRowBorders().Format().String())
 }
 
-func (a *Application) reportTag(c *gin.Context) {
+func (a *Application) reportRef(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
-	tagorg := c.Param("tagorg")
-	tagrepo := c.Param("tagrepo")
-	tag := c.Param("tag")
+	reforg := c.Param("reforg")
+	refrepo := c.Param("refrepo")
+	ref := c.Param("ref")
 
 	var deps map[string][]es.Dependency
 	var err error
-	if tagorg != "" && tagrepo != "" && tag != "" {
-		deps, err = a.rprtr.ReportByTag(tagorg, tagrepo, tag)
-	} else if tagorg != "" && tagrepo != "" {
-		tag = tagrepo
-		deps, err = a.rprtr.ReportByTag(tagorg, tag)
-	} else if tagorg != "" {
-		tag = tagorg
-		deps, err = a.rprtr.ReportByTag(tag)
+	if reforg != "" && refrepo != "" && ref != "" {
+		ref = strings.Replace(ref, "_", `/`, -1)
+		deps, err = a.rprtr.ReportByRef(reforg, refrepo, ref)
+	} else if reforg != "" && refrepo != "" {
+		ref = strings.Replace(refrepo, "_", `/`, -1)
+		deps, err = a.rprtr.ReportByRef(reforg, ref)
+	} else if reforg != "" {
+		ref = strings.Replace(reforg, "_", `/`, -1)
+		deps, err = a.rprtr.ReportByRef(ref)
 	}
 
 	if err != nil {
@@ -85,7 +88,7 @@ func (a *Application) reportTag(c *gin.Context) {
 	}
 	res := ""
 	for name, depss := range deps {
-		res += name + " at " + tag
+		res += name + " at " + ref
 		t := table.NewTable(3, len(depss))
 		for _, dep := range depss {
 			t.Fill(dep.Name)

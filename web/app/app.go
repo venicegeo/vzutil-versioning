@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
@@ -150,9 +151,9 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/generate/tags/:org", a.updateAllTagsOrg},
 
 		u.RouteData{"GET", "/report/sha/:org/:repo/:sha", a.reportSha},
-		u.RouteData{"GET", "/report/tag/:tagorg", a.reportTag},
-		u.RouteData{"GET", "/report/tag/:tagorg/:tagrepo", a.reportTag},
-		u.RouteData{"GET", "/report/tag/:tagorg/:tagrepo/:tag", a.reportTag},
+		u.RouteData{"GET", "/report/ref/:reforg", a.reportRef},
+		u.RouteData{"GET", "/report/ref/:reforg/:refrepo", a.reportRef},
+		u.RouteData{"GET", "/report/ref/:reforg/:refrepo/:ref", a.reportRef},
 
 		u.RouteData{"GET", "/list/shas/:org/:repo", a.listShas},
 		u.RouteData{"GET", "/list/refs/:org/:repo", a.listRefsRepo},
@@ -226,19 +227,19 @@ func (a *Application) formPath(c *gin.Context) {
 	switch buttonPress {
 	case s.DepSearch:
 		c.Redirect(307, "/search")
-	case s.ReportTag:
-		if form.ReportTagRepo != "" && form.ReportTagOrg == "" {
+	case s.ReportRef:
+		if form.ReportRefRepo != "" && form.ReportRefOrg == "" {
 			a.displayFailure(c, "Must specify an org if you specify a repo")
 		} else {
-			url := "/report/tag"
-			if form.ReportTagOrg != "" {
-				url += "/" + form.ReportTagOrg
+			url := "/report/ref"
+			if form.ReportRefOrg != "" {
+				url += "/" + form.ReportRefOrg
 			}
-			if form.ReportTagRepo != "" {
-				url += "/" + form.ReportTagRepo
+			if form.ReportRefRepo != "" {
+				url += "/" + form.ReportRefRepo
 			}
-			if form.ReportTagTag != "" {
-				url += "/" + form.ReportTagTag
+			if form.ReportRefRef != "" {
+				url += "/" + strings.Replace(form.ReportRefRef, `/`, "_", -1)
 			}
 			c.Redirect(307, url)
 		}

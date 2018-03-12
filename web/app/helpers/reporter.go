@@ -92,25 +92,82 @@ func (r *Reporter) ReportByShaProject(project *es.Project, sha string) (res []es
 	return res, true, nil
 }
 
-func (r *Reporter) ReportByTag(info ...string) (map[string][]es.Dependency, error) {
+func (r *Reporter) ReportByRef(info ...string) (map[string][]es.Dependency, error) {
 	switch len(info) {
-	case 1: //just a tag
-		tag := info[0]
-		return r.reportByTag1(tag)
-	case 2: //org and tag
+	case 1: //just a ref
+		ref := info[0]
+		p, e := es.GetAllProjects(r.index, r.searchSize)
+		return r.byRefWork(p, e, ref)
+	case 2: //org and ref
 		org := info[0]
-		tag := info[1]
-		return r.reportByTag2(org, tag)
-	case 3: //org repo and tag
+		ref := info[1]
+		p, e := es.GetProjectsOrg(r.index, org, r.searchSize)
+		return r.byRefWork(p, e, ref)
+	case 3: //org repo and ref
 		org := info[0]
 		repo := info[1]
-		tag := info[2]
-		return r.reportByTag3(tag, org+"_"+repo)
+		ref := info[2]
+		p, o, e := es.GetProjectById(r.index, org+"_"+repo)
+		if !o {
+			return nil, u.Error("Unable to find doc [%s_%s]", org, repo)
+		}
+		return r.byRefWork(&[]*es.Project{p}, e, ref)
 	}
 	return nil, errors.New("Sorry, something is wrong with the code..")
 }
 
-func (r *Reporter) reportByTag1(tag string) (map[string][]es.Dependency, error) {
+func (r *Reporter) byRefWork(projects *[]*es.Project, err error, ref string) (map[string][]es.Dependency, error) {
+	if err != nil {
+		return nil, err
+	}
+	res := map[string][]es.Dependency{}
+	mux := &sync.Mutex{}
+	errs := make(chan error, len(*projects))
+	work := func(project *es.Project, e chan error) {
+		var refp *es.Ref = nil
+		for _, r := range project.Refs {
+			if r.Name == `refs/`+ref {
+				refp = r
+				break
+			}
+		}
+		if refp == nil {
+			e <- nil
+			return
+		}
+		if len(refp.WebhookOrder) == 0 {
+			e <- nil
+			return
+		}
+		sha := refp.WebhookOrder[0]
+		deps, found, err := r.ReportByShaProject(project, sha)
+		if err != nil {
+			e <- err
+			return
+		} else if !found {
+			e <- u.Error("Could not find sha [%s]", sha)
+			return
+		}
+		mux.Lock()
+		{
+			res[project.FullName] = deps
+		}
+		mux.Unlock()
+		e <- nil
+	}
+	for _, project := range *projects {
+		go work(project, errs)
+	}
+	for i := 0; i < len(*projects); i++ {
+		err := <-errs
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (r *Reporter) reportByRef1(ref string) (map[string][]es.Dependency, error) {
 	projects, err := es.GetAllProjects(r.index, r.searchSize)
 	if err != nil {
 		return nil, err
@@ -120,17 +177,26 @@ func (r *Reporter) reportByTag1(tag string) (map[string][]es.Dependency, error) 
 	mux := &sync.Mutex{}
 	errs := make(chan error, len(*projects))
 	work := func(project *es.Project) {
-		sha, exists := project.GetShaFromTag(tag)
-		if !exists {
-			errs <- errors.New("Could not find a sha for tag " + tag)
+		var refp *es.Ref = nil
+		for _, r := range project.Refs {
+			if r.Name == ref {
+				refp = r
+				break
+			}
+		}
+		if refp == nil {
 			return
 		}
+		if len(refp.WebhookOrder) == 0 {
+			return
+		}
+		sha := refp.WebhookOrder[0]
 		deps, found, err := r.ReportByShaProject(project, sha)
 		if err != nil {
 			errs <- err
 			return
 		} else if !found {
-
+			errs <- u.Error("Could not find sha [%s]", sha)
 		}
 		mux.Lock()
 		{
@@ -151,7 +217,7 @@ func (r *Reporter) reportByTag1(tag string) (map[string][]es.Dependency, error) 
 	return res, nil
 }
 
-func (r *Reporter) reportByTag2(org, tag string) (map[string][]es.Dependency, error) {
+func (r *Reporter) reportByRef2(org, tag string) (map[string][]es.Dependency, error) {
 	projects, err := es.GetProjectsOrg(r.index, org, r.searchSize)
 	if err != nil {
 		return nil, err
@@ -190,7 +256,7 @@ func (r *Reporter) reportByTag2(org, tag string) (map[string][]es.Dependency, er
 	return res, nil
 }
 
-func (r *Reporter) reportByTag3(tag, docName string) (map[string][]es.Dependency, error) {
+func (r *Reporter) reportByRef3(docName, tag string) (map[string][]es.Dependency, error) {
 	var project *es.Project
 	var err error
 	var sha string
