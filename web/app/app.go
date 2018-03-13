@@ -149,6 +149,7 @@ func (a *Application) Start() chan error {
 		u.RouteData{"POST", "/webhook", a.webhookPath},
 		u.RouteData{"GET", "/generate/tags/:org/:repo", a.updateAllTags},
 		u.RouteData{"GET", "/generate/tags/:org", a.updateAllTagsOrg},
+		u.RouteData{"GET", "/generate/branch/:org/:repo/:branch", a.generateBranch},
 
 		u.RouteData{"GET", "/report/sha/:org/:repo/:sha", a.reportSha},
 		u.RouteData{"GET", "/report/ref/:reforg", a.reportRef},
@@ -259,8 +260,8 @@ func (a *Application) formPath(c *gin.Context) {
 		} else {
 			c.Redirect(307, "/generate/tags/"+form.AllTagOrg)
 		}
-	case s.GenerateSha:
-		c.Redirect(307, u.Format("/generate/sha/%s/%s/%s", form.ByShaOrg, form.ByShaRepo, form.ByShaSha))
+	case s.GenerateBranch:
+		c.Redirect(307, u.Format("/generate/branch/%s/%s/%s", form.BranchOrg, form.BranchRepo, form.BranchBranch))
 	case s.Differences:
 		c.Redirect(307, "/diff")
 	case s.CustomDifference:

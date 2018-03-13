@@ -27,7 +27,7 @@ const ReportSha Forms = "reportsha"
 const ListRefs Forms = "listrefs"
 const ListShas Forms = "listshas"
 const GenerateTag Forms = "generatetag"
-const GenerateSha Forms = "generatesha"
+const GenerateBranch Forms = "generatebranch"
 const Differences Forms = "diffman"
 const CustomDifference Forms = "customdiff"
 
@@ -59,10 +59,10 @@ type Form struct {
 	AllTagRepo        string `form:"alltagrepo"`
 	ButtonGenerateTag string `form:"button_generatetag"`
 
-	ByShaOrg          string `form:"byshaorg"`
-	ByShaRepo         string `form:"bysharepo"`
-	ByShaSha          string `form:"byshasha"`
-	ButtonGenerateSha string `form:"button_generatesha"`
+	BranchOrg            string `form:"branchorg"`
+	BranchRepo           string `form:"branchrepo"`
+	BranchBranch         string `form:"branchbranch"`
+	ButtonGenerateBranch string `form:"button_generatebranch"`
 
 	//Differences
 	ButtonDifferences      string `form:"button_diffman"`

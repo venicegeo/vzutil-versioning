@@ -117,3 +117,34 @@ func (a *Application) updateAllTagsOrg(c *gin.Context) {
 
 	a.displaySuccess(c, res)
 }
+
+func (a *Application) generateBranch(c *gin.Context) {
+	if a.checkBack(c) {
+		return
+	}
+	org := c.Param("org")
+	repo := c.Param("repo")
+	branch := c.Param("branch")
+	fullName := u.Format("%s/%s", org, repo)
+	sha, err := h.GetBranchSha(repo, fullName, branch)
+	if err != nil {
+		a.displayFailure(c, "Could not generate this sha: "+err.Error())
+		return
+	}
+
+	go func(name, fullName, branch, sha string) {
+		ref := "refs/heads/" + branch
+		git := s.GitWebhook{
+			Ref:      ref,
+			AfterSha: sha,
+			Repository: s.GitRepository{
+				Name:     name,
+				FullName: fullName,
+			},
+		}
+		log.Println(fullName, sha, ref)
+		a.wrkr.AddTask(&git)
+	}(repo, fullName, branch, sha)
+
+	a.displaySuccess(c, "Going to run against sha "+sha)
+}
