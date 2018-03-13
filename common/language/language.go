@@ -16,7 +16,7 @@ limitations under the License.
 package language
 
 import (
-	"strings"s
+	"strings"
 )
 
 type Language string
