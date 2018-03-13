@@ -89,6 +89,7 @@ func (r *Reporter) ReportByShaProject(project *es.Project, sha string) (res []es
 	for i := 0; i < len(entry.Dependencies); i++ {
 		<-done
 	}
+	sort.Sort(es.DependencySort(res))
 	return res, true, nil
 }
 
