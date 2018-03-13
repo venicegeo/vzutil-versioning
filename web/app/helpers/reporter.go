@@ -149,6 +149,7 @@ func (r *Reporter) byRefWork(projects *[]*es.Project, err error, ref string) (ma
 			e <- u.Error("Could not find sha [%s]", sha)
 			return
 		}
+		sort.Sort(es.DependencySort(deps))
 		mux.Lock()
 		{
 			res[project.FullName] = deps
