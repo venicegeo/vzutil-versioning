@@ -15,6 +15,7 @@
 package app
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -50,6 +51,7 @@ func (a *Application) reportSha(c *gin.Context) {
 			return
 		}
 		deps = res.Deps
+		sort.Sort(es.DependencySort(deps))
 	}
 	header := "Report for " + fullName + " at " + sha + "\n"
 	t := table.NewTable(3, len(deps))
