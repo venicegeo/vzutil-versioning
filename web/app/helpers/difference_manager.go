@@ -38,6 +38,7 @@ func NewDifferenceManager(index *elasticsearch.Index) *DifferenceManager {
 type Difference struct {
 	Id       string   `json:"id"`
 	FullName string   `json:"full_name"`
+	RefData  string   `json:"ref"`
 	OldSha   string   `json:"old_sha"`
 	NewSha   string   `json:"new_sha"`
 	Removed  []string `json:"removed"`
@@ -46,7 +47,7 @@ type Difference struct {
 }
 
 func (d *Difference) SimpleString() string {
-	return d.FullName + " " + time.Unix(0, d.NanoTime).Format(time.RFC3339)
+	return u.Format("%s %s %s", d.FullName, d.RefData, time.Unix(0, d.NanoTime).Format(time.RFC3339))
 }
 
 type diffSort []Difference
@@ -96,7 +97,7 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 			table.Fill("")
 		}
 	}
-	return u.Format("Project %s from\n%s -> %s\n%s", d.FullName, d.OldSha, d.NewSha, table.Format().NoRowBorders().SpaceAllColumns().String())
+	return u.Format("Project %s %s from\n%s -> %s\n%s", d.FullName, d.RefData, d.OldSha, d.NewSha, table.Format().NoRowBorders().SpaceAllColumns().String())
 }
 
 func (d *DifferenceManager) AllDiffs(size int) (*[]Difference, error) {
@@ -146,7 +147,7 @@ func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Differ
 	if !ok {
 		return nil, u.Error("Could not get new entry")
 	}
-	return d.diffCompareWrk(fullName, oldEntry, newEntry, oldSha, newSha, t)
+	return d.diffCompareWrk(fullName, "Custom", oldEntry, newEntry, oldSha, newSha, t)
 }
 
 func (d *DifferenceManager) webhookCompare(fullName string, ref *es.Ref) (*Difference, error) {
@@ -167,10 +168,10 @@ func (d *DifferenceManager) webhookCompare(fullName string, ref *es.Ref) (*Diffe
 	if !ok {
 		return nil, u.Error("Could not get old entry")
 	}
-	return d.diffCompareWrk(fullName, oldEntry, newEntry, oldSha, newSha, t)
+	return d.diffCompareWrk(fullName, ref.Name, oldEntry, newEntry, oldSha, newSha, t)
 }
 
-func (d *DifferenceManager) diffCompareWrk(fullName string, oldEntry, newEntry es.ProjectEntry, oldSha, newSha string, t int64) (*Difference, error) {
+func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldEntry, newEntry es.ProjectEntry, oldSha, newSha string, t int64) (*Difference, error) {
 	added := []string{}
 	removed := []string{}
 
@@ -199,7 +200,7 @@ func (d *DifferenceManager) diffCompareWrk(fullName string, oldEntry, newEntry e
 		return nil, nil
 	}
 	id := u.Hash(u.Format("%s%d", fullName, t))
-	diff := Difference{id, fullName, oldSha, newSha, removed, added, t}
+	diff := Difference{id, fullName, ref, oldSha, newSha, removed, added, t}
 	resp, err := d.index.PostData("difference", id, diff)
 	if err != nil {
 		return nil, err
