@@ -1,5 +1,5 @@
 /*
-Copyright 2017, RadiantBlue Technologies, Inc.
+Copyright 2018, RadiantBlue Technologies, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ limitations under the License.
 package language
 
 import (
-	"strings"
+	"strings"s
 )
 
 type Language string
