@@ -116,6 +116,7 @@ func (a *Application) Start() chan error {
 			"properties":{
 				"id":{"type":"keyword"},
 				"full_name":{"type":"keyword"},
+				"ref":{"type":"keyword"},
 				"old_sha":{"type":"keyword"},
 				"new_sha":{"type":"keyword"},
 				"removed":{"type":"keyword"},
