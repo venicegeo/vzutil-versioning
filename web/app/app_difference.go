@@ -44,7 +44,11 @@ func (a *Application) customDiffPath(c *gin.Context) {
 			c.HTML(500, "customdiff.html", h)
 			return
 		}
-		h["data"] = a.diffMan.GenerateReport(diff)
+		if diff == nil {
+			h["data"] = "There are no differences."
+		} else {
+			h["data"] = a.diffMan.GenerateReport(diff)
+		}
 		c.HTML(200, "customdiff.html", h)
 	} else {
 		c.HTML(200, "customdiff.html", h)
