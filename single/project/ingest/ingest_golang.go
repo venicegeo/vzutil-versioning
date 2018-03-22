@@ -31,13 +31,13 @@ func (pw *GoProjectWrapper) compileCheck() {
 	var _ IProjectWrapper = (*GoProjectWrapper)(nil)
 }
 
-func (pw *GoProjectWrapper) GetResults() (dependency.GenericDependencies, []*issue.Issue, error) {
+func (pw *GoProjectWrapper) GetResults() ([]*dependency.GenericDependency, []*issue.Issue, error) {
 	yamlArray := append(pw.Yaml.Dependences, pw.Yaml.TestDependences...)
 	lockArray := append(pw.Lock.Packages, pw.Lock.TestPackages...)
 
-	var deps dependency.GenericDependencies
+	deps := make([]*dependency.GenericDependency, len(yamlArray), len(yamlArray))
 	version := ""
-	for _, elem := range yamlArray {
+	for i, elem := range yamlArray {
 		version = elem.Version
 		for _, lock := range lockArray {
 			if elem.Name == lock.Name && elem.Version != lock.Sha {
@@ -46,7 +46,7 @@ func (pw *GoProjectWrapper) GetResults() (dependency.GenericDependencies, []*iss
 				break
 			}
 		}
-		deps.Add(dependency.NewGenericDependency(elem.Name, version, pw.name, lan.Go))
+		deps[i] = dependency.NewGenericDependency(elem.Name, version, lan.Go)
 	}
 	return deps, pw.issues, nil
 }

@@ -37,6 +37,6 @@ func (pw *ProjectWrapper) addIssue(iss *issue.Issue) {
 type IProjectWrapper interface {
 	compileCheck()
 	SetProperties(string, string)
-	GetResults() (dependency.GenericDependencies, []*issue.Issue, error)
+	GetResults() ([]*dependency.GenericDependency, []*issue.Issue, error)
 	addIssue(*issue.Issue)
 }

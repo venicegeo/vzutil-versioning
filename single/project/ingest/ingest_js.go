@@ -34,7 +34,7 @@ func (pw *JsProjectWrapper) compileCheck() {
 	var _ IProjectWrapper = (*JsProjectWrapper)(nil)
 }
 
-func (pw *JsProjectWrapper) GetResults() (deps dependency.GenericDependencies, issues []*issue.Issue, err error) {
+func (pw *JsProjectWrapper) GetResults() (deps []*dependency.GenericDependency, issues []*issue.Issue, err error) {
 	gitRE := regexp.MustCompile(`^git(?:(?:\+(?:https)|(?:ssh))|(?:\+ssh))*:\/\/(?:git\.)*github\.com\/.+\/.+\.git(?:#(.+))?`)
 	elseRE := regexp.MustCompile(`^((?:>=)|(?:<=)|(?:>)|(?:<)|(?:~)|(?:\^))*.+$`)
 	for _, mp := range []map[string]string{pw.DependencyMap, pw.DevDependencyMap} {
@@ -48,7 +48,7 @@ func (pw *JsProjectWrapper) GetResults() (deps dependency.GenericDependencies, i
 					version = strings.TrimPrefix(version, tag)
 				}
 			}
-			deps.Add(dependency.NewGenericDependency(name, version, pw.name, lan.JavaScript))
+			deps = append(deps, dependency.NewGenericDependency(name, version, lan.JavaScript))
 		}
 	}
 	return deps, issues, nil

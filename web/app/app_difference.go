@@ -63,7 +63,7 @@ func (a *Application) diffPath(c *gin.Context) {
 		c.HTML(500, "differences.html", gh)
 		return
 	}
-	diffs, err := a.diffMan.AllDiffs(a.searchSize)
+	diffs, err := a.diffMan.AllDiffs()
 	if err != nil {
 		gh["buttons"] = "Could not load this.\n" + err.Error()
 		gh["data"] = "Error loading this.\n" + err.Error()

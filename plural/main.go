@@ -48,7 +48,7 @@ func main() {
 	if err = json.Unmarshal(dat, &projects); err != nil {
 		log.Fatalln(err)
 	}
-	projectData := map[string][]string{}
+	projectData := com.ProjectsDependencies{}
 	mux := sync.Mutex{}
 	wg := sync.WaitGroup{}
 	wg.Add(len(projects))
@@ -61,12 +61,12 @@ func main() {
 			if dat, err = cmd.Output(); err != nil {
 				log.Fatalln(cmd.Args, err)
 			}
-			var ret com.SingleReturn
+			var ret com.ProjectDependencies
 			if err = json.Unmarshal(dat, &ret); err != nil {
 				log.Fatalln(err)
 			}
 			mux.Lock()
-			projectData[ret.Name] = ret.Deps
+			projectData[ret.Name] = ret
 			wg.Done()
 			mux.Unlock()
 		}(project, branch)

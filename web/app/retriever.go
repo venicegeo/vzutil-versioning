@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helpers
+package app
 
 import (
 	"encoding/json"
@@ -21,34 +21,54 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/venicegeo/pz-gocommon/elasticsearch"
+	nt "github.com/venicegeo/pz-gocommon/gocommon"
+	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-type Reporter struct {
-	index      *elasticsearch.Index
-	searchSize int
+type Retriever struct {
+	app *Application
 }
 
-func NewReporter(index *elasticsearch.Index) *Reporter {
-	return &Reporter{index, 250}
+func NewRetriever(app *Application) *Retriever {
+	return &Retriever{app}
 }
 
-func (r *Reporter) ReportByShaName(fullName, sha string) ([]es.Dependency, bool, error) {
+func (r *Retriever) DepsByShaName(fullName, sha string) ([]es.Dependency, bool, error) {
 	var project *es.Project
 	var err error
 	var found bool
 
-	if project, found, err = es.GetProjectById(r.index, fullName); err != nil {
+	if project, found, err = es.GetProjectById(r.app.index, fullName); err != nil {
 		return nil, found, err
 	} else if !found {
 		return nil, false, nil
 	}
-	return r.ReportByShaProject(project, sha)
-
+	return r.DepsByShaProject(project, sha)
 }
-func (r *Reporter) ReportByShaProject(project *es.Project, sha string) (res []es.Dependency, exists bool, err error) {
+func (r *Retriever) DepsByShaNameGen(fullName, sha string) ([]es.Dependency, error) {
+	deps, found, err := r.app.rtrvr.DepsByShaName(fullName, sha)
+	if err != nil || !found {
+		{
+			code, _, _, err := nt.HTTP(nt.HEAD, u.Format("https://github.com/%s/commit/%s", fullName, sha), nt.NewHeaderBuilder().GetHeader(), nil)
+			if err != nil {
+				return nil, u.Error("Could not verify this sha: %s", err.Error())
+			}
+			if code != 200 {
+				return nil, u.Error("Could not verify this sha, head code: %d", code)
+			}
+		}
+		res := r.app.snglRnnr.RunAgainstSingle(&s.GitWebhook{AfterSha: sha, Repository: s.GitRepository{FullName: fullName}})
+		if res == nil {
+			return nil, u.Error("Sha [%s] did not previously exist and could not be generated", sha)
+		}
+		deps = res.Deps
+		sort.Sort(es.DependencySort(deps))
+	}
+	return deps, nil
+}
+func (r *Retriever) DepsByShaProject(project *es.Project, sha string) (res []es.Dependency, exists bool, err error) {
 	ref, entry, exists := project.GetEntry(sha)
 	if !exists {
 		return nil, false, nil
@@ -61,7 +81,7 @@ func (r *Reporter) ReportByShaProject(project *es.Project, sha string) (res []es
 	mux := &sync.Mutex{}
 	done := make(chan bool, len(entry.Dependencies))
 	work := func(dep string) {
-		if resp, err := r.index.GetByID("dependency", dep); err != nil || !resp.Found {
+		if resp, err := r.app.index.GetByID("dependency", dep); err != nil || !resp.Found {
 			name := u.Format("Cound not find [%s]", dep)
 			tmp := es.Dependency{name, "", ""}
 			mux.Lock()
@@ -93,22 +113,22 @@ func (r *Reporter) ReportByShaProject(project *es.Project, sha string) (res []es
 	return res, true, nil
 }
 
-func (r *Reporter) ReportByRef(info ...string) (map[string][]es.Dependency, error) {
+func (r *Retriever) DepsByRef(info ...string) (map[string][]es.Dependency, error) {
 	switch len(info) {
 	case 1: //just a ref
 		ref := info[0]
-		p, e := es.GetAllProjects(r.index, r.searchSize)
+		p, e := es.GetAllProjects(r.app.index, r.app.searchSize)
 		return r.byRefWork(p, e, ref)
 	case 2: //org and ref
 		org := info[0]
 		ref := info[1]
-		p, e := es.GetProjectsOrg(r.index, org, r.searchSize)
+		p, e := es.GetProjectsOrg(r.app.index, org, r.app.searchSize)
 		return r.byRefWork(p, e, ref)
 	case 3: //org repo and ref
 		org := info[0]
 		repo := info[1]
 		ref := info[2]
-		p, o, e := es.GetProjectById(r.index, org+"_"+repo)
+		p, o, e := es.GetProjectById(r.app.index, org+"_"+repo)
 		if !o {
 			return nil, u.Error("Unable to find doc [%s_%s]", org, repo)
 		}
@@ -117,7 +137,7 @@ func (r *Reporter) ReportByRef(info ...string) (map[string][]es.Dependency, erro
 	return nil, errors.New("Sorry, something is wrong with the code..")
 }
 
-func (r *Reporter) byRefWork(projects *[]*es.Project, err error, ref string) (map[string][]es.Dependency, error) {
+func (r *Retriever) byRefWork(projects *[]*es.Project, err error, ref string) (map[string][]es.Dependency, error) {
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +161,7 @@ func (r *Reporter) byRefWork(projects *[]*es.Project, err error, ref string) (ma
 			return
 		}
 		sha := refp.WebhookOrder[0]
-		deps, found, err := r.ReportByShaProject(project, sha)
+		deps, found, err := r.DepsByShaProject(project, sha)
 		if err != nil {
 			e <- err
 			return
@@ -169,8 +189,8 @@ func (r *Reporter) byRefWork(projects *[]*es.Project, err error, ref string) (ma
 	return res, nil
 }
 
-func (r *Reporter) reportByRef1(ref string) (map[string][]es.Dependency, error) {
-	projects, err := es.GetAllProjects(r.index, r.searchSize)
+func (r *Retriever) byRef1(ref string) (map[string][]es.Dependency, error) {
+	projects, err := es.GetAllProjects(r.app.index, r.app.searchSize)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +213,7 @@ func (r *Reporter) reportByRef1(ref string) (map[string][]es.Dependency, error) 
 			return
 		}
 		sha := refp.WebhookOrder[0]
-		deps, found, err := r.ReportByShaProject(project, sha)
+		deps, found, err := r.DepsByShaProject(project, sha)
 		if err != nil {
 			errs <- err
 			return
@@ -219,8 +239,8 @@ func (r *Reporter) reportByRef1(ref string) (map[string][]es.Dependency, error) 
 	return res, nil
 }
 
-func (r *Reporter) reportByRef2(org, tag string) (map[string][]es.Dependency, error) {
-	projects, err := es.GetProjectsOrg(r.index, org, r.searchSize)
+func (r *Retriever) byRef2(org, tag string) (map[string][]es.Dependency, error) {
+	projects, err := es.GetProjectsOrg(r.app.index, org, r.app.searchSize)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +253,7 @@ func (r *Reporter) reportByRef2(org, tag string) (map[string][]es.Dependency, er
 			errs <- errors.New("Could not find sha for tag " + tag)
 			return
 		}
-		deps, found, err := r.ReportByShaProject(project, sha)
+		deps, found, err := r.DepsByShaProject(project, sha)
 		if err != nil {
 			errs <- err
 			return
@@ -258,13 +278,13 @@ func (r *Reporter) reportByRef2(org, tag string) (map[string][]es.Dependency, er
 	return res, nil
 }
 
-func (r *Reporter) reportByRef3(docName, tag string) (map[string][]es.Dependency, error) {
+func (r *Retriever) byRef3(docName, tag string) (map[string][]es.Dependency, error) {
 	var project *es.Project
 	var err error
 	var sha string
 	var ok bool
 
-	if project, ok, err = es.GetProjectById(r.index, docName); err != nil {
+	if project, ok, err = es.GetProjectById(r.app.index, docName); err != nil {
 		return nil, err
 	} else if !ok {
 		return nil, u.Error("Could not find [%s]", docName)
@@ -281,7 +301,7 @@ func (r *Reporter) reportByRef3(docName, tag string) (map[string][]es.Dependency
 	if !ok {
 		return nil, errors.New("Could not find this tag: [" + tag + "]")
 	}
-	deps, found, err := r.ReportByShaProject(project, sha)
+	deps, found, err := r.DepsByShaProject(project, sha)
 	if err != nil {
 		return nil, err
 	} else if !found {
@@ -292,14 +312,14 @@ func (r *Reporter) reportByRef3(docName, tag string) (map[string][]es.Dependency
 
 //
 
-func (r *Reporter) ListShas(fullName string) (map[string][]string, int, error) {
+func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) {
 	var project *es.Project
 	res := map[string][]string{}
 	count := 0
 	var err error
 	var found bool
 
-	if project, found, err = es.GetProjectById(r.index, fullName); err != nil {
+	if project, found, err = es.GetProjectById(r.app.index, fullName); err != nil {
 		return nil, 0, err
 	} else if !found {
 		return nil, 0, u.Error("Could not find project [%s]", fullName)
@@ -317,8 +337,8 @@ func (r *Reporter) ListShas(fullName string) (map[string][]string, int, error) {
 
 //
 
-func (r *Reporter) ListRefsRepo(fullName string) (*[]string, error) {
-	project, found, err := es.GetProjectById(r.index, fullName)
+func (r *Retriever) ListRefsRepo(fullName string) (*[]string, error) {
+	project, found, err := es.GetProjectById(r.app.index, fullName)
 	if err != nil {
 		return nil, err
 	} else if !found {
@@ -330,8 +350,8 @@ func (r *Reporter) ListRefsRepo(fullName string) (*[]string, error) {
 	}
 	return &res, nil
 }
-func (r *Reporter) ListRefs(org string) (*map[string][]string, int, error) {
-	projects, err := es.GetProjectsOrg(r.index, org, r.searchSize)
+func (r *Retriever) ListRefs(org string) (*map[string][]string, int, error) {
+	projects, err := es.GetProjectsOrg(r.app.index, org, r.app.searchSize)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -370,14 +390,14 @@ func (r *Reporter) ListRefs(org string) (*map[string][]string, int, error) {
 
 //
 
-func (r *Reporter) ListProjects() ([]string, error) {
-	return r.listProjectsWrk(es.GetAllProjects(r.index, r.searchSize))
+func (r *Retriever) ListProjects() ([]string, error) {
+	return r.listProjectsWrk(es.GetAllProjects(r.app.index, r.app.searchSize))
 
 }
-func (r *Reporter) ListProjectsByOrg(org string) ([]string, error) {
-	return r.listProjectsWrk(es.GetProjectsOrg(r.index, org, r.searchSize))
+func (r *Retriever) ListProjectsByOrg(org string) ([]string, error) {
+	return r.listProjectsWrk(es.GetProjectsOrg(r.app.index, org, r.app.searchSize))
 }
-func (r *Reporter) listProjectsWrk(projects *[]*es.Project, err error) ([]string, error) {
+func (r *Retriever) listProjectsWrk(projects *[]*es.Project, err error) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}

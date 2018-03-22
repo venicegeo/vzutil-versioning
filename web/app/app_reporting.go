@@ -15,13 +15,10 @@
 package app
 
 import (
-	"sort"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	"github.com/venicegeo/vzutil-versioning/common/table"
-	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -32,26 +29,9 @@ func (a *Application) reportSha(c *gin.Context) {
 	}
 	fullName := u.Format("%s/%s", c.Param("org"), c.Param("repo"))
 	sha := c.Param("sha")
-	deps, found, err := a.rprtr.ReportByShaName(fullName, sha)
-	if err != nil || !found {
-		{
-			code, _, _, err := nt.HTTP(nt.HEAD, u.Format("https://github.com/%s/commit/%s", fullName, sha), nt.NewHeaderBuilder().GetHeader(), nil)
-			if err != nil {
-				c.String(400, "Could not verify this sha: "+err.Error())
-				return
-			}
-			if code != 200 {
-				c.String(400, u.Format("Could not verify this sha, head code: %d", code))
-				return
-			}
-		}
-		res := a.wrkr.CloneWork(&s.GitWebhook{AfterSha: sha, Repository: s.GitRepository{FullName: fullName}})
-		if res == nil {
-			c.String(400, "Sha [%s] did not previously exist and could not be generated", sha)
-			return
-		}
-		deps = res.Deps
-		sort.Sort(es.DependencySort(deps))
+	deps, err := a.rtrvr.DepsByShaNameGen(fullName, sha)
+	if err != nil {
+		c.String(400, err.Error())
 	}
 	header := "Report for " + fullName + " at " + sha + "\n"
 	t := table.NewTable(3, len(deps))
@@ -75,13 +55,13 @@ func (a *Application) reportRef(c *gin.Context) {
 	var err error
 	if reforg != "" && refrepo != "" && ref != "" {
 		ref = strings.Replace(ref, "_", `/`, -1)
-		deps, err = a.rprtr.ReportByRef(reforg, refrepo, ref)
+		deps, err = a.rtrvr.DepsByRef(reforg, refrepo, ref)
 	} else if reforg != "" && refrepo != "" {
 		ref = strings.Replace(refrepo, "_", `/`, -1)
-		deps, err = a.rprtr.ReportByRef(reforg, ref)
+		deps, err = a.rtrvr.DepsByRef(reforg, ref)
 	} else if reforg != "" {
 		ref = strings.Replace(reforg, "_", `/`, -1)
-		deps, err = a.rprtr.ReportByRef(ref)
+		deps, err = a.rtrvr.DepsByRef(ref)
 	}
 
 	if err != nil {

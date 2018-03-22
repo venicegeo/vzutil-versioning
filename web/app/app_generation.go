@@ -80,7 +80,7 @@ func (a *Application) updateAllTagsOrg(c *gin.Context) {
 		return
 	}
 	org := c.Param("org")
-	projects, err := a.rprtr.ListProjectsByOrg(org)
+	projects, err := a.rtrvr.ListProjectsByOrg(org)
 	if err != nil {
 		a.displayFailure(c, "Problemo: ["+err.Error()+"]")
 		return
