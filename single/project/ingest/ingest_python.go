@@ -42,8 +42,8 @@ func (pw *CondaProjectWrapper) compileCheck() {
 	var _ IProjectWrapper = (*CondaProjectWrapper)(nil)
 }
 
-func (pw *PipProjectWrapper) GetResults() (dependency.GenericDependencies, []*issue.Issue, error) {
-	deps := dependency.GenericDependencies{}
+func (pw *PipProjectWrapper) GetResults() ([]*dependency.GenericDependency, []*issue.Issue, error) {
+	deps := []*dependency.GenericDependency{}
 	gitRE := regexp.MustCompile(`^git(?:(?:\+https)|(?:\+ssh)|(?:\+git))*:\/\/(?:git\.)*github\.com\/.+\/([^@.]+)()(?:(?:.git)?@([^#]+))?`)
 	elseRE := regexp.MustCompile(`^([^>=<]+)((?:(?:<=)|(?:>=))|(?:==))?(.+)?$`)
 	get := func(str string) {
@@ -65,7 +65,7 @@ func (pw *PipProjectWrapper) GetResults() (dependency.GenericDependencies, []*is
 			//			if len(parts) < 3 {
 			//				parts = append(parts, "Unknown")
 			//			}
-			deps.Add(dependency.NewGenericDependency(parts[0], parts[2], pw.name, lan.Python))
+			deps = append(deps, dependency.NewGenericDependency(parts[0], parts[2], lan.Python))
 		}
 	}
 	get(string(pw.Filedat))
@@ -73,19 +73,19 @@ func (pw *PipProjectWrapper) GetResults() (dependency.GenericDependencies, []*is
 	return deps, pw.issues, nil
 }
 
-func (pw *CondaProjectWrapper) GetResults() (dependency.GenericDependencies, []*issue.Issue, error) {
+func (pw *CondaProjectWrapper) GetResults() ([]*dependency.GenericDependency, []*issue.Issue, error) {
 	env := CondaEnvironment{}
 	if err := yaml.Unmarshal(pw.Filedat, &env); err != nil {
 		return nil, nil, err
 	}
-	deps := dependency.GenericDependencies{}
+	deps := make([]*dependency.GenericDependency, len(env.Dependencies), len(env.Dependencies))
 	splitRE := regexp.MustCompile(`^([^>=<]+)((?:(?:<=)|(?:>=))|(?:=))?(.+)?$`)
-	for _, dep := range env.Dependencies {
+	for i, dep := range env.Dependencies {
 		parts := splitRE.FindStringSubmatch(dep)[1:]
 		if parts[1] != "=" {
 			pw.addIssue(issue.NewWeakVersion(parts[0], parts[2], parts[1]))
 		}
-		deps.Add(dependency.NewGenericDependency(parts[0], parts[2], pw.name, lan.Python))
+		deps[i] = dependency.NewGenericDependency(parts[0], parts[2], lan.Python)
 	}
 	return deps, pw.issues, nil
 }

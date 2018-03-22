@@ -24,7 +24,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
-	h "github.com/venicegeo/vzutil-versioning/web/app/helpers"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -35,9 +34,11 @@ type Application struct {
 	singleLocation string
 	debugMode      bool
 
-	wrkr     *h.Worker
-	rprtr    *h.Reporter
-	diffMan  *h.DifferenceManager
+	wrkr     *Worker
+	rtrvr    *Retriever
+	diffMan  *DifferenceManager
+	snglRnnr *SingleRunner
+
 	killChan chan bool
 
 	index *elasticsearch.Index
@@ -131,12 +132,15 @@ func (a *Application) Start() chan error {
 	} else {
 		log.Println(i.GetVersion())
 	}
+
 	a.index = i
 
-	a.diffMan = h.NewDifferenceManager(i)
-	a.wrkr = h.NewWorker(i, a.singleLocation, 4, a.diffMan)
+	a.diffMan = NewDifferenceManager(a)
+	a.wrkr = NewWorker(a, 4)
+	a.rtrvr = NewRetriever(a)
+	a.snglRnnr = NewSingleRunner(a)
+
 	a.wrkr.Start()
-	a.rprtr = h.NewReporter(i)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -195,7 +199,7 @@ func (a *Application) formPath(c *gin.Context) {
 		return
 	}
 	if form.IsEmpty() {
-		ps, err := a.rprtr.ListProjects()
+		ps, err := a.rtrvr.ListProjects()
 		h := gin.H{}
 		if err != nil {
 			h["projects"] = "Sorry... could not\nload this.\n" + err.Error()
@@ -209,7 +213,7 @@ func (a *Application) formPath(c *gin.Context) {
 			}
 			h["projects"] = res
 		}
-		diffs, err := a.diffMan.DiffList(a.searchSize)
+		diffs, err := a.diffMan.DiffList()
 		if err != nil {
 			h["differences"] = "Sorry... could not\nload this.\n" + err.Error()
 		} else {

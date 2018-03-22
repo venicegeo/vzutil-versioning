@@ -31,7 +31,7 @@ type Project struct {
 	FolderName     string
 	FolderLocation string
 	Sha            string
-	Dependencies   dependency.GenericDependencies
+	Dependencies   []*dependency.GenericDependency
 	DepLocations   []string
 	Issues         []*issue.Issue `json:"issues,omitempty"`
 }
@@ -61,7 +61,7 @@ func NewProject(folderLocation string) (proj *Project, err error) {
 	return proj, nil
 }
 
-func (p *Project) GetDependencies() dependency.GenericDependencies {
+func (p *Project) GetDependencies() []*dependency.GenericDependency {
 	return p.Dependencies
 }
 

@@ -26,12 +26,11 @@ import (
 type GenericDependency struct {
 	name     string
 	version  string
-	project  string
 	language lan.Language
 }
 
-func NewGenericDependency(name, version, project string, language lan.Language) *GenericDependency {
-	return &GenericDependency{name, version, project, language}
+func NewGenericDependency(name, version string, language lan.Language) *GenericDependency {
+	return &GenericDependency{name, version, language}
 }
 func NewGenericDependencyStr(dep string) *GenericDependency {
 	parts := strings.Split(dep, ":")
@@ -40,20 +39,18 @@ func NewGenericDependencyStr(dep string) *GenericDependency {
 	}
 	switch len(parts) {
 	case 1:
-		return &GenericDependency{parts[0], "Unknown", "Unknown", lan.Unknown}
+		return &GenericDependency{parts[0], "Unknown", lan.Unknown}
 	case 2:
-		return &GenericDependency{parts[0], parts[1], "Unknown", lan.Unknown}
+		return &GenericDependency{parts[0], parts[1], lan.Unknown}
 	case 3:
-		return &GenericDependency{parts[0], parts[1], parts[2], lan.Unknown}
-	case 4:
-		return &GenericDependency{parts[0], parts[1], parts[2], lan.GetLanguage(parts[3])}
+		return &GenericDependency{parts[0], parts[1], lan.GetLanguage(parts[2])}
 	default:
 		panic(fmt.Sprintf("Bad dep split. Line %s was split into %#v", dep, parts))
 	}
 	if len(parts) == 1 {
 		parts = append(parts, "Unknown")
 	}
-	return &GenericDependency{parts[0], parts[1], "Unknown", lan.Unknown}
+	return &GenericDependency{parts[0], parts[1], lan.Unknown}
 }
 
 func (d *GenericDependency) GetName() string {
@@ -68,23 +65,14 @@ func (d *GenericDependency) GetVersion() string {
 func (d *GenericDependency) SetVersion(version string) {
 	d.version = version
 }
-func (d *GenericDependency) GetProject() string {
-	return d.project
-}
 func (d *GenericDependency) GetLanguage() lan.Language {
 	return d.language
 }
 func (d *GenericDependency) SimpleEquals(dep *GenericDependency) bool {
 	return strings.EqualFold(d.name, dep.name) && strings.EqualFold(d.version, dep.version)
 }
-func (d *GenericDependency) LanguageEquals(dep *GenericDependency) bool {
-	return strings.EqualFold(d.name, dep.name) && strings.EqualFold(d.version, dep.version) && strings.EqualFold(d.language.String(), dep.language.String())
-}
-func (d *GenericDependency) ProjectEquals(dep *GenericDependency) bool {
-	return strings.EqualFold(d.name, dep.name) && strings.EqualFold(d.version, dep.version) && strings.EqualFold(d.project, dep.project)
-}
 func (d *GenericDependency) DeepEquals(dep *GenericDependency) bool {
-	return strings.EqualFold(d.name, dep.name) && strings.EqualFold(d.version, dep.version) && strings.EqualFold(d.language.String(), dep.language.String()) && strings.EqualFold(d.project, dep.project)
+	return strings.EqualFold(d.name, dep.name) && strings.EqualFold(d.version, dep.version) && strings.EqualFold(d.language.String(), dep.language.String())
 }
 func (dep *GenericDependency) String() string {
 	return dep.name + ":" + dep.version
@@ -95,5 +83,27 @@ func (dep *GenericDependency) Clone() *GenericDependency {
 	return res
 }
 func (dep *GenericDependency) FullString() string {
-	return dep.name + ":" + dep.version + ":" + dep.project + ":" + dep.language.String()
+	return dep.name + ":" + dep.version + ":" + dep.language.String()
+}
+
+func RemoveExactDuplicates(deps *[]*GenericDependency) (dups []*GenericDependency) {
+	found := map[string]bool{}
+	j := 0
+	for i, x := range *deps {
+		if !found[x.FullString()] {
+			found[x.FullString()] = true
+			(*deps)[j] = (*deps)[i]
+			j++
+		} else {
+			dups = append(dups, x)
+		}
+	}
+	filtered := make([]*GenericDependency, len(found), len(found))
+	i := 0
+	for k, _ := range found {
+		filtered[i] = NewGenericDependencyStr(k)
+		i++
+	}
+	*deps = filtered
+	return dups
 }

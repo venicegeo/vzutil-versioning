@@ -25,7 +25,7 @@ func (a *Application) listShas(c *gin.Context) {
 		return
 	}
 	fullName := u.Format("%s/%s", c.Param("org"), c.Param("repo"))
-	refShas, count, err := a.rprtr.ListShas(fullName)
+	refShas, count, err := a.rtrvr.ListShas(fullName)
 	if err != nil {
 		a.displayFailure(c, err.Error())
 		return
@@ -46,7 +46,7 @@ func (a *Application) listRefsRepo(c *gin.Context) {
 		return
 	}
 	fullName := u.Format("%s/%s", c.Param("org"), c.Param("repo"))
-	refs, err := a.rprtr.ListRefsRepo(fullName)
+	refs, err := a.rtrvr.ListRefsRepo(fullName)
 	if err != nil {
 		a.displayFailure(c, err.Error())
 		return
@@ -63,7 +63,7 @@ func (a *Application) listRefs(c *gin.Context) {
 		return
 	}
 	org := c.Param("org")
-	tags, num, err := a.rprtr.ListRefs(org)
+	tags, num, err := a.rtrvr.ListRefs(org)
 	if err != nil {
 		a.displayFailure(c, err.Error())
 		return
@@ -91,7 +91,7 @@ func (a *Application) listProjects(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
-	ps, err := a.rprtr.ListProjects()
+	ps, err := a.rtrvr.ListProjects()
 	header := "List of projects\n"
 	a.listProjectsWrk(ps, err, header, c)
 }
@@ -100,7 +100,7 @@ func (a *Application) listProjectsOrg(c *gin.Context) {
 		return
 	}
 	org := c.Param("org")
-	ps, err := a.rprtr.ListProjectsByOrg(org)
+	ps, err := a.rtrvr.ListProjectsByOrg(org)
 	header := "List of projects for " + org + "\n"
 	a.listProjectsWrk(ps, err, header, c)
 }

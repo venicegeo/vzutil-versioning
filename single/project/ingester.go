@@ -64,7 +64,7 @@ func Ingest(project *Project, prnt bool) (err error) {
 }
 
 func (i *Ingester) IngestProject(p *Project) (errors []error) {
-	var deps, tempDeps dependency.GenericDependencies
+	var deps, tempDeps []*dependency.GenericDependency
 	var issues, tempIssues []*issue.Issue
 	var err error
 	javaHit := false
@@ -84,7 +84,7 @@ func (i *Ingester) IngestProject(p *Project) (errors []error) {
 			tempDeps, issues, err = i.ingestPythonFile(filePath, p)
 		}
 		if tempDeps != nil {
-			deps.Add(tempDeps...)
+			deps = append(deps, tempDeps...)
 		}
 		if tempIssues != nil {
 			issues = append(issues, tempIssues...)
@@ -93,13 +93,13 @@ func (i *Ingester) IngestProject(p *Project) (errors []error) {
 			errors = append(errors, err)
 		}
 	}
-	deps.RemoveExactDuplicates()
+	dependency.RemoveExactDuplicates(&deps)
 	p.Dependencies = deps
 	p.AddIssue(issues...)
 	return errors
 }
 
-func (i *Ingester) ingestJavaProject(p *Project) (dependency.GenericDependencies, []*issue.Issue, error) {
+func (i *Ingester) ingestJavaProject(p *Project) ([]*dependency.GenericDependency, []*issue.Issue, error) {
 	poms := ingest.PomCollection{}
 	for _, filePath := range p.DepLocations {
 		if !strings.HasSuffix(filePath, "pom.xml") {
@@ -143,7 +143,7 @@ func (i *Ingester) ingestJavaProject(p *Project) (dependency.GenericDependencies
 	return poms.GetResults()
 }
 
-func (i *Ingester) ingestJavaScriptFile(filePath string, p *Project) (dependency.GenericDependencies, []*issue.Issue, error) {
+func (i *Ingester) ingestJavaScriptFile(filePath string, p *Project) ([]*dependency.GenericDependency, []*issue.Issue, error) {
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, nil, err
@@ -156,7 +156,7 @@ func (i *Ingester) ingestJavaScriptFile(filePath string, p *Project) (dependency
 	return projectWrapper.GetResults()
 }
 
-func (i *Ingester) ingestGoFile(filePath string, p *Project) (dependency.GenericDependencies, []*issue.Issue, error) {
+func (i *Ingester) ingestGoFile(filePath string, p *Project) ([]*dependency.GenericDependency, []*issue.Issue, error) {
 	var yamlData, lockData []byte
 	var yml ingest.GlideYaml
 	var lock ingest.GlideLock
@@ -180,7 +180,7 @@ func (i *Ingester) ingestGoFile(filePath string, p *Project) (dependency.Generic
 	return projectWrapper.GetResults()
 }
 
-func (i *Ingester) ingestPythonFile(filePath string, p *Project) (dependency.GenericDependencies, []*issue.Issue, error) {
+func (i *Ingester) ingestPythonFile(filePath string, p *Project) ([]*dependency.GenericDependency, []*issue.Issue, error) {
 	isPip := strings.HasSuffix(filePath, "requirements.txt")
 	reqDat, err := ioutil.ReadFile(filePath)
 	if err != nil {

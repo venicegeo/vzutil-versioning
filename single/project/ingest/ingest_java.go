@@ -118,7 +118,7 @@ type Item struct {
 	Scope      string `json:"scope,omitempty"`
 }
 
-func (c *PomCollection) GetResults() (total dependency.GenericDependencies, issues []*issue.Issue, err error) {
+func (c *PomCollection) GetResults() (total []*dependency.GenericDependency, issues []*issue.Issue, err error) {
 	for _, pom := range *c {
 		if pom.Parent != nil {
 			continue
@@ -128,11 +128,11 @@ func (c *PomCollection) GetResults() (total dependency.GenericDependencies, issu
 			return nil, nil, err
 		}
 		issues = append(issues, iss...)
-		total.Add(deps...)
+		total = append(total, deps...)
 	}
 	return total, issues, nil
 }
-func getResultsAndFromChildren(pom *PomProjectWrapper, isRoot bool, dependencyManagement []*Item, previousMvnDeps []*MvnDependency) (dependency.GenericDependencies, []*issue.Issue, error) {
+func getResultsAndFromChildren(pom *PomProjectWrapper, isRoot bool, dependencyManagement []*Item, previousMvnDeps []*MvnDependency) ([]*dependency.GenericDependency, []*issue.Issue, error) {
 	deps, issues, err := pom.GetResults()
 	if err != nil {
 		return nil, issues, err
@@ -153,13 +153,13 @@ func getResultsAndFromChildren(pom *PomProjectWrapper, isRoot bool, dependencyMa
 		if err != nil {
 			return deps, issues, err
 		}
-		deps.Add(childDeps...)
+		deps = append(deps, childDeps...)
 		issues = append(issues, childIssues...)
 	}
 	return deps, issues, nil
 }
 
-func (pw *PomProjectWrapper) GetResults() (dependency.GenericDependencies, []*issue.Issue, error) {
+func (pw *PomProjectWrapper) GetResults() ([]*dependency.GenericDependency, []*issue.Issue, error) {
 	if err := pw.replaceVariables(); err != nil {
 		return nil, pw.issues, err
 	}
@@ -185,9 +185,9 @@ func (pw *PomProjectWrapper) GetResults() (dependency.GenericDependencies, []*is
 			return nil, pw.issues, errors.New("Bad logic")
 		}
 	}
-	var deps dependency.GenericDependencies
-	for _, dep := range dependencies {
-		deps.Add(dependency.NewGenericDependency(dep.ArtifactId, dep.Version, pw.name, lan.Java))
+	deps := make([]*dependency.GenericDependency, len(dependencies), len(dependencies))
+	for i, dep := range dependencies {
+		deps[i] = dependency.NewGenericDependency(dep.ArtifactId, dep.Version, lan.Java)
 	}
 	dependencyManagerMap := pw.Project.DependencyManagement
 	if len(dependencyManagerMap) > 0 {
@@ -221,7 +221,7 @@ func (pw *PomProjectWrapper) GetResults() (dependency.GenericDependencies, []*is
 	return deps, pw.issues, nil
 }
 
-func (p *PomProjectWrapper) compareAndReplaceDependecies(deps dependency.GenericDependencies, mvnDeps []*MvnDependency, dependencyManagement []*Item) {
+func (p *PomProjectWrapper) compareAndReplaceDependecies(deps []*dependency.GenericDependency, mvnDeps []*MvnDependency, dependencyManagement []*Item) {
 	if deps == nil || mvnDeps == nil {
 		return
 	}

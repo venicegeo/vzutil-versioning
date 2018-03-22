@@ -15,8 +15,11 @@ limitations under the License.
 */
 package com
 
-type SingleReturn struct {
+type ProjectDependencies struct {
 	Name string
 	Sha  string
+	Ref  string
 	Deps []string
 }
+
+type ProjectsDependencies map[string]ProjectDependencies

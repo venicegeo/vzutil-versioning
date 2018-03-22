@@ -12,27 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helpers
+package app
 
 import (
 	"encoding/json"
 	"sort"
 	"time"
 
-	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	t "github.com/venicegeo/vzutil-versioning/common/table"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 type DifferenceManager struct {
-	index *elasticsearch.Index
+	app *Application
 
 	CurrentDisplay string
 }
 
-func NewDifferenceManager(index *elasticsearch.Index) *DifferenceManager {
-	return &DifferenceManager{index, ""}
+func NewDifferenceManager(app *Application) *DifferenceManager {
+	return &DifferenceManager{app, ""}
 }
 
 type Difference struct {
@@ -64,10 +63,8 @@ func (d diffSort) Less(i, j int) bool {
 
 func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 	getDep := func(dep string) string {
-		if resp, err := dm.index.GetByID("dependency", dep); err != nil || !resp.Found {
-			name := u.Format("Cound not find [%s]", dep)
-			tmp := es.Dependency{name, "", ""}
-			return u.Format("%s:%s:%s", tmp.Name, tmp.Version, tmp.Language)
+		if resp, err := dm.app.index.GetByID("dependency", dep); err != nil || !resp.Found {
+			return dep
 		} else {
 			var depen es.Dependency
 			if err = json.Unmarshal([]byte(*resp.Source), &depen); err != nil {
@@ -100,8 +97,8 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 	return u.Format("Project %s %s from\n%s -> %s\n%s", d.FullName, d.RefData, d.OldSha, d.NewSha, table.Format().NoRowBorders().SpaceAllColumns().String())
 }
 
-func (d *DifferenceManager) AllDiffs(size int) (*[]Difference, error) {
-	resp, err := es.MatchAllSize(d.index, "difference", size)
+func (d *DifferenceManager) AllDiffs() (*[]Difference, error) {
+	resp, err := es.MatchAllSize(d.app.index, "difference", d.app.searchSize)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +115,8 @@ func (d *DifferenceManager) AllDiffs(size int) (*[]Difference, error) {
 	return &diffs, nil
 }
 
-func (d *DifferenceManager) DiffList(size int) ([]string, error) {
-	diffs, err := d.AllDiffs(size)
+func (d *DifferenceManager) DiffList() ([]string, error) {
+	diffs, err := d.AllDiffs()
 	if err != nil {
 		return nil, err
 	}
@@ -132,22 +129,40 @@ func (d *DifferenceManager) DiffList(size int) ([]string, error) {
 
 func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Difference, error) {
 	t := time.Now().UnixNano()
-	project, found, err := es.GetProjectById(d.index, fullName)
-	if err != nil {
-		return nil, err
+
+	var oldDeps, newDeps []es.Dependency
+	errs := make(chan error, 2)
+	go func() {
+		var err error
+		oldDeps, err = d.app.rtrvr.DepsByShaNameGen(fullName, oldSha)
+		if err != nil {
+			errs <- u.Error("Could not get old sha: %s", err.Error())
+			return
+		}
+		errs <- nil
+	}()
+	go func() {
+		var err error
+		newDeps, err = d.app.rtrvr.DepsByShaNameGen(fullName, newSha)
+		if err != nil {
+			errs <- u.Error("Could not get new sha: %s", err.Error())
+			return
+		}
+		errs <- nil
+	}()
+	for i := 0; i < 2; i++ {
+		if err := <-errs; err != nil {
+			return nil, err
+		}
 	}
-	if !found {
-		return nil, u.Error("Project [%s] was not found", fullName)
+	toStrings := func(deps []es.Dependency) []string {
+		res := make([]string, len(deps), len(deps))
+		for i, d := range deps {
+			res[i] = d.String()
+		}
+		return res
 	}
-	_, oldEntry, ok := project.GetEntry(oldSha)
-	if !ok {
-		return nil, u.Error("Could not get old entry")
-	}
-	_, newEntry, ok := project.GetEntry(newSha)
-	if !ok {
-		return nil, u.Error("Could not get new entry")
-	}
-	return d.diffCompareWrk(fullName, "Custom", oldEntry, newEntry, oldSha, newSha, t)
+	return d.diffCompareWrk(fullName, "Custom", toStrings(oldDeps), toStrings(newDeps), oldSha, newSha, t)
 }
 
 func (d *DifferenceManager) webhookCompare(fullName string, ref *es.Ref) (*Difference, error) {
@@ -168,26 +183,26 @@ func (d *DifferenceManager) webhookCompare(fullName string, ref *es.Ref) (*Diffe
 	if !ok {
 		return nil, u.Error("Could not get old entry")
 	}
-	return d.diffCompareWrk(fullName, ref.Name, oldEntry, newEntry, oldSha, newSha, t)
+	return d.diffCompareWrk(fullName, ref.Name, oldEntry.Dependencies, newEntry.Dependencies, oldSha, newSha, t)
 }
 
-func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldEntry, newEntry es.ProjectEntry, oldSha, newSha string, t int64) (*Difference, error) {
+func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldDeps, newDeps []string, oldSha, newSha string, t int64) (*Difference, error) {
 	added := []string{}
 	removed := []string{}
 
 	done := make(chan bool, 2)
 
 	go func() {
-		for _, newDep := range newEntry.Dependencies {
-			if !strscont(oldEntry.Dependencies, newDep) {
+		for _, newDep := range newDeps {
+			if !strscont(oldDeps, newDep) {
 				added = append(added, newDep)
 			}
 		}
 		done <- true
 	}()
 	go func() {
-		for _, oldDep := range oldEntry.Dependencies {
-			if !strscont(newEntry.Dependencies, oldDep) {
+		for _, oldDep := range oldDeps {
+			if !strscont(newDeps, oldDep) {
 				removed = append(removed, oldDep)
 			}
 		}
@@ -201,7 +216,7 @@ func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldEntry, newEn
 	}
 	id := u.Hash(u.Format("%s%d", fullName, t))
 	diff := Difference{id, fullName, ref, oldSha, newSha, removed, added, t}
-	resp, err := d.index.PostData("difference", id, diff)
+	resp, err := d.app.index.PostData("difference", id, diff)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +227,7 @@ func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldEntry, newEn
 }
 
 func (d *DifferenceManager) Delete(id string) {
-	es.DeleteAndWait(d.index, "difference", id)
+	es.DeleteAndWait(d.app.index, "difference", id)
 }
 
 func strscont(sl []string, s string) bool {
