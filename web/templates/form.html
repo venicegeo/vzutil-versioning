@@ -9,13 +9,13 @@ td {
 </head>
 <body>
 	<table></tr>
-		<td><fieldset id="knownProjects"><form>
+		<td><fieldset id="knownProjects">
 			<legend>Known Projects</legend>
 			<pre>
 {{ .projects }}
 			</pre>
-			<input type="submit" name="button_depsearch" value = "Dependency Search">
-		</form></fieldset></td>
+			<form><input type="submit" name="button_depsearch" value = "Dependency Search"></form>
+		</fieldset></td>
 		<td><fieldset id="reporting">
 			<legend>Reporting</legend>
 			
@@ -110,15 +110,17 @@ td {
 			</tr></table>
 		</fieldset></td>
 		
-		<td><fieldset id="differences"><form>
+		<td><fieldset id="differences">
 			<legend>Differences</legend>
 			<pre>
 {{ .differences }}
 			</pre>
-			<input type="submit" name="button_diffman" value="Manager"><br>
-			<input type="submit" name="button_customdiff" value="Custom"><br>
-			<input type="submit" name="button_textdiff" value="Text">
-		</form></fieldset></td>
+			<form>
+				<input type="submit" name="button_diffman" value="Manager"><br>
+				<input type="submit" name="button_customdiff" value="Custom"><br>
+				<input type="submit" name="button_textdiff" value="Text">
+			</form>
+			</fieldset></td>
 		
 	</td></table>
 	
