@@ -6,6 +6,7 @@ single/report
 single/single
 web/web
 web/single
+web/compare
 list/list
 list/*.csv
 compare/*.json

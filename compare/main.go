@@ -23,6 +23,7 @@ import (
 	"log"
 	"regexp"
 	"sort"
+	"strings"
 
 	com "github.com/venicegeo/vzutil-versioning/common"
 	deps "github.com/venicegeo/vzutil-versioning/common/dependency"
@@ -57,20 +58,47 @@ func NewCompareStruct(actualName, expectedName string) *CompareStruct {
 }
 
 func main() {
-	var file1, file2, outFile string
-	flag.StringVar(&file1, "a", "", "Actual")
-	flag.StringVar(&file2, "e", "", "Expected")
+	var file1, file2, outFile, string1, string2 string
+	flag.StringVar(&file1, "a", "", "Actual File")
+	flag.StringVar(&file2, "e", "", "Expected File")
 	flag.StringVar(&outFile, "o", "", "Output File")
+	flag.StringVar(&string1, "as", "", "Actual String")
+	flag.StringVar(&string2, "es", "", "Expected String")
 	flag.Parse()
 
 	var expected, actual com.ProjectsDependencies
 	var err error
-	if actual, err = readFile(file1); err != nil {
-		log.Fatalln(err)
+
+	if file1 == "" && string1 == "" {
+		log.Fatalln("Either the actual file or string must be provided.")
+	} else if file1 != "" && string1 != "" {
+		log.Fatalln("Only one actual source can be provided.")
+	} else if file1 != "" {
+		if actual, err = readFile(file1); err != nil {
+			log.Fatalln(err)
+		}
+	} else {
+		string1 = strings.TrimPrefix(strings.TrimSuffix(string1, `'`), `'`)
+		if err = json.Unmarshal([]byte(string1), &actual); err != nil {
+			log.Fatalln(err)
+		}
 	}
-	if expected, err = readFile(file2); err != nil {
-		log.Fatalln(err)
+
+	if file2 == "" && string2 == "" {
+		log.Fatalln("Either the expected file or string must be provided.")
+	} else if file2 != "" && string2 != "" {
+		log.Fatalln("Only one expected source can be provided.")
+	} else if file2 != "" {
+		if expected, err = readFile(file2); err != nil {
+			log.Fatalln(err)
+		}
+	} else {
+		string2 = strings.TrimPrefix(strings.TrimSuffix(string2, `'`), `'`)
+		if err = json.Unmarshal([]byte(string2), &expected); err != nil {
+			log.Fatalln(err)
+		}
 	}
+
 	compares := []*CompareStruct{}
 	for projectName, project := range actual {
 		var maxSim float64 = 0.0

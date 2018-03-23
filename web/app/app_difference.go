@@ -33,10 +33,21 @@ func (a *Application) textDiffPath(c *gin.Context) {
 		c.String(400, "Error binding form: %s", err.Error())
 		return
 	}
-	h := gin.H{"result": "Compare Results will appear here"}
+	h := gin.H{
+		"result":   "Compare Results will appear here",
+		"actual":   tmp.Actual,
+		"expected": tmp.Expected,
+	}
 	if tmp.Ui != "" {
 		c.Redirect(307, "/ui")
 	} else if tmp.Compare != "" {
+		res, err := a.cmprRnnr.CompareStrings(tmp.Actual, tmp.Expected)
+		if err != nil {
+			h["result"] = "Error running this: " + err.Error()
+			c.HTML(400, "textdiff.html", h)
+			return
+		}
+		h["result"] = res
 		c.HTML(200, "textdiff.html", h)
 	} else {
 		c.HTML(200, "textdiff.html", h)
@@ -57,7 +68,13 @@ func (a *Application) customDiffPath(c *gin.Context) {
 		c.String(400, "Error binding form: %s", err.Error())
 		return
 	}
-	h := gin.H{"data": "Compare Results will appear here"}
+	h := gin.H{
+		"data":        "Compare Results will appear here",
+		"cdifforg":    tmp.Org,
+		"cdiffrepo":   tmp.Repo,
+		"cdiffshaold": tmp.ShaOld,
+		"cdiffshanew": tmp.ShaNew,
+	}
 	if tmp.Ui != "" {
 		c.Redirect(307, "/ui")
 	} else if tmp.Compare != "" {

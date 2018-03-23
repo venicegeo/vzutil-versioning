@@ -38,7 +38,7 @@ type Form struct {
 	//Reporting
 	ReportRefOrg       string `form:"reportreforg"`
 	ReportRefRepo      string `form:"reportrefrepo"`
-	ReportRefRef       string `form:"reportreftag"`
+	ReportRefRef       string `form:"reportrefref"`
 	ButtonReportAllRef string `form:"button_reportref"`
 
 	ReportShaOrg       string `form:"reportshaorg"`

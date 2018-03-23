@@ -13,13 +13,13 @@ td {
 	<table>
 		<td><fieldset><table>
 		<tr><td>Org:</td>
-			<td><input type="text" name="cdifforg" value=""></td></tr>
+			<td><input type="text" name="cdifforg" value="{{ .cdifforg }}"></td></tr>
 		<tr><td>Repo:</td>
-			<td><input type="text" name="cdiffrepo" value=""></td></tr>
+			<td><input type="text" name="cdiffrepo" value="{{ .cdiffrepo }}"></td></tr>
 		<tr><td>Sha Old:</td>
-			<td><input type="text" name="cdiffshaold" value=""></td></tr>
+			<td><input type="text" name="cdiffshaold" value="{{ .cdiffshaold }}"></td></tr>
 		<tr><td>Sha New:</td>
-			<td><input type="text" name="cdiffshanew" value=""></td></tr>
+			<td><input type="text" name="cdiffshanew" value="{{ .cdiffshanew }}"></td></tr>
 		<tr><td><input type="submit" name="button_cdiff" value="Compare"></td></tr>
 		</table></fieldset></td>
 		<td><fieldset>

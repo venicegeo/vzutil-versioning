@@ -15,8 +15,8 @@
 			<td>Result:</td>
 		<tr></tr><tr>	
 		</tr><tr>
-			<td><textarea name="expected" placeholder="Paste expected here" rows="50" cols="100" required="required"></textarea></td>
-			<td><textarea name="actual" placeholder="Paste actual here" rows="50" cols="100" required="required"></textarea></td>				
+			<td><textarea name="actual" placeholder="Paste actual here" rows="50" cols="100" required="required">{{ .actual }}</textarea></td>
+			<td><textarea name="expected" placeholder="Paste expected here" rows="50" cols="100" required="required">{{ .expected }}</textarea></td>
 			<td><textarea name="result"rows="50" cols="100" readonly="readonly">{{ .result }}</textarea></td>
 		</tr>
 	</table>

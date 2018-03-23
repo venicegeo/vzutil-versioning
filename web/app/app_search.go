@@ -33,7 +33,11 @@ func (a *Application) uiSearchForDep(c *gin.Context) {
 	if err := c.Bind(&tmp); err != nil {
 		return
 	}
-	h := gin.H{"data": "Search Results will appear here"}
+	h := gin.H{
+		"data":             "Search Results will appear here",
+		"depsearchname":    tmp.DepName,
+		"depsearchversion": tmp.DepVersion,
+	}
 	if tmp.Ui != "" {
 		c.Redirect(307, "/ui")
 	} else if tmp.ButtonSearch != "" {

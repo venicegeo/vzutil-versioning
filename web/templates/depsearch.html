@@ -14,9 +14,9 @@ td {
 		<td><fieldset>
 			<table>
 			<tr><td>Name:</td>
-				<td><input type="text" name="depsearchname" value=""></td></tr>
+				<td><input type="text" name="depsearchname" value="{{ .depsearchname }}"></td></tr>
 			<tr><td>Version:</td>
-				<td><input type="text" name="depsearchversion" value="" placeholder="Optional"></td></tr>
+				<td><input type="text" name="depsearchversion" value="{{ .depsearchversion }}" placeholder="Optional"></td></tr>
 			<tr><td><input type="submit" name="button_depsearch" value="Search"></td></tr>
 			</table>
 		</fieldset></td>

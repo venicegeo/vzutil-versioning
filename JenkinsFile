@@ -38,6 +38,8 @@ node {
               go install
               cd ../web
               go install
+              cd ../compare
+              go install
             """
         }
     }

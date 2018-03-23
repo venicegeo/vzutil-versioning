@@ -21,6 +21,6 @@ import (
 )
 
 func main() {
-	app := app.NewApplication("versioning_tool", "./single", false)
+	app := app.NewApplication("versioning_tool", "./single", "./compare", false)
 	log.Println(<-app.Start())
 }
