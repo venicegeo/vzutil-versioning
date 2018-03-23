@@ -42,7 +42,7 @@ func (l *Language) String() string {
 const Java, JavaScript, Go, Python, Unknown Language = "java", "javascript", "go", "python", "unknown"
 
 func GetLanguage(lang string) Language {
-	lang = strings.TrimSuffix(lang, "stack")
+	lang = strings.ToLower(strings.TrimSuffix(lang, "stack"))
 	switch lang {
 	case string(Java):
 		return Java

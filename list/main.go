@@ -29,6 +29,7 @@ import (
 	"strconv"
 	"strings"
 
+	com "github.com/venicegeo/vzutil-versioning/common"
 	deps "github.com/venicegeo/vzutil-versioning/common/dependency"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
 )
@@ -58,18 +59,15 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	byProj := map[string][]string{}
-	for _, dep := range ddeps {
-		if _, ok := byProj[dep.GetProject()]; !ok {
-			byProj[dep.GetProject()] = []string{dep.FullString()}
-		} else {
-			byProj[dep.GetProject()] = append(byProj[dep.GetProject()], dep.FullString())
+	pdeps := com.ProjectsDependencies{}
+	for projectName, deps := range ddeps {
+		pdeps[projectName] = com.ProjectDependencies{projectName, "", "", make([]string, len(deps), len(deps))}
+		for i, dep := range deps {
+			pdeps[projectName].Deps[i] = dep.String()
 		}
+		sort.Strings(pdeps[projectName].Deps)
 	}
-	for _, d := range byProj {
-		sort.Strings(d)
-	}
-	dat, _ = json.MarshalIndent(byProj, " ", "   ")
+	dat, _ = json.MarshalIndent(pdeps, " ", "   ")
 	if outFile != "" {
 		ioutil.WriteFile(outFile, dat, 0644)
 	} else {
@@ -77,7 +75,7 @@ func main() {
 	}
 }
 
-func getDepsFromSoftwareList(listDat []byte, indicesCode string) (deps.GenericDependencies, error) {
+func getDepsFromSoftwareList(listDat []byte, indicesCode string) (map[string][]*deps.GenericDependency, error) {
 	name, version, component, language := 0, 1, 2, 3
 	indices := [4]int64{}
 	for i := range indices {
@@ -96,7 +94,7 @@ func getDepsFromSoftwareList(listDat []byte, indicesCode string) (deps.GenericDe
 		records = records[1:]
 	}
 
-	resultDepList := deps.GenericDependencies{}
+	resultDepList := map[string][]*deps.GenericDependency{}
 	unknownLangs := map[string]bool{}
 	for _, record := range records {
 		itemLanguage := lan.GetLanguage(record[indices[language]])
@@ -106,14 +104,19 @@ func getDepsFromSoftwareList(listDat []byte, indicesCode string) (deps.GenericDe
 		}
 		components := strings.Split(strings.ToLower(record[indices[component]]), ",")
 		for _, componentName := range components {
-			componentName = strings.TrimSpace(componentName)
-			resultDepList.Add(deps.NewGenericDependency(record[indices[name]], record[indices[version]], componentName, itemLanguage))
+			componentName = strings.ToLower(strings.TrimSpace(componentName))
+			if _, ok := resultDepList[componentName]; !ok {
+				resultDepList[componentName] = []*deps.GenericDependency{}
+			}
+			resultDepList[componentName] = append(resultDepList[componentName], deps.NewGenericDependency(strings.ToLower(record[indices[name]]), strings.ToLower(record[indices[version]]), itemLanguage))
 		}
 	}
 	for k, _ := range unknownLangs {
 		fmt.Println("Software list contains unknown language:", k)
 
 	}
-	resultDepList.RemoveExactDuplicates()
+	for _, list := range resultDepList {
+		deps.RemoveExactDuplicates(&list)
+	}
 	return resultDepList, nil
 }

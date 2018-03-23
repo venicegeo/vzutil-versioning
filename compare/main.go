@@ -24,19 +24,20 @@ import (
 	"regexp"
 	"sort"
 
+	com "github.com/venicegeo/vzutil-versioning/common"
 	deps "github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/common/table"
 )
 
 var re = regexp.MustCompile(``)
 
-func readFile(filename string) (map[string][]string, error) {
+func readFile(filename string) (com.ProjectsDependencies, error) {
 	var fileDat []byte
 	var err error
 	if fileDat, err = ioutil.ReadFile(filename); err != nil {
 		log.Fatalln(err)
 	}
-	var fileDeps map[string][]string
+	var fileDeps com.ProjectsDependencies
 	err = json.Unmarshal(fileDat, &fileDeps)
 	return fileDeps, err
 }
@@ -62,7 +63,7 @@ func main() {
 	flag.StringVar(&outFile, "o", "", "Output File")
 	flag.Parse()
 
-	var expected, actual map[string][]string
+	var expected, actual com.ProjectsDependencies
 	var err error
 	if actual, err = readFile(file1); err != nil {
 		log.Fatalln(err)
@@ -71,32 +72,34 @@ func main() {
 		log.Fatalln(err)
 	}
 	compares := []*CompareStruct{}
-	for k, kdeps := range actual {
+	for projectName, project := range actual {
 		var maxSim float64 = 0.0
 		var temp float64 = 0.0
 		var maxKey string = ""
 		for k2, _ := range expected {
-			temp = similarity(k, k2)
+			temp = similarity(projectName, k2)
 			if temp >= 0.5 && maxSim < temp {
 				maxSim = temp
 				maxKey = k2
 			}
 		}
-		str := NewCompareStruct(k, maxKey)
-		for _, s := range kdeps {
+		str := NewCompareStruct(projectName, maxKey)
+		for _, s := range project.Deps {
 			str.ActualDeps = append(str.ActualDeps, deps.NewGenericDependencyStr(s).String())
 		}
 		if str.ExpectedName != "" {
-			for _, s := range expected[str.ExpectedName] {
-				str.ExpectedDeps = append(str.ExpectedDeps, deps.NewGenericDependencyStr(s).String())
+			if proj, ok := expected[str.ExpectedName]; ok {
+				for _, s := range proj.Deps {
+					str.ExpectedDeps = append(str.ExpectedDeps, deps.NewGenericDependencyStr(s).String())
+				}
 			}
 			delete(expected, str.ExpectedName)
 		}
 		compares = append(compares, str)
 	}
-	for k, kdeps := range expected {
-		str := NewCompareStruct("", k)
-		for _, s := range kdeps {
+	for projectName, project := range expected {
+		str := NewCompareStruct("", projectName)
+		for _, s := range project.Deps {
 			str.ExpectedDeps = append(str.ExpectedDeps, deps.NewGenericDependencyStr(s).String())
 		}
 		compares = append(compares, str)

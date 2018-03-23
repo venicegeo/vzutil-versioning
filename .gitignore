@@ -1,8 +1,13 @@
 plural/plural
 plural/report
 plural/single
+plural/config*.json
 single/report
 single/single
 web/web
 web/single
 list/list
+list/*.csv
+compare/*.json
+compare/*.txt
+compare/compare
