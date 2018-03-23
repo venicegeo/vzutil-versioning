@@ -8,20 +8,19 @@ td {
 	</style>
 </head>
 <body>
-	<form>
 	<table></tr>
-		<td><fieldset id="knownProjects">
+		<td><fieldset id="knownProjects"><form>
 			<legend>Known Projects</legend>
 			<pre>
 {{ .projects }}
 			</pre>
 			<input type="submit" name="button_depsearch" value = "Dependency Search">
-		</fieldset></td>
+		</form></fieldset></td>
 		<td><fieldset id="reporting">
 			<legend>Reporting</legend>
 			
 			<table><tr>
-				<td><fieldset>
+				<td><fieldset><form>
 					<legend>By ref</legend>
 					<table>
 						<tr><td>Org:</td>
@@ -32,9 +31,9 @@ td {
 							<td><input type="text" name="reportreftag" value=""></td></tr>
 						<tr><td><input type="submit" name="button_reportref" value="Submit"></td></tr>
 					</table>
-				</fieldset></td>
+				</form></fieldset></td>
 			
-				<td><fieldset>
+				<td><fieldset><form>
 					<legend>By sha</legend>
 					<table>
 						<tr><td>Org:</td>
@@ -45,7 +44,7 @@ td {
 							<td><input type="text" name="reportshasha" value=""></td></tr>
 						<tr><td><input type="submit" name="button_reportsha" value="Submit"></td></tr>
 					</table>
-				</fieldset></td>
+				</form></fieldset></td>
 			</tr></table>
 			
 		</fieldset>
@@ -55,7 +54,7 @@ td {
 			<legend>Listing</legend>
 			
 			<table><tr>
-				<td><fieldset>
+				<td><fieldset><form>
 					<legend>All refs</legend>
 					<table>
 						<tr><td>Org:</td>
@@ -64,9 +63,9 @@ td {
 							<td><input type="text" name="refsrepo" value="" placeholder="Optional"></td></tr>
 						<tr><td><input type="submit" name="button_listrefs" value="Submit"></td></tr>
 					</table>
-				</fieldset></td>
+				</form></fieldset></td>
 			
-				<td><fieldset>
+				<td><fieldset><form>
 					<legend>All shas</legend>
 					<table>
 						<tr><td>Org:</td>
@@ -75,7 +74,7 @@ td {
 							<td><input type="text" name="shasrepo" value=""></td></tr>
 						<tr><td><input type="submit" name="button_listshas" value="Submit"></td></tr>
 					</table>
-				</fieldset></td>
+				</form></fieldset></td>
 			</tr></table>
 			
 		</fieldset>
@@ -85,7 +84,7 @@ td {
 			<legend>Generation</legend>
 			
 			<table><tr>
-				<td><fieldset>
+				<td><fieldset><form>
 					<legend>All tags</legend>
 					<table>
 						<tr><td>Org:</td>
@@ -94,9 +93,9 @@ td {
 							<td><input type="text" name="alltagrepo" value="" placeholder="Optional"></td></tr>
 						<tr><td><input type="submit" name="button_generatetag" value="Submit"></td><tr>
 					</table>
-				</fieldset></td>
+				</form></fieldset></td>
 
-				<td><fieldset>
+				<td><fieldset><form>
 					<legend>Branch</legend>
 					<table>
 						<tr><td>Org:</td>
@@ -107,21 +106,21 @@ td {
 							<td><input type="text" name="branchbranch" value=""></td></tr>
 						<tr><td><input type="submit" name="button_generatebranch" value="Submit"></td><tr>
 					</table>
-				</fieldset></td>
+				</form></fieldset></td>
 			</tr></table>
 		</fieldset></td>
 		
-		<td><fieldset id="differences">
+		<td><fieldset id="differences"><form>
 			<legend>Differences</legend>
 			<pre>
 {{ .differences }}
 			</pre>
 			<input type="submit" name="button_diffman" value="Manager"><br>
-			<input type="submit" name="button_customdiff" value ="Custom">
-		</fieldset></td>
+			<input type="submit" name="button_customdiff" value="Custom"><br>
+			<input type="submit" name="button_textdiff" value="Text">
+		</form></fieldset></td>
 		
 	</td></table>
-	</form>
 	
 	<script>
 	var left = document.getElementById('knownProjects').offsetHeight;

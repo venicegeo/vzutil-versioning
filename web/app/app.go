@@ -175,6 +175,7 @@ func (a *Application) Start() chan error {
 
 		u.RouteData{"GET", "/diff", a.diffPath},
 		u.RouteData{"GET", "/cdiff", a.customDiffPath},
+		u.RouteData{"GET", "/tdiff", a.textDiffPath},
 	})
 	select {
 	case err = <-server.Start(":" + port):
@@ -271,6 +272,8 @@ func (a *Application) formPath(c *gin.Context) {
 		c.Redirect(307, "/diff")
 	case s.CustomDifference:
 		c.Redirect(307, "/cdiff")
+	case s.TextDifference:
+		c.Redirect(307, "/tdiff")
 	default:
 		c.String(400, "What did you do? :(")
 	}

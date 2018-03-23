@@ -30,6 +30,7 @@ const GenerateTag Forms = "generatetag"
 const GenerateBranch Forms = "generatebranch"
 const Differences Forms = "diffman"
 const CustomDifference Forms = "customdiff"
+const TextDifference Forms = "textdiff"
 
 type Form struct {
 	ButtonDepSearch string `form:"button_depsearch"`
@@ -67,6 +68,7 @@ type Form struct {
 	//Differences
 	ButtonDifferences      string `form:"button_diffman"`
 	ButtonCustomDifference string `form:"button_customdiff"`
+	ButtonTextDifference   string `form:"button_textdiff"`
 }
 
 func (f *Form) IsEmpty() bool {

@@ -21,6 +21,28 @@ import (
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 )
 
+func (a *Application) textDiffPath(c *gin.Context) {
+	type TDiff struct {
+		Ui       string `form:"button_back"`
+		Actual   string `form:"actual"`
+		Expected string `form:"expected"`
+		Compare  string `form:"button_textdiff"`
+	}
+	var tmp TDiff
+	if err := c.Bind(&tmp); err != nil {
+		c.String(400, "Error binding form: %s", err.Error())
+		return
+	}
+	h := gin.H{"result": "Compare Results will appear here"}
+	if tmp.Ui != "" {
+		c.Redirect(307, "/ui")
+	} else if tmp.Compare != "" {
+		c.HTML(200, "textdiff.html", h)
+	} else {
+		c.HTML(200, "textdiff.html", h)
+	}
+}
+
 func (a *Application) customDiffPath(c *gin.Context) {
 	type CDiff struct {
 		Ui      string `form:"button_back"`
@@ -32,6 +54,7 @@ func (a *Application) customDiffPath(c *gin.Context) {
 	}
 	var tmp CDiff
 	if err := c.Bind(&tmp); err != nil {
+		c.String(400, "Error binding form: %s", err.Error())
 		return
 	}
 	h := gin.H{"data": "Compare Results will appear here"}
