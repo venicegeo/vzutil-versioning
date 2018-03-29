@@ -39,7 +39,7 @@ func (a *Application) textDiffPath(c *gin.Context) {
 		"expected": tmp.Expected,
 	}
 	if tmp.Ui != "" {
-		c.Redirect(307, "/ui")
+		c.Redirect(303, "/ui")
 	} else if tmp.Compare != "" {
 		res, err := a.cmprRnnr.CompareStrings(tmp.Actual, tmp.Expected)
 		if err != nil {
@@ -76,7 +76,7 @@ func (a *Application) customDiffPath(c *gin.Context) {
 		"cdiffshanew": tmp.ShaNew,
 	}
 	if tmp.Ui != "" {
-		c.Redirect(307, "/ui")
+		c.Redirect(303, "/ui")
 	} else if tmp.Compare != "" {
 		diff, err := a.diffMan.ShaCompare(tmp.Org+"/"+tmp.Repo, tmp.ShaOld, tmp.ShaNew)
 		if err != nil {

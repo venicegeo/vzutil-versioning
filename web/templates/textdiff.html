@@ -8,10 +8,8 @@ td {
 	</style>
 </head>
 <body>
-	<form>
-		<input type="submit" name="button_back" value="Main UI"><br><br>
-	</form>
-	<form>
+	<form method="post" enctype="application/json">
+	<input type="submit" name="button_back" value="Main UI"><br>
 	<table>
 		<tr>
 		<td></td><td></td><td><input type="submit" name="button_textdiff" value="Compare"></td>
@@ -21,8 +19,8 @@ td {
 			<td>Result:</td>
 		<tr></tr><tr>	
 		</tr><tr>
-			<td><textarea name="actual" placeholder="Paste actual here" rows="50" cols="100" required="required">{{ .actual }}</textarea></td>
-			<td><textarea name="expected" placeholder="Paste expected here" rows="50" cols="100" required="required">{{ .expected }}</textarea></td>
+			<td><textarea name="actual" placeholder="Paste actual here" rows="50" cols="100">{{ .actual }}</textarea></td>
+			<td><textarea name="expected" placeholder="Paste expected here" rows="50" cols="100">{{ .expected }}</textarea></td>
 			<td><fieldset>
 				<pre>{{ .result }}</pre>
 			</fieldset></td>

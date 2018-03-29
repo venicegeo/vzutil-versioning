@@ -180,6 +180,7 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/diff", a.diffPath},
 		u.RouteData{"GET", "/cdiff", a.customDiffPath},
 		u.RouteData{"GET", "/tdiff", a.textDiffPath},
+		u.RouteData{"POST", "/tdiff", a.textDiffPath},
 	})
 	select {
 	case err = <-server.Start(":" + port):
@@ -237,7 +238,7 @@ func (a *Application) formPath(c *gin.Context) {
 	buttonPress := form.FindButtonPress()
 	switch buttonPress {
 	case s.DepSearch:
-		c.Redirect(307, "/search")
+		c.Redirect(303, "/search")
 	case s.ReportRef:
 		if form.ReportRefRepo != "" && form.ReportRefOrg == "" {
 			a.displayFailure(c, "Must specify an org if you specify a repo")
@@ -252,32 +253,32 @@ func (a *Application) formPath(c *gin.Context) {
 			if form.ReportRefRef != "" {
 				url += "/" + strings.Replace(form.ReportRefRef, `/`, "_", -1)
 			}
-			c.Redirect(307, url)
+			c.Redirect(303, url)
 		}
 	case s.ReportSha:
-		c.Redirect(307, u.Format("/report/sha/%s/%s/%s", form.ReportShaOrg, form.ReportShaRepo, form.ReportShaSha))
+		c.Redirect(303, u.Format("/report/sha/%s/%s/%s", form.ReportShaOrg, form.ReportShaRepo, form.ReportShaSha))
 	case s.ListRefs:
 		if form.RefsRepo != "" {
-			c.Redirect(307, u.Format("/list/refs/%s/%s", form.RefsOrg, form.RefsRepo))
+			c.Redirect(303, u.Format("/list/refs/%s/%s", form.RefsOrg, form.RefsRepo))
 		} else {
-			c.Redirect(307, "/list/refs/"+form.RefsOrg)
+			c.Redirect(303, "/list/refs/"+form.RefsOrg)
 		}
 	case s.ListShas:
-		c.Redirect(307, u.Format("/list/shas/%s/%s", form.ShasOrg, form.ShasRepo))
+		c.Redirect(303, u.Format("/list/shas/%s/%s", form.ShasOrg, form.ShasRepo))
 	case s.GenerateTag:
 		if form.AllTagRepo != "" {
-			c.Redirect(307, u.Format("/generate/tags/%s/%s", form.AllTagOrg, form.AllTagRepo))
+			c.Redirect(303, u.Format("/generate/tags/%s/%s", form.AllTagOrg, form.AllTagRepo))
 		} else {
-			c.Redirect(307, "/generate/tags/"+form.AllTagOrg)
+			c.Redirect(303, "/generate/tags/"+form.AllTagOrg)
 		}
 	case s.GenerateBranch:
-		c.Redirect(307, u.Format("/generate/branch/%s/%s/%s", form.BranchOrg, form.BranchRepo, form.BranchBranch))
+		c.Redirect(303, u.Format("/generate/branch/%s/%s/%s", form.BranchOrg, form.BranchRepo, form.BranchBranch))
 	case s.Differences:
-		c.Redirect(307, "/diff")
+		c.Redirect(303, "/diff")
 	case s.CustomDifference:
-		c.Redirect(307, "/cdiff")
+		c.Redirect(303, "/cdiff")
 	case s.TextDifference:
-		c.Redirect(307, "/tdiff")
+		c.Redirect(303, "/tdiff")
 	default:
 		c.String(400, "What did you do? :(")
 	}
@@ -290,7 +291,7 @@ func (a *Application) checkBack(c *gin.Context) (wasHandled bool) {
 		return true
 	}
 	if back.BackButton != "" {
-		c.Redirect(307, "/ui")
+		c.Redirect(303, "/ui")
 		return true
 	}
 	return false
