@@ -75,6 +75,8 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 			}
 		}
 	}
+	sort.Strings(d.Removed)
+	sort.Strings(d.Added)
 	height := len(d.Removed)
 	if height < len(d.Added) {
 		height = len(d.Added)
