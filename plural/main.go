@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 
 	"github.com/venicegeo/vzutil-versioning/common"
@@ -33,25 +34,36 @@ func main() {
 		log.Fatalln(err)
 	}
 	var configLocation string
+	var stringConfig string
 	var outFile string
 	flag.StringVar(&configLocation, "c", "", "Config File")
+	flag.StringVar(&stringConfig, "t", "", "String Config")
 	flag.StringVar(&outFile, "o", "", "Output File")
 	flag.Parse()
-	if _, err := os.Stat(configLocation); err != nil {
-		log.Fatalln(err)
+
+	var dat []byte
+	var err error
+
+	if configLocation == "" && stringConfig == "" {
+		log.Fatalln("Either the config file or a config string must be provided.")
+	} else if configLocation != "" && stringConfig != "" {
+		log.Fatalln("Only one config source can be provided.")
+	} else if configLocation != "" {
+		if dat, err = ioutil.ReadFile(configLocation); err != nil {
+			log.Fatalln(err)
+		}
+	} else {
+		stringConfig = strings.TrimPrefix(strings.TrimSuffix(stringConfig, `'`), `'`)
+		dat = []byte(stringConfig)
 	}
-	dat, err := ioutil.ReadFile(configLocation)
-	if err != nil {
-		log.Fatalln(err)
-	}
+
 	var projects map[string]string
 	if err = json.Unmarshal(dat, &projects); err != nil {
 		log.Fatalln(err)
 	}
 	projectData := com.ProjectsDependencies{}
 	mux := sync.Mutex{}
-	wg := sync.WaitGroup{}
-	wg.Add(len(projects))
+	done := make(chan error, len(projects))
 	for project, branch := range projects {
 		go func(project, branch string) {
 			if branch == "" {
@@ -59,19 +71,29 @@ func main() {
 			}
 			cmd := exec.Command("./single", project, branch)
 			if dat, err = cmd.Output(); err != nil {
-				log.Fatalln(cmd.Args, err)
+				done <- fmt.Errorf("%s %s", cmd.Args, err)
+				return
 			}
 			var ret com.ProjectDependencies
 			if err = json.Unmarshal(dat, &ret); err != nil {
-				log.Fatalln(err)
+				done <- err
+				return
 			}
 			mux.Lock()
 			projectData[ret.Name] = ret
-			wg.Done()
 			mux.Unlock()
+			done <- nil
 		}(project, branch)
 	}
-	wg.Wait()
+	errs := []error{}
+	for i := 0; i < len(projects); i++ {
+		if err := <-done; err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		log.Fatalln(errs)
+	}
 	if dat, err = json.MarshalIndent(projectData, " ", "   "); err != nil {
 		log.Fatalln(err)
 	}

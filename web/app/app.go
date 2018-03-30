@@ -32,6 +32,7 @@ type Application struct {
 	indexName       string
 	searchSize      int
 	singleLocation  string
+	pluralLocation  string
 	compareLocation string
 	debugMode       bool
 
@@ -39,6 +40,7 @@ type Application struct {
 	rtrvr    *Retriever
 	diffMan  *DifferenceManager
 	snglRnnr *SingleRunner
+	plrlRnnr *PluralRunner
 	cmprRnnr *CompareRunner
 
 	killChan chan bool
@@ -50,11 +52,12 @@ type Back struct {
 	BackButton string `form:"button_back"`
 }
 
-func NewApplication(indexName, singleLocation, compareLocation string, debugMode bool) *Application {
+func NewApplication(indexName, singleLocation, pluralLocation, compareLocation string, debugMode bool) *Application {
 	return &Application{
 		indexName:       indexName,
 		searchSize:      250,
 		singleLocation:  singleLocation,
+		pluralLocation:  pluralLocation,
 		compareLocation: compareLocation,
 		debugMode:       debugMode,
 		killChan:        make(chan bool),
@@ -142,6 +145,7 @@ func (a *Application) Start() chan error {
 	a.wrkr = NewWorker(a, 4)
 	a.rtrvr = NewRetriever(a)
 	a.snglRnnr = NewSingleRunner(a)
+	a.plrlRnnr = NewPluralRunner(a)
 	a.cmprRnnr = NewCompareRunner(a)
 
 	a.wrkr.Start()

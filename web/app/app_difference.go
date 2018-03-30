@@ -27,6 +27,10 @@ func (a *Application) textDiffPath(c *gin.Context) {
 		Actual   string `form:"actual"`
 		Expected string `form:"expected"`
 		Compare  string `form:"button_textdiff"`
+
+		Repos    []string `form:"repos[]"`
+		Checkout []string `form:"checkout[]"`
+		Plural   string   `form:"button_plural"`
 	}
 	var tmp TDiff
 	if err := c.Bind(&tmp); err != nil {
@@ -40,6 +44,14 @@ func (a *Application) textDiffPath(c *gin.Context) {
 	}
 	if tmp.Ui != "" {
 		c.Redirect(303, "/ui")
+	} else if tmp.Plural != "" {
+		repos, err := a.plrlRnnr.RunAgainstPluralStr(tmp.Repos, tmp.Checkout)
+		if err != nil {
+			c.String(400, "Error running against pural: %s", err.Error())
+			return
+		}
+		h["actual"] = repos
+		c.HTML(200, "textdiff.html", h)
 	} else if tmp.Compare != "" {
 		res, err := a.cmprRnnr.CompareStrings(tmp.Actual, tmp.Expected)
 		if err != nil {

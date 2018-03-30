@@ -7,8 +7,10 @@ single/single
 web/web
 web/single
 web/compare
+web/plural
 list/list
 list/*.csv
+list/*.json
 compare/*.json
 compare/*.txt
 compare/compare
