@@ -185,8 +185,6 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/cdiff", a.customDiffPath},
 		u.RouteData{"GET", "/tdiff", a.textDiffPath},
 		u.RouteData{"POST", "/tdiff", a.textDiffPath},
-		u.RouteData{"GET", "tdiff/plural", a.textDiffPluralPath},
-		u.RouteData{"POST", "tdiff/plural", a.textDiffPluralPath},
 	})
 	select {
 	case err = <-server.Start(":" + port):

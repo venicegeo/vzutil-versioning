@@ -6,9 +6,17 @@ td {
 	align: left;
 }
 	</style>
+	<script>
+var divName = "textFields";
+function addRepo() {
+	var newdiv = document.createElement('div');
+	newdiv.innerHTML = "<input type='text' name='repos[]' placeholder='Repo Name'><input type='text' name='checkout[]' placeholder='Checkout Value'>"
+	document.getElementById(divName).appendChild(newdiv);
+}
+	</script>
 </head>
 <body>
-	<form method="post" enctype="application/json">
+	<form method="post">
 	<input type="submit" name="button_back" value="Main UI"><br>
 	<table>
 		<tr>
@@ -26,6 +34,15 @@ td {
 			</fieldset></td>
 		</tr>
 	</table>
+	<fieldset>
+		<table>
+			<tr><td><input type="button" value="Add Repo" onClick="addRepo();"></td>
+			<td><div id="textFields">
+					<input type="text" name="repos[]" placeholder="Repo Name"><input type="text" name="checkout[]" placeholder="Checkout Value">
+			</div></td>
+			<td><input type="submit" name="button_plural" value="Submit"></td></tr>
+		</table>
+	</fieldset>
 	</form>
 </body>
 </html>

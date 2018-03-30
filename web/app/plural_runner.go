@@ -30,9 +30,9 @@ func NewPluralRunner(app *Application) *PluralRunner {
 	return &PluralRunner{app}
 }
 
-func (pr *PluralRunner) RunAgainstPlural(repos, checkouts []string) (*com.ProjectDependencies, error) {
+func (pr *PluralRunner) RunAgainstPluralStr(repos, checkouts []string) (string, error) {
 	if len(repos) != len(checkouts) {
-		return nil, u.Error("Inputs not the same length")
+		return "", u.Error("Inputs not the same length")
 	}
 	in := map[string]string{}
 	for i, r := range repos {
@@ -40,15 +40,22 @@ func (pr *PluralRunner) RunAgainstPlural(repos, checkouts []string) (*com.Projec
 	}
 	indat, err := json.Marshal(in)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	cmd := exec.Command(pr.app.pluralLocation, "-t", string(indat))
 	dat, err := cmd.Output()
 	if err != nil {
-		return nil, u.Error("%s %s %s", cmd.Args, err, string(dat))
+		return "", u.Error("%s %s %s", cmd.Args, err, string(dat))
 	}
-	var pluralRet com.ProjectDependencies
-	if err = json.Unmarshal(dat, &pluralRet); err != nil {
+	return string(dat), nil
+}
+func (pr *PluralRunner) RunAgainstPlural(repos, checkouts []string) (*com.ProjectsDependencies, error) {
+	str, err := pr.RunAgainstPluralStr(repos, checkouts)
+	if err != nil {
+		return nil, err
+	}
+	var pluralRet com.ProjectsDependencies
+	if err = json.Unmarshal([]byte(str), &pluralRet); err != nil {
 		return nil, err
 	}
 	return &pluralRet, nil
