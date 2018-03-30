@@ -1,0 +1,28 @@
+<html>
+<head>
+	<style type="text/css">
+td {
+	vertical-align: top;
+	align: left;
+}
+	</style>
+<script>
+var divName = "textFields";
+function addRepo() {
+	var newdiv = document.createElement('div');
+	newdiv.innerHTML = "<input type='text' name='repos[]' placeholder='Repo Name'><input type='text' name='checkout[]' placeholder='Checkout Value'>"
+	document.getElementById(divName).appendChild(newdiv);
+}
+</script>
+<body>
+	<fieldset><form method="post">
+		<table>
+			<tr><td><input type="button" value="Add Repo" onClick="addRepo();"></td>
+			<td><div id="textFields">
+					<input type="text" name="repos[]" placeholder="Repo Name"><input type="text" name="checkout[]" placeholder="Checkout Value">
+			</div></td>
+			<td><input type="submit" name="button_plural" value="Submit"></td></tr>
+		</table>
+	</form></fieldset>
+</body>
+</html>

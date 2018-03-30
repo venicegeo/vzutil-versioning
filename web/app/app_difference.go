@@ -15,6 +15,7 @@
 package app
 
 import (
+	"fmt"
 	"html/template"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,7 @@ func (a *Application) textDiffPath(c *gin.Context) {
 		Actual   string `form:"actual"`
 		Expected string `form:"expected"`
 		Compare  string `form:"button_textdiff"`
+		Plural   string `form:"button_toplural"`
 	}
 	var tmp TDiff
 	if err := c.Bind(&tmp); err != nil {
@@ -40,6 +42,8 @@ func (a *Application) textDiffPath(c *gin.Context) {
 	}
 	if tmp.Ui != "" {
 		c.Redirect(303, "/ui")
+	} else if tmp.Plural != "" {
+		c.Redirect(303, "/tdiff/plural")
 	} else if tmp.Compare != "" {
 		res, err := a.cmprRnnr.CompareStrings(tmp.Actual, tmp.Expected)
 		if err != nil {
@@ -52,6 +56,30 @@ func (a *Application) textDiffPath(c *gin.Context) {
 	} else {
 		c.HTML(200, "textdiff.html", h)
 	}
+}
+
+func (a *Application) textDiffPluralPath(c *gin.Context) {
+	type Plural struct {
+		Checkout []string `form:"checkout[]"`
+		Repos    []string `form:"repos[]"`
+		Submit   string   `form:"button_plural"`
+	}
+	var tmp Plural
+	if err := c.Bind(&tmp); err != nil {
+		c.String(400, "Error binding form: %s", err.Error())
+		return
+	}
+	if tmp.Submit != "" {
+		repos, err := a.plrlRnnr.RunAgainstPlural(tmp.Repos, tmp.Checkout)
+		if err != nil {
+			c.String(400, "Error running against pural: %s", err.Error())
+			return
+		}
+		fmt.Println(repos)
+		c.Redirect(303, "/tdiff")
+		return
+	}
+	c.HTML(200, "plural.html", nil)
 }
 
 func (a *Application) customDiffPath(c *gin.Context) {
