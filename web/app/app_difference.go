@@ -28,6 +28,7 @@ func (a *Application) textDiffPath(c *gin.Context) {
 		Expected string `form:"expected"`
 		Compare  string `form:"button_textdiff"`
 
+		Load     string   `form:"button_loadrepos"`
 		Repos    []string `form:"repos[]"`
 		Checkout []string `form:"checkout[]"`
 		Plural   string   `form:"button_plural"`
@@ -38,11 +39,25 @@ func (a *Application) textDiffPath(c *gin.Context) {
 		return
 	}
 	h := gin.H{
-		"result":   "Compare Results will appear here",
-		"actual":   tmp.Actual,
-		"expected": tmp.Expected,
+		"result":    "Compare Results will appear here",
+		"actual":    tmp.Actual,
+		"expected":  tmp.Expected,
+		"loadRepos": []string{"", ""},
 	}
-	if tmp.Ui != "" {
+	if tmp.Load != "" {
+		projs, err := a.rtrvr.ListProjects()
+		if err != nil {
+			c.String(400, "Error collecting project list: %s", err.Error())
+			return
+		}
+		load := make([]string, 0, len(projs)*2)
+		for _, proj := range projs {
+			load = append(load, proj)
+			load = append(load, "")
+		}
+		h["loadRepos"] = load
+		c.HTML(200, "textdiff.html", h)
+	} else if tmp.Ui != "" {
 		c.Redirect(303, "/ui")
 	} else if tmp.Plural != "" {
 		repos, err := a.plrlRnnr.RunAgainstPluralStr(tmp.Repos, tmp.Checkout)
