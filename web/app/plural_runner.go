@@ -42,7 +42,7 @@ func (pr *PluralRunner) RunAgainstPluralStr(repos, checkouts []string) (string, 
 	if err != nil {
 		return "", err
 	}
-	cmd := exec.Command(pr.app.pluralLocation, "-t", string(indat), "-r", "3")
+	cmd := exec.Command(pr.app.pluralLocation, "-t", string(indat), "-r", "2")
 	dat, err := cmd.Output()
 	if err != nil {
 		return "", u.Error("%s %s %s", cmd.Args, err, string(dat))
