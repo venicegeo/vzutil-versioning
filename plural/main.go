@@ -29,6 +29,49 @@ import (
 	"github.com/venicegeo/vzutil-versioning/common"
 )
 
+type work struct {
+	project, branch string
+}
+type worker struct {
+	done        chan error
+	kill        chan bool
+	wrk         chan work
+	mux         sync.Mutex
+	projectData com.ProjectsDependencies
+}
+
+func (w *worker) work() {
+	var wr work
+	for {
+		select {
+		case wr = <-w.wrk:
+		case <-w.kill:
+			return
+		}
+		project := wr.project
+		branch := wr.branch
+		var dat []byte
+		var err error
+		if branch == "" {
+			branch = "master"
+		}
+		cmd := exec.Command("./single", project, branch)
+		if dat, err = cmd.Output(); err != nil {
+			w.done <- fmt.Errorf("%s %s", cmd.Args, err)
+			continue
+		}
+		var ret com.ProjectDependencies
+		if err = json.Unmarshal(dat, &ret); err != nil {
+			w.done <- err
+			continue
+		}
+		w.mux.Lock()
+		w.projectData[ret.Name] = ret
+		w.mux.Unlock()
+		w.done <- nil
+	}
+}
+
 func main() {
 	if _, err := os.Stat("single"); err != nil {
 		log.Fatalln(err)
@@ -36,9 +79,11 @@ func main() {
 	var configLocation string
 	var stringConfig string
 	var outFile string
+	var routineMax int
 	flag.StringVar(&configLocation, "c", "", "Config File")
 	flag.StringVar(&stringConfig, "t", "", "String Config")
 	flag.StringVar(&outFile, "o", "", "Output File")
+	flag.IntVar(&routineMax, "r", 0, "Max running routines")
 	flag.Parse()
 
 	var dat []byte
@@ -61,36 +106,39 @@ func main() {
 	if err = json.Unmarshal(dat, &projects); err != nil {
 		log.Fatalln(err)
 	}
-	projectData := com.ProjectsDependencies{}
-	mux := sync.Mutex{}
-	done := make(chan error, len(projects))
-	for project, branch := range projects {
-		go func(project, branch string) {
-			if branch == "" {
-				branch = "master"
-			}
-			cmd := exec.Command("./single", project, branch)
-			if dat, err = cmd.Output(); err != nil {
-				done <- fmt.Errorf("%s %s", cmd.Args, err)
-				return
-			}
-			var ret com.ProjectDependencies
-			if err = json.Unmarshal(dat, &ret); err != nil {
-				done <- err
-				return
-			}
-			mux.Lock()
-			projectData[ret.Name] = ret
-			mux.Unlock()
-			done <- nil
-		}(project, branch)
+	if routineMax <= 0 {
+		routineMax = len(projects)
 	}
+	done := make(chan error, len(projects))
+	kill := make(chan bool, len(projects))
+	wrk := make(chan work, len(projects))
+	mux := sync.Mutex{}
+	projectData := com.ProjectsDependencies{}
+
+	for project, branch := range projects {
+		wrk <- work{project, branch}
+	}
+
+	workers := make([]worker, routineMax, routineMax)
+	for i := 0; i < routineMax; i++ {
+		workers[i] = worker{done, kill, wrk, mux, projectData}
+	}
+
+	for _, w := range workers {
+		go w.work()
+	}
+
 	errs := []error{}
 	for i := 0; i < len(projects); i++ {
 		if err := <-done; err != nil {
 			errs = append(errs, err)
 		}
 	}
+
+	for i := 0; i < routineMax; i++ {
+		workers[i].kill <- true
+	}
+
 	if len(errs) > 0 {
 		log.Fatalln(errs)
 	}
