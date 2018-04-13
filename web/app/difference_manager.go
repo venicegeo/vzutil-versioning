@@ -75,8 +75,6 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 			}
 		}
 	}
-	sort.Strings(d.Removed)
-	sort.Strings(d.Added)
 	height := len(d.Removed)
 	if height < len(d.Added) {
 		height = len(d.Added)
@@ -217,6 +215,8 @@ func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldDeps, newDep
 		return nil, nil
 	}
 	id := u.Hash(u.Format("%s%d", fullName, t))
+	sort.Strings(removed)
+	sort.Strings(added)
 	diff := Difference{id, fullName, ref, oldSha, newSha, removed, added, t}
 	resp, err := d.app.index.PostData("difference", id, diff)
 	if err != nil {
