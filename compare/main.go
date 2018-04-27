@@ -75,7 +75,7 @@ func main() {
 		log.Fatalln("Only one actual source can be provided.")
 	} else if file1 != "" {
 		if actual, err = readFile(file1); err != nil {
-			log.Fatalln(err)
+			log.Fatalln("file1:", err)
 		}
 	} else {
 		string1 = strings.TrimPrefix(strings.TrimSuffix(string1, `'`), `'`)
@@ -90,7 +90,7 @@ func main() {
 		log.Fatalln("Only one expected source can be provided.")
 	} else if file2 != "" {
 		if expected, err = readFile(file2); err != nil {
-			log.Fatalln(err)
+			log.Fatalln("file2:", err)
 		}
 	} else {
 		string2 = strings.TrimPrefix(strings.TrimSuffix(string2, `'`), `'`)
@@ -131,6 +131,25 @@ func main() {
 			str.ExpectedDeps = append(str.ExpectedDeps, deps.NewGenericDependencyStr(s).String())
 		}
 		compares = append(compares, str)
+	}
+
+	for _, comp := range compares {
+		actual := map[string]bool{}
+		expected := map[string]bool{}
+		for _, s := range comp.ActualDeps {
+			actual[s] = false
+		}
+		for _, s := range comp.ExpectedDeps {
+			expected[s] = false
+		}
+		comp.ActualDeps = []string{}
+		comp.ExpectedDeps = []string{}
+		for k, _ := range actual {
+			comp.ActualDeps = append(comp.ActualDeps, k)
+		}
+		for k, _ := range expected {
+			comp.ExpectedDeps = append(comp.ExpectedDeps, k)
+		}
 	}
 
 	done := make(chan bool, len(compares))
