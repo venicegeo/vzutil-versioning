@@ -39,7 +39,7 @@ node {
 		dir("${root}/gopath/src/github.com/venicegeo/vzutil-versioning") {
 			git url: "${env.GIT_URL}", branch: "master"
 			appvers = (sh(script: "git describe --long --tags --always | sed 's/\\./-/'g", returnStdout: true)).trim();
-			appName = "vzutil-versioning-${appvers}"
+			appName = "vzutil-versioning-${appvers}-${env.BUILD_NUMBER}"
 		}
     }
 
