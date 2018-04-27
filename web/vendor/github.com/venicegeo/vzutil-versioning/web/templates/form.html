@@ -1,0 +1,144 @@
+<html>
+<head>
+	<style type="text/css">
+td {
+	vertical-align: top;
+	align: left;
+}
+	</style>
+</head>
+<body>
+	<table></tr>
+		<td><fieldset id="knownProjects">
+			<legend>Known Projects</legend>
+			<pre>
+{{ .projects }}
+			</pre>
+			<form><input type="submit" name="button_depsearch" value = "Dependency Search"></form>
+		</fieldset></td>
+		<td><fieldset id="reporting">
+			<legend>Reporting</legend>
+			
+			<table><tr>
+				<td><fieldset><form>
+					<legend>By ref</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="reportreforg" value="" placeholder="Optional"></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="reportrefrepo" value="" placeholder="Optional - Needs Org"></td></tr>
+						<tr><td>Ref:</td>
+							<td><input type="text" name="reportrefref" value=""></td></tr>
+						<tr><td><input type="submit" name="button_reportref" value="Submit"></td></tr>
+					</table>
+				</form></fieldset></td>
+			
+				<td><fieldset><form>
+					<legend>By sha</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="reportshaorg" value=""></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="reportsharepo" value=""></td></tr>
+						<tr><td>Sha:</td>
+							<td><input type="text" name="reportshasha" value=""></td></tr>
+						<tr><td><input type="submit" name="button_reportsha" value="Submit"></td></tr>
+					</table>
+				</form></fieldset></td>
+			</tr></table>
+			
+		</fieldset>
+		
+		
+		<fieldset id="listing">
+			<legend>Listing</legend>
+			
+			<table><tr>
+				<td><fieldset><form>
+					<legend>All refs</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="refsorg" value=""></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="refsrepo" value="" placeholder="Optional"></td></tr>
+						<tr><td><input type="submit" name="button_listrefs" value="Submit"></td></tr>
+					</table>
+				</form></fieldset></td>
+			
+				<td><fieldset><form>
+					<legend>All shas</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="shasorg" value=""></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="shasrepo" value=""></td></tr>
+						<tr><td><input type="submit" name="button_listshas" value="Submit"></td></tr>
+					</table>
+				</form></fieldset></td>
+			</tr></table>
+			
+		</fieldset>
+		
+		
+		<fieldset id="generation">
+			<legend>Generation</legend>
+			
+			<table><tr>
+				<td><fieldset><form>
+					<legend>All tags</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="alltagorg" value=""></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="alltagrepo" value="" placeholder="Optional"></td></tr>
+						<tr><td><input type="submit" name="button_generatetag" value="Submit"></td><tr>
+					</table>
+				</form></fieldset></td>
+
+				<td><fieldset><form>
+					<legend>Branch</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="branchorg" value=""></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="branchrepo" value=""></td></tr>
+						<tr><td>Branch:</td>
+							<td><input type="text" name="branchbranch" value=""></td></tr>
+						<tr><td><input type="submit" name="button_generatebranch" value="Submit"></td><tr>
+					</table>
+				</form></fieldset></td>
+			</tr></table>
+		</fieldset></td>
+		
+		<td><fieldset id="differences">
+			<legend>Differences</legend>
+			<pre>
+{{ .differences }}
+			</pre>
+			<form>
+				<input type="submit" name="button_diffman" value="Manager"><br>
+				<input type="submit" name="button_customdiff" value="Custom"><br>
+				<input type="submit" name="button_textdiff" value="Text">
+			</form>
+			</fieldset></td>
+		
+	</td></table>
+	
+	<script>
+	var left = document.getElementById('knownProjects').offsetHeight;
+	var right = document.getElementById('reporting').offsetHeight+document.getElementById('listing').offsetHeight+document.getElementById('generation').offsetHeight;
+	if (left<right) {
+		document.getElementById('knownProjects').style.height = right;
+		var offset = document.getElementById('knownProjects').offsetHeight-right;
+		document.getElementById('knownProjects').style.height = right-offset;
+	}
+	left = document.getElementById('differences').offsetHeight;
+	if (left<right) {
+		document.getElementById('differences').style.height = right;
+		var offset = document.getElementById('differences').offsetHeight-right;
+		document.getElementById('differences').style.height = right-offset;
+	}
+
+	</script>
+</body>
+</html>

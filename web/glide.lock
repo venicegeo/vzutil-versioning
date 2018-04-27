@@ -1,5 +1,5 @@
-hash: 6341cbc2008ff44ee19f61130af3d7de4165a1688aa12a31a6ca69dace11c8be
-updated: 2018-01-08T10:14:55.752519358-05:00
+hash: 7859d7ffeaf100d839881a22f102093bbd0d7e2e631e02c4cc204cb775c8c793
+updated: 2018-04-27T09:07:57.864569779-04:00
 imports:
 - name: github.com/braintree/manners
   version: 82a8879fc5fd0381fa8b2d8033b19bf255252088
@@ -15,7 +15,7 @@ imports:
 - name: github.com/manucorporat/sse
   version: ee05b128a739a0fb76c7ebd3ae4810c1de808d6d
 - name: github.com/mattn/go-isatty
-  version: 281032e84ae07510239465db46bf442aa44b953a
+  version: fc9e8d8ef48496124e79ae0df75490096eccf6fe
 - name: github.com/pkg/errors
   version: c605e284fe17294bda444b34710735b29d1a9d90
 - name: github.com/venicegeo/pz-gocommon
@@ -25,16 +25,21 @@ imports:
   - elasticsearch/elastic-5-api
   - elasticsearch/elastic-5-api/uritemplates
   - gocommon
+- name: github.com/venicegeo/vzutil-versioning
+  version: 4bdf517e9d5d5c3f36592ea95ca7a9b0bc538931
+  subpackages:
+  - common
+  - common/table
 - name: golang.org/x/net
   version: f315505cf3349909cdf013ea56690da34e96a451
   subpackages:
   - context
 - name: golang.org/x/sys
-  version: e24f485414aeafb646f6fca458b0bf869c0880a1
+  version: 9ccfe848b9db8435a24c424abbc07a921adf1df5
   subpackages:
   - unix
 - name: gopkg.in/go-playground/validator.v8
   version: c193cecd124b5cc722d7ee5538e945bdb3348435
 - name: gopkg.in/yaml.v2
-  version: a3f3340b5840cee44f372bddb5880fcbc419b46a
+  version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
 testImports: []

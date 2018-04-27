@@ -154,22 +154,3 @@ func HitsToProjects(resp *elasticsearch.SearchResult, err error) (*[]*Project, e
 	}
 	return &res, nil
 }
-
-func DeleteAndWait(index *elasticsearch.Index, typ, id string) error {
-	resp, err := index.DeleteByID(typ, id)
-	if err != nil {
-		return err
-	}
-	if !resp.Found {
-		return nil
-	}
-	exists := true
-	var get *elasticsearch.GetResult
-	for exists {
-		if get, err = index.GetByID(typ, id); err != nil {
-			return err
-		}
-		exists = get.Found
-	}
-	return nil
-}

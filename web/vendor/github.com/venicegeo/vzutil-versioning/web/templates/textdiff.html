@@ -1,0 +1,67 @@
+<html>
+<head>
+	<style type="text/css">
+td {
+	vertical-align: top;
+	align: left;
+}
+	</style>
+	<script>
+var tfCount=0;
+var divName = "textFields";
+
+function removeRepo(i){
+var element = document.getElementById(i);
+element.outerHTML="";
+delete element;
+}
+
+function addRepo(repo,check) {
+	if(typeof repo == 'undefined')
+		repo="";
+	if(typeof check == 'undefined')
+		check="";
+	tfCount++;
+	var newdiv = document.createElement('div');
+	newdiv.id = "repo-"+tfCount;
+	var inner = new String("<input type='button' value='Remove' id='REPLACE_ID' onClick='removeRepo(this.id);'><input type='text' name='repos[]' placeholder='Repo Name' value='REPLACE_REPO'><input type='text' name='checkout[]' placeholder='Checkout Value' value='REPLACE_CHECK'>");
+	newdiv.innerHTML = inner.replace(/REPLACE_ID/gi,newdiv.id).replace(/REPLACE_REPO/gi,repo).replace(/REPLACE_CHECK/gi,check);
+	document.getElementById(divName).appendChild(newdiv);
+}
+	</script>
+</head>
+<body>
+	<form method="post">
+	<input type="submit" name="button_back" value="Main UI"><br>
+	<table>
+		<tr>
+		<td></td><td></td><td><input type="submit" name="button_textdiff" value="Compare"></td>
+		</tr><tr>
+			<td>Actual:</td>
+			<td>Expected:</td>
+			<td>Result:</td>
+		<tr></tr><tr>
+		</tr><tr>
+			<td><textarea name="actual" placeholder="Paste actual here" rows="50" cols="100">{{ .actual }}</textarea></td>
+			<td><textarea name="expected" placeholder="Paste expected here" rows="50" cols="100">{{ .expected }}</textarea></td>
+			<td><fieldset>
+				<pre>{{ .result }}</pre>
+			</fieldset></td>
+		</tr>
+	</table>
+	<fieldset>
+		<table>
+			<tr><td><input type="button" value="Add Repo" onClick="addRepo();"><br><input type="submit" value="Load" name="button_loadrepos"></td>
+			<td><fieldset><div id="textFields">
+			</div></fieldset></td>
+			<td><input type="submit" name="button_plural" value="Submit"></td></tr>
+		</table>
+	</fieldset>
+	</form>
+</body>
+	<script>
+var arr = {{ .loadRepos }};
+for(var i=0;i<arr.length;i+=2)
+	addRepo(arr[i],arr[i+1]);
+	</script>
+</html>

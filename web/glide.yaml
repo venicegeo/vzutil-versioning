@@ -3,5 +3,3 @@ import:
 - package: github.com/braintree/manners
 - package: github.com/gin-gonic/gin
 - package: github.com/venicegeo/pz-gocommon
-  subpackages:
-  - elasticsearch
