@@ -18,7 +18,6 @@ package project
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"reflect"
 	"regexp"
 	"strings"
@@ -32,33 +31,29 @@ import (
 )
 
 type Ingester struct {
-	project *Project
+	fileReader IFileReader
 }
-
-//func NewIngester(project *Project) *Ingester {
-//	return &Ingester{project}
-//}
 
 var re = regexp.MustCompile(`([^\/]+$)`)
 
 func Ingest(project *Project, prnt bool) (err error) {
-	i := Ingester{project}
-	if err = i.project.findDepFiles(); err != nil {
+	i := Ingester{&FileReader{}}
+	if err = project.findDepFiles(); err != nil {
 		return err
 	}
 	if prnt {
-		str := "Ingesting " + i.project.FolderName
-		for _, loc := range i.project.DepLocations {
+		str := "Ingesting " + project.FolderName
+		for _, loc := range project.DepLocations {
 			str += "\n  - " + loc
 		}
 		fmt.Println(str)
 	}
-	if errs := i.IngestProject(i.project); len(errs) != 0 {
+	if errs := i.IngestProject(project); len(errs) != 0 {
 		errStr := errs[0].Error()
 		for i := 1; i < len(errs); i++ {
 			errStr += "\n" + errs[i].Error()
 		}
-		return fmt.Errorf("%s:%s", i.project.FolderName, errStr)
+		return fmt.Errorf("%s:%s", project.FolderName, errStr)
 	}
 	return nil
 }
@@ -105,7 +100,7 @@ func (i *Ingester) ingestJavaProject(p *Project) ([]*dependency.GenericDependenc
 		if !strings.HasSuffix(filePath, "pom.xml") {
 			continue
 		}
-		data, err := ioutil.ReadFile(filePath)
+		data, err := i.fileReader.Read(filePath)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -144,7 +139,7 @@ func (i *Ingester) ingestJavaProject(p *Project) ([]*dependency.GenericDependenc
 }
 
 func (i *Ingester) ingestJavaScriptFile(filePath string, p *Project) ([]*dependency.GenericDependency, []*issue.Issue, error) {
-	data, err := ioutil.ReadFile(filePath)
+	data, err := i.fileReader.Read(filePath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -162,14 +157,14 @@ func (i *Ingester) ingestGoFile(filePath string, p *Project) ([]*dependency.Gene
 	var lock ingest.GlideLock
 	var err error
 
-	if yamlData, err = ioutil.ReadFile(filePath); err != nil {
+	if yamlData, err = i.fileReader.Read(filePath); err != nil {
 		return nil, nil, err
 	}
 	if err = yaml.Unmarshal(yamlData, &yml); err != nil {
 		return nil, nil, err
 	}
 
-	if lockData, err = ioutil.ReadFile(strings.TrimSuffix(filePath, "glide.yaml") + "glide.lock"); err != nil {
+	if lockData, err = i.fileReader.Read(strings.TrimSuffix(filePath, "glide.yaml") + "glide.lock"); err != nil {
 		lockData = []byte("")
 	}
 	if err = yaml.Unmarshal(lockData, &lock); err != nil {
@@ -182,12 +177,12 @@ func (i *Ingester) ingestGoFile(filePath string, p *Project) ([]*dependency.Gene
 
 func (i *Ingester) ingestPythonFile(filePath string, p *Project) ([]*dependency.GenericDependency, []*issue.Issue, error) {
 	isPip := strings.HasSuffix(filePath, "requirements.txt")
-	reqDat, err := ioutil.ReadFile(filePath)
+	reqDat, err := i.fileReader.Read(filePath)
 	if err != nil {
 		return nil, nil, err
 	}
 	if isPip {
-		devDat, err := ioutil.ReadFile(strings.TrimSuffix(filePath, "requirements.txt") + "requirements-dev.txt")
+		devDat, err := i.fileReader.Read(strings.TrimSuffix(filePath, "requirements.txt") + "requirements-dev.txt")
 		if err != nil {
 			devDat = []byte("")
 		}

@@ -16,6 +16,7 @@ limitations under the License.
 package ingest
 
 import (
+	"errors"
 	"regexp"
 	"strings"
 
@@ -74,8 +75,12 @@ func (pw *PipProjectWrapper) GetResults() ([]*dependency.GenericDependency, []*i
 }
 
 func (pw *CondaProjectWrapper) GetResults() ([]*dependency.GenericDependency, []*issue.Issue, error) {
-	env := CondaEnvironment{}
-	if err := yaml.Unmarshal(pw.Filedat, &env); err != nil {
+	envw := CondaEnvironmentWrapper{}
+	if err := yaml.Unmarshal(pw.Filedat, &envw); err != nil {
+		return nil, nil, err
+	}
+	env, err := envw.Convert()
+	if err != nil {
 		return nil, nil, err
 	}
 	deps := make([]*dependency.GenericDependency, len(env.Dependencies), len(env.Dependencies))
@@ -90,8 +95,42 @@ func (pw *CondaProjectWrapper) GetResults() ([]*dependency.GenericDependency, []
 	return deps, pw.issues, nil
 }
 
+type CondaEnvironmentWrapper struct {
+	Name         string        `yaml:"name"`
+	Channels     []string      `yaml:"channels"`
+	Dependencies []interface{} `yaml:"dependencies"`
+}
 type CondaEnvironment struct {
 	Name         string   `yaml:"name"`
 	Channels     []string `yaml:"channels"`
 	Dependencies []string `yaml:"dependencies"`
+}
+
+func (c *CondaEnvironmentWrapper) Convert() (*CondaEnvironment, error) {
+	ret := &CondaEnvironment{c.Name, c.Channels, []string{}}
+	for _, d := range c.Dependencies {
+		switch d.(type) {
+		case string:
+			ret.Dependencies = append(ret.Dependencies, d.(string))
+		case map[interface{}]interface{}:
+			pip, ok := d.(map[interface{}]interface{})["pip"]
+			if !ok {
+				return nil, errors.New("Map found in yml not containing pip key")
+			}
+			pipDeps, ok := pip.([]interface{})
+			if !ok {
+				return nil, errors.New("Pip entry not []interface{}")
+			}
+			for _, dep := range pipDeps {
+				if str, ok := dep.(string); !ok {
+					return nil, errors.New("Pip dependency non type string")
+				} else {
+					ret.Dependencies = append(ret.Dependencies, str)
+				}
+			}
+		default:
+			return nil, errors.New("Unknown type found in yml")
+		}
+	}
+	return ret, nil
 }

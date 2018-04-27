@@ -19,17 +19,17 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/venicegeo/vzutil-versioning/project/util"
+	"github.com/venicegeo/vzutil-versioning/single/project/util"
 )
 
 func runAgainst(name string, gitUrl string, t *testing.T) {
-	var err error
-	if _, err = util.RunCommand("git", "clone", gitUrl); err != nil {
-		t.Error(err)
+	var ret util.CmdRet
+	if ret = util.RunCommand("git", "clone", gitUrl); ret.Err != nil {
+		t.Error(ret.Err)
 	}
 	defer func() {
-		if _, err = util.RunCommand("rm", "-rf", name); err != nil {
-			t.Error(err)
+		if ret = util.RunCommand("rm", "-rf", name); ret.Err != nil {
+			t.Error(ret.Err)
 		}
 	}()
 	project, err := NewProject(name)
@@ -48,16 +48,18 @@ func runAgainst(name string, gitUrl string, t *testing.T) {
 }
 
 func TestPython(t *testing.T) {
-	runAgainst("bf-api", "https://github.com/venicegeo/bf-api", t)
+	runAgainst("beachfront-py", "https://github.com/venicegeo/beachfront-py", t)
 	runAgainst("bfalg-ndwi", "https://github.com/venicegeo/bfalg-ndwi", t)
 }
 
 func TestGo(t *testing.T) {
 	runAgainst("pz-logger", "https://github.com/venicegeo/pz-logger", t)
+	runAgainst("pz-workflow", "https://github.com/venicegeo/pz-workflow", t)
 }
 
 func TestJava(t *testing.T) {
 	runAgainst("pz-gateway", "https://github.com/venicegeo/pz-gateway", t)
+	runAgainst("bf-api", "https://github.com/venicegeo/bf-api", t)
 }
 
 func TestJavaScript(t *testing.T) {
