@@ -5,6 +5,7 @@ node {
     def mvn = tool 'M3'
     def golangTool = tool 'golang_1.7'
     def appName = ""
+    def appvers = ""
 
     stage("Config") {
       // clone the configuration repository and copy the current configuration
@@ -33,11 +34,12 @@ node {
               mkdir -p ${root}/gopath/bin ${root}/gopath/pkg ${root}/gopath/src/github.com/venicegeo/vzutil-versioning
               go version
             """
-            appName = "vzutil-versioning"
     
         }
 		dir("${root}/gopath/src/github.com/venicegeo/vzutil-versioning") {
 			git url: "${env.GIT_URL}", branch: "master"
+			appvers = (sh(script: "git describe --long --tags --always | sed 's/\\./-/'g", returnStdout: true)).trim();
+			appName = "vzutil-versioning-${appvers}"
 		}
     }
 
