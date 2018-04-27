@@ -83,6 +83,7 @@ type IIndex interface {
 	PutData(typ string, id string, obj interface{}) (*IndexResponse, error)
 	GetByID(typ string, id string) (*GetResult, error)
 	DeleteByID(typ string, id string) (*DeleteResponse, error)
+	DeleteByIDWait(typ string, id string) (*DeleteResponse, error)
 	FilterByMatchAll(typ string, format *piazza.JsonPagination) (*SearchResult, error)
 	GetAllElements(typ string) (*SearchResult, error)
 	FilterByTermQuery(typ string, name string, value interface{}, format *piazza.JsonPagination) (*SearchResult, error)

@@ -1,6 +1,0 @@
-*.cov
-*.cov.txt
-.vscode
-elasticsearch/systest/x.go
-kafka/systest/x.go
-

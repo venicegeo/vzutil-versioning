@@ -33,6 +33,8 @@ type MockIndexType struct {
 	mapping interface{}
 }
 
+var _ IIndex = (*MockIndex)(nil)
+
 type MockIndex struct {
 	name     string
 	types    map[string]*MockIndexType
@@ -226,19 +228,12 @@ func (esi *MockIndex) PutData(typeName string, id string, obj interface{}) (*Ind
 }
 
 func (esi *MockIndex) GetByID(typeName string, id string) (*GetResult, error) {
-	ok, err := esi.TypeExists(typeName)
+	ok, err := esi.ItemExists(typeName, id)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return nil, fmt.Errorf("GetById: type does not exist: %s", typeName)
-	}
-	ok, err = esi.ItemExists(typeName, id)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, fmt.Errorf("GetById: id does not exist: %s", id)
+		return &GetResult{Found: false}, fmt.Errorf("GetById: id does not exist: %s", id)
 	}
 
 	typ := esi.types[typeName]
@@ -265,9 +260,12 @@ func (esi *MockIndex) DeleteByID(typeName string, id string) (*DeleteResponse, e
 
 	typ := esi.types[typeName]
 	delete(typ.items, id)
-	r := &DeleteResponse{Found: true}
+	r := &DeleteResponse{Found: true, ID: id}
 	return r, nil
+}
 
+func (esi *MockIndex) DeleteByIDWait(typeName string, id string) (*DeleteResponse, error) {
+	return esi.DeleteByID(typeName, id)
 }
 
 type srhByID []*SearchResultHit

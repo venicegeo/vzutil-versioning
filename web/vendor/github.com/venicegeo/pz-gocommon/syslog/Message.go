@@ -25,9 +25,8 @@ import (
 
 //---------------------------------------------------------------------
 
-const privateEnterpriseNumber = "48851" // Flaxen's PEN
-const DefaultFacility = 1               // for "user-level" messages
-const DefaultVersion = 1                // as per RFC 5424
+const DefaultFacility = 1 // for "user-level" messages
+const DefaultVersion = 1  // as per RFC 5424
 
 type Severity int
 
@@ -60,12 +59,13 @@ type Message struct {
 	MetricData  *MetricElement   `json:"metricData"`
 	SourceData  *SourceElement   `json:"sourceData"`
 	Message     string           `json:"message"`
+	pen         string
 }
 
 // NewMessage returns a Message with some of the defaults filled in for you.
 // The returned Message is not valid. To make it pass Message.Validate, you must
 // set Severity, HostName, Application, and Process.
-func NewMessage() *Message {
+func NewMessage(pen string) *Message {
 	m := &Message{
 		Facility:    DefaultFacility,
 		Severity:    -1,
@@ -79,6 +79,7 @@ func NewMessage() *Message {
 		MetricData:  nil,
 		SourceData:  nil,
 		Message:     "",
+		pen:         pen,
 	}
 
 	return m
@@ -116,13 +117,13 @@ func (m *Message) String() string {
 
 	sdes := []string{}
 	if m.AuditData != nil {
-		sdes = append(sdes, m.AuditData.String())
+		sdes = append(sdes, m.AuditData.String(m.pen))
 	}
 	if m.MetricData != nil {
-		sdes = append(sdes, m.MetricData.String())
+		sdes = append(sdes, m.MetricData.String(m.pen))
 	}
 	if m.SourceData != nil {
-		sdes = append(sdes, m.SourceData.String())
+		sdes = append(sdes, m.SourceData.String(m.pen))
 	}
 	sde := strings.Join(sdes, " ")
 	if sde == "" {
@@ -254,9 +255,9 @@ func (ae *AuditElement) validate() error {
 }
 
 // String builds and returns the RFC5424-style textual representation of an Audit SDE
-func (ae *AuditElement) String() string {
+func (ae *AuditElement) String(pen string) string {
 	s := fmt.Sprintf("[pzaudit@%s actor=\"%s\" action=\"%s\" actee=\"%s\"]",
-		privateEnterpriseNumber, ae.Actor, ae.Action, ae.Actee)
+		pen, ae.Actor, ae.Action, ae.Actee)
 	return s
 }
 
@@ -283,9 +284,9 @@ func (me *MetricElement) validate() error {
 }
 
 // String builds and returns the RFC5424-style textual representation of an Metric SDE
-func (me *MetricElement) String() string {
+func (me *MetricElement) String(pen string) string {
 	s := fmt.Sprintf("[pzmetric@%s name=\"%s\" value=\"%f\" object=\"%s\"]",
-		privateEnterpriseNumber, me.Name, me.Value, me.Object)
+		pen, me.Name, me.Value, me.Object)
 	return s
 }
 
@@ -339,8 +340,8 @@ func (se *SourceElement) validate() error {
 }
 
 // String builds the text string of the SDE
-func (se *SourceElement) String() string {
+func (se *SourceElement) String(pen string) string {
 	s := fmt.Sprintf("[pzsource@%s file=\"%s\" function=\"%s\" line=\"%d\"]",
-		privateEnterpriseNumber, se.File, se.Function, se.Line)
+		pen, se.File, se.Function, se.Line)
 	return s
 }

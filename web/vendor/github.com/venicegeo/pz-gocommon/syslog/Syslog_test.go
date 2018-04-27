@@ -57,7 +57,7 @@ func safeRemove(s string) error {
 }
 
 func makeMessage(sde bool) (*Message, string) {
-	m := NewMessage()
+	m := NewMessage("123456")
 
 	m.Facility = DefaultFacility
 	m.Severity = Fatal // pri = 1*8 + 2 = 10
@@ -88,8 +88,8 @@ func makeMessage(sde bool) (*Message, string) {
 		}
 
 		expected = "<10>1 " + m.TimeStamp.String() + " HOST APPLICATION 1234 msg1of2 " +
-			"[pzaudit@48851 actor=\"=actor=\" action=\"-action-\" actee=\"_actee_\"] " +
-			"[pzmetric@48851 name=\"=name=\" value=\"-3.140000\" object=\"_object_\"] " +
+			"[pzaudit@123456 actor=\"=actor=\" action=\"-action-\" actee=\"_actee_\"] " +
+			"[pzmetric@123456 name=\"=name=\" value=\"-3.140000\" object=\"_object_\"] " +
 			"BetaYow"
 	}
 
@@ -244,7 +244,7 @@ func Test05Logger(t *testing.T) {
 
 	// the following clause is what a developer would do
 	{
-		logger := NewLogger(logWriter, auditWriter, "testapp")
+		logger := NewLogger(logWriter, auditWriter, "testapp", "123456")
 		logger.Async = false
 		logger.UseSourceElement = false
 		err = logger.Debug("debug %d", 999)
@@ -301,7 +301,7 @@ func Test06LogLevel(t *testing.T) {
 	auditWriter := &LocalReaderWriter{}
 
 	{
-		logger := NewLogger(logWriter, auditWriter, "testapp")
+		logger := NewLogger(logWriter, auditWriter, "testapp", "123456")
 		logger.Async = false
 		logger.UseSourceElement = true
 		logger.MinimumSeverity = Error
@@ -382,7 +382,7 @@ func Test09ElasticsearchWriter(t *testing.T) {
 	err = ew2.Close()
 	assert.NoError(err)
 
-	m := NewMessage()
+	m := NewMessage("123456")
 	m.Message = "Yow"
 	err = ew.Write(m, false)
 	assert.NoError(err)
@@ -406,7 +406,7 @@ func Test09ElasticsearchWriter(t *testing.T) {
 func Test10Errors(t *testing.T) {
 	assert := assert.New(t)
 
-	logger := NewLogger(nil, nil, "testapp")
+	logger := NewLogger(nil, nil, "testapp", "123456")
 	logger.Async = false
 	err := logger.Warning("bonk")
 	assert.Error(err)

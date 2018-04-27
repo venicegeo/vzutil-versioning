@@ -18,8 +18,6 @@ import (
 	"errors"
 	"net/http"
 
-	"fmt"
-
 	"github.com/braintree/manners"
 	"github.com/gin-gonic/gin"
 )
@@ -66,7 +64,7 @@ func (server *GenericServer) Start() (chan error, error) {
 		done <- err
 	}()
 
-	url := fmt.Sprintf("%s://%s", DefaultProtocol, sys.BindTo)
+	url := createUrl(sys.BindTo)
 	err := WaitForService(sys.Name, url)
 	if err != nil {
 		return nil, err

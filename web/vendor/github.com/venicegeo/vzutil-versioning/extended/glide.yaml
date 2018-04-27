@@ -1,3 +1,0 @@
-package: github.com/venicegeo/vzutil-versioning
-import:
-- package: gopkg.in/yaml.v2

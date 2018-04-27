@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/olivere/elastic.v5"
+	"github.com/venicegeo/pz-gocommon/elasticsearch/elastic-5-api"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -719,7 +719,7 @@ func (suite *EsTester) Test15NewIndex2() {
 	err = idx.DirectAccess("", "", nil, nil)
 	assert.Error(err)
 
-	_, err = NewIndex2("", "$", "")
+	_, err = NewIndex2("", "", "", "$", "")
 	assert.Error(err)
 	_, err = NewIndexInterface(sys, "", "", false)
 	assert.Error(err)

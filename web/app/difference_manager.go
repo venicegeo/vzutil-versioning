@@ -229,7 +229,7 @@ func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldDeps, newDep
 }
 
 func (d *DifferenceManager) Delete(id string) {
-	es.DeleteAndWait(d.app.index, "difference", id)
+	d.app.index.DeleteByIDWait("difference", id)
 }
 
 func strscont(sl []string, s string) bool {

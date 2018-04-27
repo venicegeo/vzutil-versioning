@@ -50,7 +50,7 @@ func (builder *HeaderBuilder) GetHeader() [][2]string {
 	return builder.header
 }
 func HTTP(requestType, url string, headers [][2]string, toSend io.Reader) (int, []byte, http.Header, error) {
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+	if !hasProtocol.MatchString(url) {
 		url = "https://" + url
 	}
 	req, err := http.NewRequest(requestType, url, toSend)

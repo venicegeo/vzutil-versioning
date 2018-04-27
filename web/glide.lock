@@ -1,5 +1,5 @@
 hash: 7859d7ffeaf100d839881a22f102093bbd0d7e2e631e02c4cc204cb775c8c793
-updated: 2018-04-27T09:07:57.864569779-04:00
+updated: 2018-04-27T09:19:58.170278551-04:00
 imports:
 - name: github.com/braintree/manners
   version: 82a8879fc5fd0381fa8b2d8033b19bf255252088
@@ -19,17 +19,12 @@ imports:
 - name: github.com/pkg/errors
   version: c605e284fe17294bda444b34710735b29d1a9d90
 - name: github.com/venicegeo/pz-gocommon
-  version: 375e45c7c4bcff230a900814db562e0c3b6179d0
+  version: 4da5df3c496f318012b4dfb25be94fe94c4e9ef8
   subpackages:
   - elasticsearch
   - elasticsearch/elastic-5-api
   - elasticsearch/elastic-5-api/uritemplates
   - gocommon
-- name: github.com/venicegeo/vzutil-versioning
-  version: 4bdf517e9d5d5c3f36592ea95ca7a9b0bc538931
-  subpackages:
-  - common
-  - common/table
 - name: golang.org/x/net
   version: f315505cf3349909cdf013ea56690da34e96a451
   subpackages:

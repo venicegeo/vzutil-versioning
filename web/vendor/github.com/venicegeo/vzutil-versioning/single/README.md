@@ -1,1 +1,0 @@
-# vzutil-versioning | singular version

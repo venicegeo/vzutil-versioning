@@ -26,6 +26,8 @@ import (
 	"golang.org/x/net/context"
 )
 
+var _ IIndex = (*Index)(nil)
+
 // Index is a representation of the Elasticsearch index.
 type Index struct {
 	lib     *elastic.Client
@@ -293,6 +295,25 @@ func (esi *Index) DeleteByID(typ string, id string) (*DeleteResponse, error) {
 		Index(esi.index).
 		Type(typ).
 		Id(id).
+		Do(context.Background())
+	return NewDeleteResponse(deleteResponse), err
+}
+
+// DeleteByID deletes a document by ID within a specified index and type and waits before returning.
+func (esi *Index) DeleteByIDWait(typ string, id string) (*DeleteResponse, error) {
+	ok, err := esi.ItemExists(typ, id)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return &DeleteResponse{Found: false}, fmt.Errorf("Item %s in index %s and type %s does not exist", id, esi.index, typ)
+	}
+
+	deleteResponse, err := esi.lib.Delete().
+		Index(esi.index).
+		Type(typ).
+		Id(id).
+		Refresh("wait_for").
 		Do(context.Background())
 	return NewDeleteResponse(deleteResponse), err
 }
