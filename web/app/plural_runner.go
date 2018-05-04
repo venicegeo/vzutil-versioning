@@ -49,12 +49,12 @@ func (pr *PluralRunner) RunAgainstPluralStr(repos, checkouts []string) (string, 
 	}
 	return string(dat), nil
 }
-func (pr *PluralRunner) RunAgainstPlural(repos, checkouts []string) (*com.ProjectsDependencies, error) {
+func (pr *PluralRunner) RunAgainstPlural(repos, checkouts []string) (*com.RepositoriesDependencies, error) {
 	str, err := pr.RunAgainstPluralStr(repos, checkouts)
 	if err != nil {
 		return nil, err
 	}
-	var pluralRet com.ProjectsDependencies
+	var pluralRet com.RepositoriesDependencies
 	if err = json.Unmarshal([]byte(str), &pluralRet); err != nil {
 		return nil, err
 	}

@@ -87,7 +87,7 @@ func (a *Application) listRefs(c *gin.Context) {
 	a.displaySuccess(c, header+t.SpaceColumn(1).NoRowBorders().NoColumnBorders().Format().String())
 }
 
-func (a *Application) listProjects(c *gin.Context) {
+func (a *Application) listRepositories(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
@@ -95,7 +95,7 @@ func (a *Application) listProjects(c *gin.Context) {
 	header := "List of repositories\n"
 	a.listRepositoriesWrk(ps, err, header, c)
 }
-func (a *Application) listProjectsOrg(c *gin.Context) {
+func (a *Application) listRepositoriesOrg(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}

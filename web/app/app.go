@@ -80,7 +80,7 @@ func (a *Application) Start() chan error {
 	i, err := elasticsearch.NewIndex2(url, user, pass, a.indexName, `
 {
 	"mappings": {
-		"project":{
+		"repository":{
 			"dynamic":"strict",
 			"properties":{
 				"full_name":{"type":"keyword"},
@@ -172,8 +172,8 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/list/shas/:org/:repo", a.listShas},
 		u.RouteData{"GET", "/list/refs/:org/:repo", a.listRefsRepo},
 		u.RouteData{"GET", "/list/refs/:org", a.listRefs},
-		u.RouteData{"GET", "/list/projects", a.listProjects},
-		u.RouteData{"GET", "/list/projects/:org", a.listProjectsOrg},
+		u.RouteData{"GET", "/list/repositories", a.listRepositories},
+		u.RouteData{"GET", "/list/repositories/:org", a.listRepositoriesOrg},
 
 		u.RouteData{"GET", "/search", a.uiSearchForDep},
 		u.RouteData{"GET", "/search/:dep", a.searchForDep},

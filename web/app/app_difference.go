@@ -51,8 +51,8 @@ func (a *Application) textDiffPath(c *gin.Context) {
 			return
 		}
 		load := make([]string, 0, len(repos)*2)
-		for _, proj := range repos {
-			load = append(load, proj)
+		for _, repo := range repos {
+			load = append(load, repo)
 			load = append(load, "")
 		}
 		h["loadRepos"] = load

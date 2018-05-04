@@ -12,7 +12,7 @@ td {
 		<td><fieldset id="knownRepositories">
 			<legend>Known Repositories</legend>
 			<pre>
-{{ .projects }}
+{{ .repositories }}
 			</pre>
 			<form><input type="submit" name="button_depsearch" value = "Dependency Search"></form>
 		</fieldset></td>
@@ -125,12 +125,12 @@ td {
 	</td></table>
 	
 	<script>
-	var left = document.getElementById('knownProjects').offsetHeight;
+	var left = document.getElementById('knownRepositories').offsetHeight;
 	var right = document.getElementById('reporting').offsetHeight+document.getElementById('listing').offsetHeight+document.getElementById('generation').offsetHeight;
 	if (left<right) {
-		document.getElementById('knownProjects').style.height = right;
-		var offset = document.getElementById('knownProjects').offsetHeight-right;
-		document.getElementById('knownProjects').style.height = right-offset;
+		document.getElementById('knownRepositories').style.height = right;
+		var offset = document.getElementById('knownRepositories').offsetHeight-right;
+		document.getElementById('knownRepositories').style.height = right-offset;
 	}
 	left = document.getElementById('differences').offsetHeight;
 	if (left<right) {

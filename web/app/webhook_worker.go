@@ -117,14 +117,14 @@ func (w *Worker) startEs() {
 			var repo *es.Repository
 			var ref *es.Ref
 
-			if exists, err = w.app.index.ItemExists("project", docName); err != nil {
-				log.Println("[ES-WORKER] Error checking project exists:", err.Error())
+			if exists, err = w.app.index.ItemExists("repository", docName); err != nil {
+				log.Println("[ES-WORKER] Error checking repository exists:", err.Error())
 				continue
 			}
 			if exists {
 				repo, _, err = es.GetRepositoryById(w.app.index, docName)
 				if err != nil {
-					log.Println("[ES-WORKER] Unable to retrieve project:", err.Error())
+					log.Println("[ES-WORKER] Unable to retrieve repository:", err.Error())
 					continue
 				}
 			} else {
@@ -165,23 +165,23 @@ func (w *Worker) startEs() {
 				repo.TagShas = append(repo.TagShas, es.TagSha{Tag: tag, Sha: workInfo.sha})
 			}
 
-			indexProject := func(data func(string, string, interface{}) (*elasticsearch.IndexResponse, error), method string, checkCreate bool) bool {
-				resp, err := data("project", docName, repo)
+			indexRepository := func(data func(string, string, interface{}) (*elasticsearch.IndexResponse, error), method string, checkCreate bool) bool {
+				resp, err := data("repository", docName, repo)
 				if err != nil {
-					log.Println("[ES-WORKER] Unable to", method, "project:", err.Error())
+					log.Println("[ES-WORKER] Unable to", method, "repository:", err.Error())
 					return true
 				} else if !resp.Created && checkCreate {
-					log.Println("[ES-WORKER] Project was not created")
+					log.Println("[ES-WORKER] Repository was not created")
 					return true
 				}
 				return false
 			}
 			if !exists { //POST
-				if indexProject(w.app.index.PostData, "post", true) {
+				if indexRepository(w.app.index.PostData, "post", true) {
 					continue
 				}
 			} else { //PUT
-				if indexProject(w.app.index.PutData, "put", false) {
+				if indexRepository(w.app.index.PutData, "put", false) {
 					continue
 				}
 			}

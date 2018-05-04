@@ -15,11 +15,11 @@ limitations under the License.
 */
 package com
 
-type ProjectDependencies struct {
+type RepositoryDependencies struct {
 	Name string
 	Sha  string
 	Ref  string
 	Deps []string
 }
 
-type ProjectsDependencies map[string]ProjectDependencies
+type RepositoriesDependencies map[string]RepositoryDependencies

@@ -122,8 +122,7 @@ func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) 
 	if err != nil {
 		return 500, "Error getting repositories: " + err.Error()
 	}
-	//projectEntries := map[string]*es.ProjectEntries{}
-	//						 projectName   ref   shas
+	//					  repoName   ref   shas
 	containingRepos := map[string]map[string][]string{}
 	for _, repo := range *repos {
 		for _, ref := range repo.Refs {

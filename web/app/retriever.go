@@ -177,8 +177,8 @@ func (r *Retriever) byRefWork(repos *[]*es.Repository, err error, ref string) (m
 		mux.Unlock()
 		e <- nil
 	}
-	for _, project := range *repos {
-		go work(project, errs)
+	for _, repo := range *repos {
+		go work(repo, errs)
 	}
 	for i := 0; i < len(*repos); i++ {
 		err := <-errs
@@ -227,8 +227,8 @@ func (r *Retriever) byRef1(ref string) (map[string][]es.Dependency, error) {
 		}
 		mux.Unlock()
 	}
-	for _, project := range *repos {
-		go work(project)
+	for _, repo := range *repos {
+		go work(repo)
 	}
 	for i := 0; i < len(*repos); i++ {
 		err := <-errs
@@ -306,7 +306,7 @@ func (r *Retriever) byRef3(docName, tag string) (map[string][]es.Dependency, err
 	if err != nil {
 		return nil, err
 	} else if !found {
-		return nil, u.Error("Could not find p")
+		return nil, u.Error("Could not find the dependencies for sha [%s] on repository [%s]", sha, docName)
 	}
 	return map[string][]es.Dependency{strings.Replace(docName, "_", "/", 1): deps}, nil
 }
@@ -323,7 +323,7 @@ func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) 
 	if repo, found, err = es.GetRepositoryById(r.app.index, fullName); err != nil {
 		return nil, 0, err
 	} else if !found {
-		return nil, 0, u.Error("Could not find project [%s]", fullName)
+		return nil, 0, u.Error("Could not find repository [%s]", fullName)
 	}
 
 	for _, ref := range repo.Refs {
@@ -343,7 +343,7 @@ func (r *Retriever) ListRefsRepo(fullName string) (*[]string, error) {
 	if err != nil {
 		return nil, err
 	} else if !found {
-		return nil, u.Error("Could not find project [%s]", fullName)
+		return nil, u.Error("Could not find repository [%s]", fullName)
 	}
 	res := make([]string, len(repo.Refs), len(repo.Refs))
 	for i, r := range repo.Refs {

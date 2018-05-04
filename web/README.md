@@ -13,8 +13,8 @@ Rest Endpoints
 /list/shas/:org/:repo           List available shas in a repository
 /list/tags/:org/:repo           List available tags in a repository
 /list/tags/:org                 List available tags in known repositories in an organization
-/list/projects                  List known projects
-/list/projects/:org             List known projects in an organization
+/list/repositories              List known repositories
+/list/repositories/:org         List known repositories in an organization
 ```
 
 For normal users, simply use the `/ui` endpoint in a browser. This provides all the above functionality with an easier to use interface.
