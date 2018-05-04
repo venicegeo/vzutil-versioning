@@ -36,16 +36,16 @@ func NewRetriever(app *Application) *Retriever {
 }
 
 func (r *Retriever) DepsByShaName(fullName, sha string) ([]es.Dependency, bool, error) {
-	var project *es.Project
+	var repo *es.Repository
 	var err error
 	var found bool
 
-	if project, found, err = es.GetProjectById(r.app.index, fullName); err != nil {
+	if repo, found, err = es.GetRepositoryById(r.app.index, fullName); err != nil {
 		return nil, found, err
 	} else if !found {
 		return nil, false, nil
 	}
-	return r.DepsByShaProject(project, sha)
+	return r.DepsByShaRepository(repo, sha)
 }
 func (r *Retriever) DepsByShaNameGen(fullName, sha string) ([]es.Dependency, error) {
 	deps, found, err := r.app.rtrvr.DepsByShaName(fullName, sha)
@@ -68,8 +68,8 @@ func (r *Retriever) DepsByShaNameGen(fullName, sha string) ([]es.Dependency, err
 	}
 	return deps, nil
 }
-func (r *Retriever) DepsByShaProject(project *es.Project, sha string) (res []es.Dependency, exists bool, err error) {
-	ref, entry, exists := project.GetEntry(sha)
+func (r *Retriever) DepsByShaRepository(repo *es.Repository, sha string) (res []es.Dependency, exists bool, err error) {
+	ref, entry, exists := repo.GetEntry(sha)
 	if !exists {
 		return nil, false, nil
 	}
@@ -117,36 +117,36 @@ func (r *Retriever) DepsByRef(info ...string) (map[string][]es.Dependency, error
 	switch len(info) {
 	case 1: //just a ref
 		ref := info[0]
-		p, e := es.GetAllProjects(r.app.index, r.app.searchSize)
-		return r.byRefWork(p, e, ref)
+		re, e := es.GetAllRepositories(r.app.index, r.app.searchSize)
+		return r.byRefWork(re, e, ref)
 	case 2: //org and ref
 		org := info[0]
 		ref := info[1]
-		p, e := es.GetProjectsOrg(r.app.index, org, r.app.searchSize)
-		return r.byRefWork(p, e, ref)
+		re, e := es.GetRepositoriesOrg(r.app.index, org, r.app.searchSize)
+		return r.byRefWork(re, e, ref)
 	case 3: //org repo and ref
 		org := info[0]
 		repo := info[1]
 		ref := info[2]
-		p, o, e := es.GetProjectById(r.app.index, org+"_"+repo)
+		re, o, e := es.GetRepositoryById(r.app.index, org+"_"+repo)
 		if !o {
 			return nil, u.Error("Unable to find doc [%s_%s]", org, repo)
 		}
-		return r.byRefWork(&[]*es.Project{p}, e, ref)
+		return r.byRefWork(&[]*es.Repository{re}, e, ref)
 	}
 	return nil, errors.New("Sorry, something is wrong with the code..")
 }
 
-func (r *Retriever) byRefWork(projects *[]*es.Project, err error, ref string) (map[string][]es.Dependency, error) {
+func (r *Retriever) byRefWork(repos *[]*es.Repository, err error, ref string) (map[string][]es.Dependency, error) {
 	if err != nil {
 		return nil, err
 	}
 	res := map[string][]es.Dependency{}
 	mux := &sync.Mutex{}
-	errs := make(chan error, len(*projects))
-	work := func(project *es.Project, e chan error) {
+	errs := make(chan error, len(*repos))
+	work := func(repo *es.Repository, e chan error) {
 		var refp *es.Ref = nil
-		for _, r := range project.Refs {
+		for _, r := range repo.Refs {
 			if r.Name == `refs/`+ref {
 				refp = r
 				break
@@ -161,7 +161,7 @@ func (r *Retriever) byRefWork(projects *[]*es.Project, err error, ref string) (m
 			return
 		}
 		sha := refp.WebhookOrder[0]
-		deps, found, err := r.DepsByShaProject(project, sha)
+		deps, found, err := r.DepsByShaRepository(repo, sha)
 		if err != nil {
 			e <- err
 			return
@@ -172,15 +172,15 @@ func (r *Retriever) byRefWork(projects *[]*es.Project, err error, ref string) (m
 		sort.Sort(es.DependencySort(deps))
 		mux.Lock()
 		{
-			res[project.FullName] = deps
+			res[repo.FullName] = deps
 		}
 		mux.Unlock()
 		e <- nil
 	}
-	for _, project := range *projects {
-		go work(project, errs)
+	for _, repo := range *repos {
+		go work(repo, errs)
 	}
-	for i := 0; i < len(*projects); i++ {
+	for i := 0; i < len(*repos); i++ {
 		err := <-errs
 		if err != nil {
 			return nil, err
@@ -190,17 +190,17 @@ func (r *Retriever) byRefWork(projects *[]*es.Project, err error, ref string) (m
 }
 
 func (r *Retriever) byRef1(ref string) (map[string][]es.Dependency, error) {
-	projects, err := es.GetAllProjects(r.app.index, r.app.searchSize)
+	repos, err := es.GetAllRepositories(r.app.index, r.app.searchSize)
 	if err != nil {
 		return nil, err
 	}
 
 	res := map[string][]es.Dependency{}
 	mux := &sync.Mutex{}
-	errs := make(chan error, len(*projects))
-	work := func(project *es.Project) {
+	errs := make(chan error, len(*repos))
+	work := func(repo *es.Repository) {
 		var refp *es.Ref = nil
-		for _, r := range project.Refs {
+		for _, r := range repo.Refs {
 			if r.Name == ref {
 				refp = r
 				break
@@ -213,7 +213,7 @@ func (r *Retriever) byRef1(ref string) (map[string][]es.Dependency, error) {
 			return
 		}
 		sha := refp.WebhookOrder[0]
-		deps, found, err := r.DepsByShaProject(project, sha)
+		deps, found, err := r.DepsByShaRepository(repo, sha)
 		if err != nil {
 			errs <- err
 			return
@@ -222,15 +222,15 @@ func (r *Retriever) byRef1(ref string) (map[string][]es.Dependency, error) {
 		}
 		mux.Lock()
 		{
-			res[project.FullName] = deps
+			res[repo.FullName] = deps
 			errs <- nil
 		}
 		mux.Unlock()
 	}
-	for _, project := range *projects {
-		go work(project)
+	for _, repo := range *repos {
+		go work(repo)
 	}
-	for i := 0; i < len(*projects); i++ {
+	for i := 0; i < len(*repos); i++ {
 		err := <-errs
 		if err != nil {
 			return nil, err
@@ -240,58 +240,59 @@ func (r *Retriever) byRef1(ref string) (map[string][]es.Dependency, error) {
 }
 
 func (r *Retriever) byRef2(org, tag string) (map[string][]es.Dependency, error) {
-	projects, err := es.GetProjectsOrg(r.app.index, org, r.app.searchSize)
+	repos, err := es.GetRepositoriesOrg(r.app.index, org, r.app.searchSize)
 	if err != nil {
 		return nil, err
 	}
 	res := map[string][]es.Dependency{}
 	mux := &sync.Mutex{}
-	errs := make(chan error, len(*projects))
-	work := func(project *es.Project) {
-		sha, exists := project.GetTagFromSha(tag)
+	errs := make(chan error, len(*repos))
+	work := func(repo *es.Repository) {
+		sha, exists := repo.GetTagFromSha(tag)
 		if !exists {
 			errs <- errors.New("Could not find sha for tag " + tag)
 			return
 		}
-		deps, found, err := r.DepsByShaProject(project, sha)
+		deps, found, err := r.DepsByShaRepository(repo, sha)
 		if err != nil {
 			errs <- err
 			return
 		} else if !found {
-			errs <- u.Error("Project [%s] not found", project.FullName)
+			errs <- u.Error("Repository [%s] not found", repo.FullName)
 			return
 		}
 		mux.Lock()
-		res[project.FullName] = deps
+		res[repo.FullName] = deps
 		mux.Unlock()
 		errs <- nil
 	}
-	for _, project := range *projects {
-		go work(project)
+	for _, repo := range *repos {
+		go work(repo)
 	}
-	for i := 0; i < len(*projects); i++ {
-		err := <-errs
-		if err != nil {
-			return nil, err
+	err = nil
+	for i := 0; i < len(*repos); i++ {
+		e := <-errs
+		if e != nil {
+			err = e
 		}
 	}
-	return res, nil
+	return res, err
 }
 
 func (r *Retriever) byRef3(docName, tag string) (map[string][]es.Dependency, error) {
-	var project *es.Project
+	var repo *es.Repository
 	var err error
 	var sha string
 	var ok bool
 
-	if project, ok, err = es.GetProjectById(r.app.index, docName); err != nil {
+	if repo, ok, err = es.GetRepositoryById(r.app.index, docName); err != nil {
 		return nil, err
 	} else if !ok {
 		return nil, u.Error("Could not find [%s]", docName)
 	}
 	ok = false
 
-	for _, ts := range project.TagShas {
+	for _, ts := range repo.TagShas {
 		if ts.Tag == tag {
 			sha = ts.Sha
 			ok = true
@@ -301,11 +302,11 @@ func (r *Retriever) byRef3(docName, tag string) (map[string][]es.Dependency, err
 	if !ok {
 		return nil, errors.New("Could not find this tag: [" + tag + "]")
 	}
-	deps, found, err := r.DepsByShaProject(project, sha)
+	deps, found, err := r.DepsByShaRepository(repo, sha)
 	if err != nil {
 		return nil, err
 	} else if !found {
-		return nil, u.Error("Could not find p")
+		return nil, u.Error("Could not find the dependencies for sha [%s] on repository [%s]", sha, docName)
 	}
 	return map[string][]es.Dependency{strings.Replace(docName, "_", "/", 1): deps}, nil
 }
@@ -313,19 +314,19 @@ func (r *Retriever) byRef3(docName, tag string) (map[string][]es.Dependency, err
 //
 
 func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) {
-	var project *es.Project
+	var repo *es.Repository
 	res := map[string][]string{}
 	count := 0
 	var err error
 	var found bool
 
-	if project, found, err = es.GetProjectById(r.app.index, fullName); err != nil {
+	if repo, found, err = es.GetRepositoryById(r.app.index, fullName); err != nil {
 		return nil, 0, err
 	} else if !found {
-		return nil, 0, u.Error("Could not find project [%s]", fullName)
+		return nil, 0, u.Error("Could not find repository [%s]", fullName)
 	}
 
-	for _, ref := range project.Refs {
+	for _, ref := range repo.Refs {
 		res[ref.Name] = make([]string, len(ref.Entries), len(ref.Entries))
 		for i, s := range ref.Entries {
 			res[ref.Name][i] = s.Sha
@@ -338,48 +339,48 @@ func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) 
 //
 
 func (r *Retriever) ListRefsRepo(fullName string) (*[]string, error) {
-	project, found, err := es.GetProjectById(r.app.index, fullName)
+	repo, found, err := es.GetRepositoryById(r.app.index, fullName)
 	if err != nil {
 		return nil, err
 	} else if !found {
-		return nil, u.Error("Could not find project [%s]", fullName)
+		return nil, u.Error("Could not find repository [%s]", fullName)
 	}
-	res := make([]string, len(project.Refs), len(project.Refs))
-	for i, r := range project.Refs {
+	res := make([]string, len(repo.Refs), len(repo.Refs))
+	for i, r := range repo.Refs {
 		res[i] = strings.TrimPrefix(r.Name, `refs/`)
 	}
 	return &res, nil
 }
 func (r *Retriever) ListRefs(org string) (*map[string][]string, int, error) {
-	projects, err := es.GetProjectsOrg(r.app.index, org, r.app.searchSize)
+	repos, err := es.GetRepositoriesOrg(r.app.index, org, r.app.searchSize)
 	if err != nil {
 		return nil, 0, err
 	}
 	res := map[string][]string{}
 	numTags := 0
-	errs := make(chan error, len(*projects))
+	errs := make(chan error, len(*repos))
 	mux := &sync.Mutex{}
 
-	work := func(project *es.Project) {
-		num := len(project.Refs)
+	work := func(repo *es.Repository) {
+		num := len(repo.Refs)
 		temp := make([]string, num, num)
-		for i, r := range project.Refs {
+		for i, r := range repo.Refs {
 			temp[i] = strings.TrimPrefix(r.Name, `refs/`)
 		}
 		sort.Strings(temp)
 		mux.Lock()
 		{
 			numTags += num
-			res[project.FullName] = temp
+			res[repo.FullName] = temp
 			errs <- nil
 		}
 		mux.Unlock()
 	}
 
-	for _, p := range *projects {
+	for _, p := range *repos {
 		go work(p)
 	}
-	for i := 0; i < len(*projects); i++ {
+	for i := 0; i < len(*repos); i++ {
 		err := <-errs
 		if err != nil {
 			return nil, 0, err
@@ -390,20 +391,20 @@ func (r *Retriever) ListRefs(org string) (*map[string][]string, int, error) {
 
 //
 
-func (r *Retriever) ListProjects() ([]string, error) {
-	return r.listProjectsWrk(es.GetAllProjects(r.app.index, r.app.searchSize))
+func (r *Retriever) ListRepositories() ([]string, error) {
+	return r.listRepositoriesWrk(es.GetAllRepositories(r.app.index, r.app.searchSize))
 
 }
-func (r *Retriever) ListProjectsByOrg(org string) ([]string, error) {
-	return r.listProjectsWrk(es.GetProjectsOrg(r.app.index, org, r.app.searchSize))
+func (r *Retriever) ListRepositoriesByOrg(org string) ([]string, error) {
+	return r.listRepositoriesWrk(es.GetRepositoriesOrg(r.app.index, org, r.app.searchSize))
 }
-func (r *Retriever) listProjectsWrk(projects *[]*es.Project, err error) ([]string, error) {
+func (r *Retriever) listRepositoriesWrk(repos *[]*es.Repository, err error) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	res := make([]string, len(*projects))
-	for i, project := range *projects {
-		res[i] = project.FullName
+	res := make([]string, len(*repos))
+	for i, repo := range *repos {
+		res[i] = repo.FullName
 	}
 	sort.Strings(res)
 	return res, nil

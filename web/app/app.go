@@ -80,7 +80,7 @@ func (a *Application) Start() chan error {
 	i, err := elasticsearch.NewIndex2(url, user, pass, a.indexName, `
 {
 	"mappings": {
-		"project":{
+		"repository":{
 			"dynamic":"strict",
 			"properties":{
 				"full_name":{"type":"keyword"},
@@ -172,8 +172,8 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/list/shas/:org/:repo", a.listShas},
 		u.RouteData{"GET", "/list/refs/:org/:repo", a.listRefsRepo},
 		u.RouteData{"GET", "/list/refs/:org", a.listRefs},
-		u.RouteData{"GET", "/list/projects", a.listProjects},
-		u.RouteData{"GET", "/list/projects/:org", a.listProjectsOrg},
+		u.RouteData{"GET", "/list/repositories", a.listRepositories},
+		u.RouteData{"GET", "/list/repositories/:org", a.listRepositoriesOrg},
 
 		u.RouteData{"GET", "/search", a.uiSearchForDep},
 		u.RouteData{"GET", "/search/:dep", a.searchForDep},
@@ -209,19 +209,19 @@ func (a *Application) formPath(c *gin.Context) {
 		return
 	}
 	if form.IsEmpty() {
-		ps, err := a.rtrvr.ListProjects()
+		repos, err := a.rtrvr.ListRepositories()
 		h := gin.H{}
 		if err != nil {
-			h["projects"] = "Sorry... could not\nload this.\n" + err.Error()
+			h["repositories"] = "Sorry... could not\nload this.\n" + err.Error()
 		} else {
 			res := ""
-			for i, p := range ps {
+			for i, p := range repos {
 				if i > 0 {
 					res += "\n"
 				}
 				res += p
 			}
-			h["projects"] = res
+			h["repositories"] = res
 		}
 		diffs, err := a.diffMan.DiffList()
 		if err != nil {

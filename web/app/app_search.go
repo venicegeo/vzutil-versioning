@@ -118,25 +118,24 @@ func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) 
 }
 `
 
-	projects, err := es.HitsToProjects(a.index.SearchByJSON("project", query))
+	repos, err := es.HitsToRepositories(a.index.SearchByJSON("repository", query))
 	if err != nil {
-		return 500, "Error getting projects: " + err.Error()
+		return 500, "Error getting repositories: " + err.Error()
 	}
-	//projectEntries := map[string]*es.ProjectEntries{}
-	//						 projectName   ref   shas
-	containingProjects := map[string]map[string][]string{}
-	for _, project := range *projects {
-		for _, ref := range project.Refs {
+	//					  repoName   ref   shas
+	containingRepos := map[string]map[string][]string{}
+	for _, repo := range *repos {
+		for _, ref := range repo.Refs {
 			for _, entry := range ref.Entries {
 				breakk := false
 				for _, dep := range entry.Dependencies {
 					for _, toSearch := range deps {
 						if toSearch.GetHashSum() == dep {
 							breakk = true
-							if _, ok := containingProjects[project.FullName]; !ok {
-								containingProjects[project.FullName] = map[string][]string{ref.Name: []string{entry.Sha}}
+							if _, ok := containingRepos[repo.FullName]; !ok {
+								containingRepos[repo.FullName] = map[string][]string{ref.Name: []string{entry.Sha}}
 							} else {
-								containingProjects[project.FullName][ref.Name] = append(containingProjects[project.FullName][ref.Name], entry.Sha)
+								containingRepos[repo.FullName][ref.Name] = append(containingRepos[repo.FullName][ref.Name], entry.Sha)
 							}
 						}
 						if breakk {
@@ -150,8 +149,8 @@ func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) 
 			}
 		}
 	}
-	for projectName, e1 := range containingProjects {
-		tmp += projectName + "\n"
+	for repoName, e1 := range containingRepos {
+		tmp += repoName + "\n"
 		for refName, e2 := range e1 {
 			tmp += "\t" + refName + "\n"
 			for _, sha := range e2 {

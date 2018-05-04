@@ -87,24 +87,24 @@ func (a *Application) listRefs(c *gin.Context) {
 	a.displaySuccess(c, header+t.SpaceColumn(1).NoRowBorders().NoColumnBorders().Format().String())
 }
 
-func (a *Application) listProjects(c *gin.Context) {
+func (a *Application) listRepositories(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
-	ps, err := a.rtrvr.ListProjects()
-	header := "List of projects\n"
-	a.listProjectsWrk(ps, err, header, c)
+	ps, err := a.rtrvr.ListRepositories()
+	header := "List of repositories\n"
+	a.listRepositoriesWrk(ps, err, header, c)
 }
-func (a *Application) listProjectsOrg(c *gin.Context) {
+func (a *Application) listRepositoriesOrg(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
 	org := c.Param("org")
-	ps, err := a.rtrvr.ListProjectsByOrg(org)
-	header := "List of projects for " + org + "\n"
-	a.listProjectsWrk(ps, err, header, c)
+	ps, err := a.rtrvr.ListRepositoriesByOrg(org)
+	header := "List of repositories for " + org + "\n"
+	a.listRepositoriesWrk(ps, err, header, c)
 }
-func (a *Application) listProjectsWrk(ps []string, err error, header string, c *gin.Context) {
+func (a *Application) listRepositoriesWrk(ps []string, err error, header string, c *gin.Context) {
 	if err != nil {
 		a.displayFailure(c, err.Error())
 		return

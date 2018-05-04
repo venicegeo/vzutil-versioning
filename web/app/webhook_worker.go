@@ -114,33 +114,33 @@ func (w *Worker) startEs() {
 			docName := strings.Replace(workInfo.fullName, "/", "_", -1)
 			var exists bool
 			var err error
-			var project *es.Project
+			var repo *es.Repository
 			var ref *es.Ref
 
-			if exists, err = w.app.index.ItemExists("project", docName); err != nil {
-				log.Println("[ES-WORKER] Error checking project exists:", err.Error())
+			if exists, err = w.app.index.ItemExists("repository", docName); err != nil {
+				log.Println("[ES-WORKER] Error checking repository exists:", err.Error())
 				continue
 			}
 			if exists {
-				project, _, err = es.GetProjectById(w.app.index, docName)
+				repo, _, err = es.GetRepositoryById(w.app.index, docName)
 				if err != nil {
-					log.Println("[ES-WORKER] Unable to retrieve project:", err.Error())
+					log.Println("[ES-WORKER] Unable to retrieve repository:", err.Error())
 					continue
 				}
 			} else {
-				project = es.NewProject(workInfo.fullName, workInfo.name)
+				repo = es.NewRepository(workInfo.fullName, workInfo.name)
 			}
-			for _, r := range project.Refs {
+			for _, r := range repo.Refs {
 				if r.Name == workInfo.ref {
 					ref = r
 					break
 				}
 			}
 			if ref == nil {
-				project.Refs = append(project.Refs, es.NewRef(workInfo.ref))
-				ref = project.Refs[len(project.Refs)-1]
+				repo.Refs = append(repo.Refs, es.NewRef(workInfo.ref))
+				ref = repo.Refs[len(repo.Refs)-1]
 			}
-			newEntry := es.ProjectEntry{Sha: workInfo.sha}
+			newEntry := es.RepositoryEntry{Sha: workInfo.sha}
 			if len(ref.WebhookOrder) > 0 {
 				testReferenceSha := ref.WebhookOrder[0]
 				testReference := ref.MustGetEntry(testReferenceSha)
@@ -162,32 +162,32 @@ func (w *Worker) startEs() {
 
 			if strings.HasPrefix(workInfo.ref, "refs/tags/") {
 				tag := strings.Split(workInfo.ref, "/")[2]
-				project.TagShas = append(project.TagShas, es.TagSha{Tag: tag, Sha: workInfo.sha})
+				repo.TagShas = append(repo.TagShas, es.TagSha{Tag: tag, Sha: workInfo.sha})
 			}
 
-			indexProject := func(data func(string, string, interface{}) (*elasticsearch.IndexResponse, error), method string, checkCreate bool) bool {
-				resp, err := data("project", docName, project)
+			indexRepository := func(data func(string, string, interface{}) (*elasticsearch.IndexResponse, error), method string, checkCreate bool) bool {
+				resp, err := data("repository", docName, repo)
 				if err != nil {
-					log.Println("[ES-WORKER] Unable to", method, "project:", err.Error())
+					log.Println("[ES-WORKER] Unable to", method, "repository:", err.Error())
 					return true
 				} else if !resp.Created && checkCreate {
-					log.Println("[ES-WORKER] Project was not created")
+					log.Println("[ES-WORKER] Repository was not created")
 					return true
 				}
 				return false
 			}
 			if !exists { //POST
-				if indexProject(w.app.index.PostData, "post", true) {
+				if indexRepository(w.app.index.PostData, "post", true) {
 					continue
 				}
 			} else { //PUT
-				if indexProject(w.app.index.PutData, "put", false) {
+				if indexRepository(w.app.index.PutData, "put", false) {
 					continue
 				}
 			}
 			log.Println("[ES-WORKER] Finished work on", workInfo.fullName, workInfo.sha)
 			go func() {
-				_, err := w.app.diffMan.webhookCompare(project.FullName, ref)
+				_, err := w.app.diffMan.webhookCompare(repo.FullName, ref)
 				if err != nil {
 					log.Println("[ES-WORKER] Error creating diff:", err.Error())
 				}

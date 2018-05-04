@@ -14,7 +14,7 @@
 
 package es
 
-type Project struct {
+type Repository struct {
 	FullName string   `json:"full_name"`
 	Name     string   `json:"name"`
 	TagShas  []TagSha `json:"tag_shas"`
@@ -22,12 +22,12 @@ type Project struct {
 }
 
 type Ref struct {
-	Name         string         `json:"name"`
-	WebhookOrder []string       `json:"webhook_order"`
-	Entries      []ProjectEntry `json:"entries"`
+	Name         string            `json:"name"`
+	WebhookOrder []string          `json:"webhook_order"`
+	Entries      []RepositoryEntry `json:"entries"`
 }
 
-type ProjectEntry struct {
+type RepositoryEntry struct {
 	Sha            string   `json:"sha"`
 	EntryReference string   `json:"entry_reference"`
 	Dependencies   []string `json:"dependencies"`
@@ -38,8 +38,8 @@ type TagSha struct {
 	Sha string `json:"sha"`
 }
 
-func NewProject(fullName, name string) *Project {
-	return &Project{
+func NewRepository(fullName, name string) *Repository {
+	return &Repository{
 		FullName: fullName,
 		Name:     name,
 		TagShas:  []TagSha{},
@@ -50,11 +50,11 @@ func NewRef(refName string) *Ref {
 	return &Ref{
 		Name:         refName,
 		WebhookOrder: []string{},
-		Entries:      []ProjectEntry{},
+		Entries:      []RepositoryEntry{},
 	}
 }
 
-func (p *Project) GetShaFromTag(tag string) (string, bool) {
+func (p *Repository) GetShaFromTag(tag string) (string, bool) {
 	for _, ts := range p.TagShas {
 		if ts.Tag == tag {
 			return ts.Sha, true
@@ -62,7 +62,7 @@ func (p *Project) GetShaFromTag(tag string) (string, bool) {
 	}
 	return "", false
 }
-func (p *Project) GetTagFromSha(sha string) (string, bool) {
+func (p *Repository) GetTagFromSha(sha string) (string, bool) {
 	for _, ts := range p.TagShas {
 		if ts.Sha == sha {
 			return ts.Tag, true
@@ -71,7 +71,7 @@ func (p *Project) GetTagFromSha(sha string) (string, bool) {
 	return "", false
 }
 
-func (p *Project) GetEntry(sha string) (ref *Ref, entry ProjectEntry, found bool) {
+func (p *Repository) GetEntry(sha string) (ref *Ref, entry RepositoryEntry, found bool) {
 	for _, ref := range p.Refs {
 		if entry, found = ref.GetEntry(sha); found {
 			return ref, entry, found
@@ -80,7 +80,7 @@ func (p *Project) GetEntry(sha string) (ref *Ref, entry ProjectEntry, found bool
 	return ref, entry, false
 }
 
-func (r *Ref) MustGetEntry(sha string) (entry ProjectEntry) {
+func (r *Ref) MustGetEntry(sha string) (entry RepositoryEntry) {
 	for _, e := range r.Entries {
 		if e.Sha == sha {
 			entry = e
@@ -90,7 +90,7 @@ func (r *Ref) MustGetEntry(sha string) (entry ProjectEntry) {
 	return entry
 }
 
-func (r *Ref) GetEntry(sha string) (entry ProjectEntry, found bool) {
+func (r *Ref) GetEntry(sha string) (entry RepositoryEntry, found bool) {
 	for _, e := range r.Entries {
 		if e.Sha == sha {
 			entry = e

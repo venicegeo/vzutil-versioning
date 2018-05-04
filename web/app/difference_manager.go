@@ -94,7 +94,7 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 			table.Fill("")
 		}
 	}
-	return u.Format("Project %s %s from\n%s -> %s\n%s", d.FullName, d.RefData, d.OldSha, d.NewSha, table.Format().NoRowBorders().SpaceAllColumns().String())
+	return u.Format("Repository %s %s from\n%s -> %s\n%s", d.FullName, d.RefData, d.OldSha, d.NewSha, table.Format().NoRowBorders().SpaceAllColumns().String())
 }
 
 func (d *DifferenceManager) AllDiffs() (*[]Difference, error) {

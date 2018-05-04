@@ -37,7 +37,7 @@ type worker struct {
 	kill        chan bool
 	wrk         chan work
 	mux         sync.Mutex
-	projectData com.ProjectsDependencies
+	projectData com.RepositoriesDependencies
 }
 
 func (w *worker) work() {
@@ -60,7 +60,7 @@ func (w *worker) work() {
 			w.done <- fmt.Errorf("%s %s", cmd.Args, err)
 			continue
 		}
-		var ret com.ProjectDependencies
+		var ret com.RepositoryDependencies
 		if err = json.Unmarshal(dat, &ret); err != nil {
 			w.done <- err
 			continue
@@ -113,7 +113,7 @@ func main() {
 	kill := make(chan bool, len(projects))
 	wrk := make(chan work, len(projects))
 	mux := sync.Mutex{}
-	projectData := com.ProjectsDependencies{}
+	projectData := com.RepositoriesDependencies{}
 
 	for project, branch := range projects {
 		wrk <- work{project, branch}

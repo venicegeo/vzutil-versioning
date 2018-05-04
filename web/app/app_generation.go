@@ -80,39 +80,39 @@ func (a *Application) updateAllTagsOrg(c *gin.Context) {
 		return
 	}
 	org := c.Param("org")
-	projects, err := a.rtrvr.ListProjectsByOrg(org)
+	repos, err := a.rtrvr.ListRepositoriesByOrg(org)
 	if err != nil {
 		a.displayFailure(c, "Problemo: ["+err.Error()+"]")
 		return
 	}
-	go func(projects []string) {
-		for _, project := range projects {
-			name := strings.SplitN(project, "/", 2)[1]
-			dat, err := h.NewTagsRunner(name, project).Run()
+	go func(repos []string) {
+		for _, repo := range repos {
+			name := strings.SplitN(repo, "/", 2)[1]
+			dat, err := h.NewTagsRunner(name, repo).Run()
 			if err != nil {
-				log.Println("[TAG UPDATER] Was unable to run tags against " + project + ": [" + err.Error() + "]")
+				log.Println("[TAG UPDATER] Was unable to run tags against " + repo + ": [" + err.Error() + "]")
 				continue
 			}
-			go func(dat map[string]string, name string, project string) {
+			go func(dat map[string]string, name string, repo string) {
 				for sha, ref := range dat {
 					git := s.GitWebhook{
 						Ref:      ref,
 						AfterSha: sha,
 						Repository: s.GitRepository{
 							Name:     name,
-							FullName: project,
+							FullName: repo,
 						},
 					}
-					log.Println(project, sha, ref)
+					log.Println(repo, sha, ref)
 					a.wrkr.AddTask(&git)
 				}
-			}(dat, name, project)
+			}(dat, name, repo)
 		}
-	}(projects)
+	}(repos)
 
 	res := "Trying to run against:\n"
-	for _, project := range projects {
-		res += "\n" + project
+	for _, repo := range repos {
+		res += "\n" + repo
 	}
 
 	a.displaySuccess(c, res)

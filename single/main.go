@@ -67,7 +67,7 @@ func main() {
 
 	//fmt.Printf("### Direct dependencies found for %s version %s\n", project.FolderName, project.Sha)
 
-	ret := com.ProjectDependencies{project.FolderName, project.Sha, "", []string{}}
+	ret := com.RepositoryDependencies{project.FolderName, project.Sha, "", []string{}}
 	for _, s := range project.GetDependencies() {
 		ret.Deps = append(ret.Deps, s.FullString())
 	}
