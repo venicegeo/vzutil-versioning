@@ -258,7 +258,7 @@ func (r *Retriever) byRef2(org, tag string) (map[string][]es.Dependency, error) 
 			errs <- err
 			return
 		} else if !found {
-			errs <- u.Error("Project [%s] not found", repo.FullName)
+			errs <- u.Error("Repository [%s] not found", repo.FullName)
 			return
 		}
 		mux.Lock()
