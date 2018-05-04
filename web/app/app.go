@@ -209,19 +209,19 @@ func (a *Application) formPath(c *gin.Context) {
 		return
 	}
 	if form.IsEmpty() {
-		ps, err := a.rtrvr.ListProjects()
+		repos, err := a.rtrvr.ListRepositories()
 		h := gin.H{}
 		if err != nil {
-			h["projects"] = "Sorry... could not\nload this.\n" + err.Error()
+			h["repositories"] = "Sorry... could not\nload this.\n" + err.Error()
 		} else {
 			res := ""
-			for i, p := range ps {
+			for i, p := range repos {
 				if i > 0 {
 					res += "\n"
 				}
 				res += p
 			}
-			h["projects"] = res
+			h["repositories"] = res
 		}
 		diffs, err := a.diffMan.DiffList()
 		if err != nil {

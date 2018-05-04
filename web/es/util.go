@@ -23,24 +23,24 @@ import (
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-func GetProjectById(index *elasticsearch.Index, fullName string) (*Project, bool, error) {
+func GetRepositoryById(index *elasticsearch.Index, fullName string) (*Repository, bool, error) {
 	docName := strings.Replace(fullName, "/", "_", -1)
-	resp, err := index.GetByID("project", docName)
+	resp, err := index.GetByID("repository", docName)
 	if err != nil {
 		return nil, false, err
 	}
 	if !resp.Found {
 		return nil, false, nil
 	}
-	project := &Project{}
-	if err = json.Unmarshal([]byte(*resp.Source), project); err != nil {
+	repo := &Repository{}
+	if err = json.Unmarshal([]byte(*resp.Source), repo); err != nil {
 		return nil, true, err
 	}
-	return project, true, nil
+	return repo, true, nil
 }
 
 func CheckShaExists(index *elasticsearch.Index, fullName string, sha string) (bool, error) {
-	resp, err := index.SearchByJSON("project", u.Format(`
+	resp, err := index.SearchByJSON("repository", u.Format(`
 {
 	"query": {
 		"bool":{
@@ -63,7 +63,7 @@ func CheckShaExists(index *elasticsearch.Index, fullName string, sha string) (bo
 }
 
 func GetShaFromTag(index *elasticsearch.Index, fullName, tag string) (string, bool, error) {
-	resp, err := index.SearchByJSON("project", u.Format(`
+	resp, err := index.SearchByJSON("repository", u.Format(`
 {
 	"query": {
 		"bool":{
@@ -106,12 +106,12 @@ func MatchAllSize(index *elasticsearch.Index, typ string, size int) (*elasticsea
 	`, size))
 }
 
-func GetAllProjects(index *elasticsearch.Index, size int) (*[]*Project, error) {
-	return HitsToProjects(MatchAllSize(index, "project", size))
+func GetAllRepositories(index *elasticsearch.Index, size int) (*[]*Repository, error) {
+	return HitsToRepositories(MatchAllSize(index, "repository", size))
 }
 
-func GetProjectsOrg(index *elasticsearch.Index, org string, size int) (*[]*Project, error) {
-	return HitsToProjects(index.SearchByJSON("project", u.Format(`
+func GetRepositoriesOrg(index *elasticsearch.Index, org string, size int) (*[]*Repository, error) {
+	return HitsToRepositories(index.SearchByJSON("repository", u.Format(`
 {
 	"size": %d,
 	"query": {
@@ -124,22 +124,22 @@ func GetProjectsOrg(index *elasticsearch.Index, org string, size int) (*[]*Proje
 
 }
 
-func HitsToProjects(resp *elasticsearch.SearchResult, err error) (*[]*Project, error) {
+func HitsToRepositories(resp *elasticsearch.SearchResult, err error) (*[]*Repository, error) {
 	if err != nil {
 		return nil, err
 	}
 	hits := *resp.GetHits()
-	res := make([]*Project, len(hits))
+	res := make([]*Repository, len(hits))
 	mux := &sync.Mutex{}
 	errs := make(chan error, len(hits))
 	work := func(i int, hit *elasticsearch.SearchResultHit) {
-		var project Project
-		if err = json.Unmarshal(*hit.Source, &project); err != nil {
+		var repo Repository
+		if err = json.Unmarshal(*hit.Source, &repo); err != nil {
 			errs <- err
 			return
 		}
 		mux.Lock()
-		res[i] = &project
+		res[i] = &repo
 		mux.Unlock()
 		errs <- nil
 	}

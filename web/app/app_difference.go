@@ -45,13 +45,13 @@ func (a *Application) textDiffPath(c *gin.Context) {
 		"loadRepos": []string{"", ""},
 	}
 	if tmp.Load != "" {
-		projs, err := a.rtrvr.ListProjects()
+		repos, err := a.rtrvr.ListRepositories()
 		if err != nil {
-			c.String(400, "Error collecting project list: %s", err.Error())
+			c.String(400, "Error collecting repository list: %s", err.Error())
 			return
 		}
-		load := make([]string, 0, len(projs)*2)
-		for _, proj := range projs {
+		load := make([]string, 0, len(repos)*2)
+		for _, proj := range repos {
 			load = append(load, proj)
 			load = append(load, "")
 		}
