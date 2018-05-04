@@ -32,13 +32,13 @@ import (
 
 var re = regexp.MustCompile(``)
 
-func readFile(filename string) (com.ProjectsDependencies, error) {
+func readFile(filename string) (com.RepositoriesDependencies, error) {
 	var fileDat []byte
 	var err error
 	if fileDat, err = ioutil.ReadFile(filename); err != nil {
 		log.Fatalln(err)
 	}
-	var fileDeps com.ProjectsDependencies
+	var fileDeps com.RepositoriesDependencies
 	err = json.Unmarshal(fileDat, &fileDeps)
 	return fileDeps, err
 }
@@ -66,7 +66,7 @@ func main() {
 	flag.StringVar(&string2, "es", "", "Expected String")
 	flag.Parse()
 
-	var expected, actual com.ProjectsDependencies
+	var expected, actual com.RepositoriesDependencies
 	var err error
 
 	if file1 == "" && string1 == "" {
