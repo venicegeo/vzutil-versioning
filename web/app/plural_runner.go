@@ -16,7 +16,6 @@ package app
 
 import (
 	"encoding/json"
-	"os/exec"
 
 	com "github.com/venicegeo/vzutil-versioning/common"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -31,32 +30,30 @@ func NewPluralRunner(app *Application) *PluralRunner {
 }
 
 func (pr *PluralRunner) RunAgainstPluralStr(repos, checkouts []string) (string, error) {
-	if len(repos) != len(checkouts) {
-		return "", u.Error("Inputs not the same length")
-	}
-	in := map[string]string{}
-	for i, r := range repos {
-		in[r] = checkouts[i]
-	}
-	indat, err := json.Marshal(in)
+	ret, err := pr.RunAgainstPlural(repos, checkouts)
 	if err != nil {
 		return "", err
 	}
-	cmd := exec.Command(pr.app.pluralLocation, "-t", string(indat), "-r", "2")
-	dat, err := cmd.Output()
-	if err != nil {
-		return "", u.Error("%s %s %s", cmd.Args, err, string(dat))
-	}
+	dat, err := json.MarshalIndent(ret, " ", "   ")
 	return string(dat), nil
 }
 func (pr *PluralRunner) RunAgainstPlural(repos, checkouts []string) (*com.RepositoriesDependencies, error) {
-	str, err := pr.RunAgainstPluralStr(repos, checkouts)
-	if err != nil {
-		return nil, err
+	if len(repos) != len(checkouts) {
+		return nil, u.Error("Inputs not the same length")
 	}
-	var pluralRet com.RepositoriesDependencies
-	if err = json.Unmarshal([]byte(str), &pluralRet); err != nil {
-		return nil, err
+	res := com.RepositoriesDependencies{}
+	for i := 0; i < len(repos); i++ {
+		deps, err := pr.app.rtrvr.DepsByShaNameGen(repos[i], checkouts[i])
+		if err != nil {
+			return nil, err
+		}
+		res[repos[i]] = com.RepositoryDependencies{
+			Name: repos[i],
+			Deps: make([]string, len(deps), len(deps)),
+		}
+		for j, d := range deps {
+			res[repos[i]].Deps[j] = d.String()
+		}
 	}
-	return &pluralRet, nil
+	return &res, nil
 }

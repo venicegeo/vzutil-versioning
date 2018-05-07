@@ -97,6 +97,60 @@ func (sr *SingleRunner) RunAgainstSingleChan(printHeader string, printLocation c
 	sr.sendStringTo(printLocation, "%sAdding %s to es queue\n", printHeader, git.AfterSha)
 	pushTo <- &SingleResult{git.Repository.FullName, git.Repository.Name, git.AfterSha, git.Ref, deps, hashes}
 }
+func (sr *SingleRunner) RunAgainstSingleTEST(printHeader string, printLocation chan string, git *s.GitWebhook) *SingleResult {
+
+	sr.sendStringTo(printLocation, "%sStarting work on %s\n", printHeader, git.AfterSha)
+
+	var deps []es.Dependency
+	var hashes []string
+	type SingleReturn struct {
+		Name string
+		Sha  string
+		Deps []string
+	}
+	dat, err := exec.Command(sr.app.singleLocation, git.Repository.FullName, git.AfterSha).Output()
+	if err != nil {
+		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]\n", printHeader, git.AfterSha, err.Error())
+		return nil
+	}
+	var singleRet SingleReturn
+	if err = json.Unmarshal(dat, &singleRet); err != nil {
+		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]\n", printHeader, git.AfterSha, err.Error())
+		return nil
+	}
+	if singleRet.Sha != git.AfterSha {
+		sr.sendStringTo(printLocation, "%sGeneration failed to run against %s, it ran against sha %s\n", printHeader, git.AfterSha, singleRet.Sha)
+		return nil
+	}
+	{
+		deps = make([]es.Dependency, 0, len(singleRet.Deps))
+		for _, d := range singleRet.Deps {
+			matches := depRe.FindStringSubmatch(d)
+			deps = append(deps, es.Dependency{matches[1], matches[2], matches[3]})
+		}
+	}
+	{
+		hashes = make([]string, len(deps))
+		for i, d := range deps {
+			hash := d.GetHashSum()
+			hashes[i] = hash
+			exists, err := sr.app.index.ItemExists("dependency", hash)
+			if err != nil || !exists {
+				go func(dep es.Dependency, h string) {
+					resp, err := sr.app.index.PostData("dependency", h, dep)
+					if err != nil {
+						sr.sendStringTo(printLocation, "%sUnable to create dependency %s [%s]\n", printHeader, h, err.Error())
+					} else if !resp.Created {
+						sr.sendStringTo(printLocation, "%sUnable to create dependency %s\n", printHeader, h)
+					}
+				}(d, hash)
+			}
+		}
+		sort.Strings(hashes)
+	}
+	sr.sendStringTo(printLocation, "%sAdding %s to es queue\n", printHeader, git.AfterSha)
+	return &SingleResult{git.Repository.FullName, git.Repository.Name, git.AfterSha, git.Ref, deps, hashes}
+}
 func (sr *SingleRunner) sendStringTo(location chan string, format string, args ...interface{}) {
 	if location != nil {
 		location <- u.Format(format, args...)
