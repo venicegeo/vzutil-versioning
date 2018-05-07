@@ -32,6 +32,7 @@ func (a *Application) reportSha(c *gin.Context) {
 	deps, err := a.rtrvr.DepsByShaNameGen(fullName, sha)
 	if err != nil {
 		c.String(400, err.Error())
+		return
 	}
 	header := "Report for " + fullName + " at " + sha + "\n"
 	t := table.NewTable(3, len(deps))

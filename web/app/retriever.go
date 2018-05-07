@@ -59,12 +59,19 @@ func (r *Retriever) DepsByShaNameGen(fullName, sha string) ([]es.Dependency, err
 				return nil, u.Error("Could not verify this sha, head code: %d", code)
 			}
 		}
-		res := r.app.snglRnnr.RunAgainstSingle(&s.GitWebhook{AfterSha: sha, Repository: s.GitRepository{FullName: fullName}})
-		if res == nil {
-			return nil, u.Error("Sha [%s] did not previously exist and could not be generated", sha)
+		exists := make(chan bool, 1)
+		ret := make(chan *SingleResult, 1)
+		r.app.wrkr.AddTask(&s.GitWebhook{AfterSha: sha, Repository: s.GitRepository{FullName: fullName}}, exists, ret)
+		if !<-exists {
+			sr := <-ret
+			if sr == nil {
+				return nil, u.Error("There was an error while running this")
+			}
+			deps = sr.Deps
+			sort.Sort(es.DependencySort(deps))
+		} else {
+			return nil, u.Error("Retriever said not found, worker said found")
 		}
-		deps = res.Deps
-		sort.Sort(es.DependencySort(deps))
 	}
 	return deps, nil
 }

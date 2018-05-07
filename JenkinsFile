@@ -57,8 +57,6 @@ node {
               go install
               cd ../compare
               go install
-              cd ../plural              
-              go install
             """
         }
     }

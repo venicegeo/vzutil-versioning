@@ -35,7 +35,7 @@ func (a *Application) webhookPath(c *gin.Context) {
 	c.String(200, "Thanks!")
 	log.Println("[RECIEVED WEBHOOK]", git.Repository.FullName, git.AfterSha, git.Ref)
 
-	a.wrkr.AddTask(&git)
+	a.wbhkRnnr.RunAgainstWeb(&git)
 }
 
 func (a *Application) updateAllTags(c *gin.Context) {
@@ -69,7 +69,7 @@ func (a *Application) updateAllTags(c *gin.Context) {
 				},
 			}
 			log.Println(fullName, sha, ref)
-			a.wrkr.AddTask(&git)
+			a.wbhkRnnr.RunAgainstWeb(&git)
 		}
 	}(name, fullName, runner)
 	a.displaySuccess(c, "Yeah, I can do that. Check back in a minute")
@@ -104,7 +104,7 @@ func (a *Application) updateAllTagsOrg(c *gin.Context) {
 						},
 					}
 					log.Println(repo, sha, ref)
-					a.wrkr.AddTask(&git)
+					a.wbhkRnnr.RunAgainstWeb(&git)
 				}
 			}(dat, name, repo)
 		}
@@ -143,7 +143,7 @@ func (a *Application) generateBranch(c *gin.Context) {
 			},
 		}
 		log.Println(fullName, sha, ref)
-		a.wrkr.AddTask(&git)
+		a.wbhkRnnr.RunAgainstWeb(&git)
 	}(repo, fullName, branch, sha)
 
 	a.displaySuccess(c, "Going to run against sha "+sha)
