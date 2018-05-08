@@ -39,12 +39,13 @@ type workS struct {
 }
 
 type SingleResult struct {
-	fullName string
-	name     string
-	sha      string
-	ref      string
-	Deps     []es.Dependency
-	hashes   []string
+	fullName  string
+	name      string
+	sha       string
+	ref       string
+	Deps      []es.Dependency
+	hashes    []string
+	timestamp int64
 }
 
 func NewWorker(app *Application, numWorkers int) *Worker {

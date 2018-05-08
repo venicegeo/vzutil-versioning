@@ -92,6 +92,7 @@ func (a *Application) Start() chan error {
 							"dynamic":"strict",
 							"properties":{
 								"sha":{"type":"keyword"},
+								"timestamp":{"type":"long"},
 								"entry_reference":{"type":"keyword"},
 								"dependencies":{"type":"keyword"}
 							}

@@ -17,6 +17,7 @@ package app
 import (
 	"log"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	h "github.com/venicegeo/vzutil-versioning/web/app/helpers"
@@ -33,6 +34,8 @@ func (a *Application) webhookPath(c *gin.Context) {
 	}
 
 	c.String(200, "Thanks!")
+
+	git.Timestamp = time.Now().UnixNano()
 	log.Println("[RECIEVED WEBHOOK]", git.Repository.FullName, git.AfterSha, git.Ref)
 
 	a.wbhkRnnr.RunAgainstWeb(&git)
@@ -67,6 +70,7 @@ func (a *Application) updateAllTags(c *gin.Context) {
 					Name:     name,
 					FullName: fullName,
 				},
+				Timestamp: time.Now().UnixNano(),
 			}
 			log.Println(fullName, sha, ref)
 			a.wbhkRnnr.RunAgainstWeb(&git)
@@ -102,6 +106,7 @@ func (a *Application) updateAllTagsOrg(c *gin.Context) {
 							Name:     name,
 							FullName: repo,
 						},
+						Timestamp: time.Now().UnixNano(),
 					}
 					log.Println(repo, sha, ref)
 					a.wbhkRnnr.RunAgainstWeb(&git)
@@ -141,6 +146,7 @@ func (a *Application) generateBranch(c *gin.Context) {
 				Name:     name,
 				FullName: fullName,
 			},
+			Timestamp: time.Now().UnixNano(),
 		}
 		log.Println(fullName, sha, ref)
 		a.wbhkRnnr.RunAgainstWeb(&git)

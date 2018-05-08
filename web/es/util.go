@@ -15,6 +15,7 @@
 package es
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"sync"
@@ -33,7 +34,9 @@ func GetRepositoryById(index *elasticsearch.Index, fullName string) (*Repository
 		return nil, false, nil
 	}
 	repo := &Repository{}
-	if err = json.Unmarshal([]byte(*resp.Source), repo); err != nil {
+	d := json.NewDecoder(bytes.NewReader([]byte(*resp.Source)))
+	d.UseNumber()
+	if err = d.Decode(repo); err != nil {
 		return nil, true, err
 	}
 	return repo, true, nil
@@ -60,41 +63,6 @@ func CheckShaExists(index *elasticsearch.Index, fullName string, sha string) (bo
 		return false, err
 	}
 	return resp.NumHits() > 0, nil
-}
-
-func GetShaFromTag(index *elasticsearch.Index, fullName, tag string) (string, bool, error) {
-	resp, err := index.SearchByJSON("repository", u.Format(`
-{
-	"query": {
-		"bool":{
-			"must":[{
-				"term":{
-					"full_name":"%s"
-				}	
-			},{
-				"term": {
-					"tag_shas.tag": "%s"
-				}
-			}]
-		}
-	}
-}`, fullName, tag))
-	if err != nil {
-		return "", false, err
-	}
-	if resp.NumHits() <= 0 {
-		return "", false, nil
-	}
-	var ts []TagSha
-	if err = json.Unmarshal([]byte(*resp.GetHit(0).Source), &ts); err != nil {
-		return "", false, err
-	}
-	for _, e := range ts {
-		if e.Tag == tag {
-			return e.Sha, true, nil
-		}
-	}
-	return "", false, nil
 }
 
 func MatchAllSize(index *elasticsearch.Index, typ string, size int) (*elasticsearch.SearchResult, error) {
@@ -134,7 +102,9 @@ func HitsToRepositories(resp *elasticsearch.SearchResult, err error) (*[]*Reposi
 	errs := make(chan error, len(hits))
 	work := func(i int, hit *elasticsearch.SearchResultHit) {
 		var repo Repository
-		if err = json.Unmarshal(*hit.Source, &repo); err != nil {
+		d := json.NewDecoder(bytes.NewReader(*hit.Source))
+		d.UseNumber()
+		if err = d.Decode(&repo); err != nil {
 			errs <- err
 			return
 		}

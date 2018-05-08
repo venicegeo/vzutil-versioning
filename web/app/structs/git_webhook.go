@@ -19,6 +19,7 @@ type GitWebhook struct {
 	BeforeSha  string        `json:"before"`
 	AfterSha   string        `json:"after"`
 	Repository GitRepository `json:"repository"`
+	Timestamp  int64
 }
 type GitRepository struct {
 	Id       int64  `json:"id"`

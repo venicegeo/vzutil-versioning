@@ -79,7 +79,7 @@ func (w *WebhookRunner) es(workInfo *SingleResult) {
 		repo.Refs = append(repo.Refs, es.NewRef(workInfo.ref))
 		ref = repo.Refs[len(repo.Refs)-1]
 	}
-	newEntry := es.RepositoryEntry{Sha: workInfo.sha}
+	newEntry := es.RepositoryEntry{Sha: workInfo.sha, Timestamp: workInfo.timestamp}
 	if len(ref.WebhookOrder) > 0 {
 		testReferenceSha := ref.WebhookOrder[0]
 		testReference := ref.MustGetEntry(testReferenceSha)

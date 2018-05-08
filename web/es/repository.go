@@ -32,13 +32,9 @@ type Ref struct {
 
 type RepositoryEntry struct {
 	Sha            string   `json:"sha"`
+	Timestamp      int64    `json:"timestamp"`
 	EntryReference string   `json:"entry_reference"`
 	Dependencies   []string `json:"dependencies"`
-}
-
-type TagSha struct {
-	Tag string `json:"tag"`
-	Sha string `json:"sha"`
 }
 
 func NewRepository(fullName, name string) *Repository {

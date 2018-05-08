@@ -86,7 +86,7 @@ func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan 
 		}
 		sort.Strings(hashes)
 	}
-	return &SingleResult{git.Repository.FullName, git.Repository.Name, singleRet.Sha, git.Ref, deps, hashes}
+	return &SingleResult{git.Repository.FullName, git.Repository.Name, singleRet.Sha, git.Ref, deps, hashes, git.Timestamp}
 }
 func (sr *SingleRunner) sendStringTo(location chan string, format string, args ...interface{}) {
 	if location != nil {
