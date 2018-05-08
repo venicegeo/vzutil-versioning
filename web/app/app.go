@@ -133,7 +133,7 @@ func (a *Application) Start() chan error {
 	a.index = i
 
 	a.diffMan = NewDifferenceManager(a)
-	a.wrkr = NewWorker(a, 4)
+	a.wrkr = NewWorker(a, 2)
 	a.rtrvr = NewRetriever(a)
 	a.wbhkRnnr = NewWebhookRunner(a)
 	a.plrlRnnr = NewPluralRunner(a)
