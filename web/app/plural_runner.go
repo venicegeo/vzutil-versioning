@@ -16,6 +16,8 @@ package app
 
 import (
 	"encoding/json"
+	"log"
+	"sync"
 
 	com "github.com/venicegeo/vzutil-versioning/common"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -42,18 +44,35 @@ func (pr *PluralRunner) RunAgainstPlural(repos, checkouts []string) (*com.Reposi
 		return nil, u.Error("Inputs not the same length")
 	}
 	res := com.RepositoriesDependencies{}
-	for i := 0; i < len(repos); i++ {
+	wg := sync.WaitGroup{}
+	mux := sync.Mutex{}
+	wg.Add(len(repos))
+	work := func(i int) {
 		deps, err := pr.app.rtrvr.DepsByShaNameGen(repos[i], checkouts[i])
 		if err != nil {
-			return nil, err
+			if err != nil {
+				log.Println("Error running in plural:", err.Error())
+			}
+			return
 		}
-		res[repos[i]] = com.RepositoryDependencies{
+		repdep := com.RepositoryDependencies{
 			Name: repos[i],
-			Deps: make([]string, len(deps), len(deps)),
+			Sha:  checkouts[i],
+			Deps: nil,
 		}
+		sdeps := make([]string, len(deps), len(deps))
 		for j, d := range deps {
-			res[repos[i]].Deps[j] = d.String()
+			sdeps[j] = d.String()
 		}
+		repdep.Deps = sdeps
+		mux.Lock()
+		res[repos[i]] = repdep
+		mux.Unlock()
+		wg.Done()
 	}
+	for i := 0; i < len(repos); i++ {
+		go work(i)
+	}
+	wg.Wait()
 	return &res, nil
 }
