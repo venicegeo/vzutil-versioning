@@ -14,11 +14,14 @@
 
 package es
 
+import (
+	"strings"
+)
+
 type Repository struct {
-	FullName string   `json:"full_name"`
-	Name     string   `json:"name"`
-	TagShas  []TagSha `json:"tag_shas"`
-	Refs     []*Ref   `json:"refs"`
+	FullName string `json:"full_name"`
+	Name     string `json:"name"`
+	Refs     []*Ref `json:"refs"`
 }
 
 type Ref struct {
@@ -42,7 +45,6 @@ func NewRepository(fullName, name string) *Repository {
 	return &Repository{
 		FullName: fullName,
 		Name:     name,
-		TagShas:  []TagSha{},
 		Refs:     []*Ref{}}
 }
 
@@ -55,17 +57,20 @@ func NewRef(refName string) *Ref {
 }
 
 func (p *Repository) GetShaFromTag(tag string) (string, bool) {
-	for _, ts := range p.TagShas {
-		if ts.Tag == tag {
-			return ts.Sha, true
+	ref := "refs/tags/" + tag
+	for _, r := range p.Refs {
+		if r.Name == ref {
+			return r.Entries[0].Sha, true
 		}
 	}
 	return "", false
 }
 func (p *Repository) GetTagFromSha(sha string) (string, bool) {
-	for _, ts := range p.TagShas {
-		if ts.Sha == sha {
-			return ts.Tag, true
+	for _, r := range p.Refs {
+		for _, entry := range r.Entries {
+			if entry.Sha == sha {
+				return strings.TrimPrefix(r.Name, "/refs/tags/"), true
+			}
 		}
 	}
 	return "", false

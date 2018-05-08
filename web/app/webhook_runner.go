@@ -99,11 +99,6 @@ func (w *WebhookRunner) es(workInfo *SingleResult) {
 
 	ref.Entries = append(ref.Entries, newEntry)
 
-	if strings.HasPrefix(workInfo.ref, "refs/tags/") {
-		tag := strings.Split(workInfo.ref, "/")[2]
-		repo.TagShas = append(repo.TagShas, es.TagSha{Tag: tag, Sha: workInfo.sha})
-	}
-
 	indexRepository := func(data func(string, string, interface{}) (*elasticsearch.IndexResponse, error), method string, checkCreate bool) bool {
 		resp, err := data("repository", docName, repo)
 		if err != nil {

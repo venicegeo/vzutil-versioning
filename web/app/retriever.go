@@ -299,14 +299,7 @@ func (r *Retriever) byRef3(docName, tag string) (map[string][]es.Dependency, err
 	}
 	ok = false
 
-	for _, ts := range repo.TagShas {
-		if ts.Tag == tag {
-			sha = ts.Sha
-			ok = true
-			break
-		}
-	}
-	if !ok {
+	if sha, ok = repo.GetShaFromTag(tag); !ok {
 		return nil, errors.New("Could not find this tag: [" + tag + "]")
 	}
 	deps, found, err := r.DepsByShaRepository(repo, sha)

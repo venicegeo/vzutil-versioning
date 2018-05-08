@@ -83,13 +83,6 @@ func (a *Application) Start() chan error {
 			"properties":{
 				"full_name":{"type":"keyword"},
 				"name":{"type":"keyword"},
-				"tag_shas":{
-					"dynamic":"strict",
-					"properties":{
-						"tag":{"type":"keyword"},
-						"sha":{"type":"keyword"}
-					}
-				},
 				"refs":{
 					"dynamic":"strict",
 					"properties":{
