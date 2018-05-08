@@ -68,15 +68,11 @@ func (w *Worker) startCheckExist() {
 				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s\n", worker, err.Error())
 				continue
 			} else if exists {
-				if work.exists != nil {
-					work.exists <- true
-				}
+				work.exists <- true
 				log.Printf("[CHECK-WORKER (%d)] This sha already exists\n", worker)
 				continue
 			}
-			if work.exists != nil {
-				work.exists <- false
-			}
+			work.exists <- false
 			log.Printf("[CHECK-WORKER (%d)] Adding %s to clone queue\n", worker, work.gitInfo.AfterSha)
 			w.cloneQueue <- work
 		}
@@ -102,11 +98,9 @@ func (w *Worker) startClone() {
 				}
 			}()
 			work := <-w.cloneQueue
-			singleRet := w.snglRnnr.RunAgainstSingleTEST(u.Format("[CLONE-WORKER (%d)] ", worker), toPrint, work.gitInfo)
+			singleRet := w.snglRnnr.RunAgainstSingle(u.Format("[CLONE-WORKER (%d)] ", worker), toPrint, work.gitInfo)
 			done <- true
-			if work.singleRet != nil {
-				work.singleRet <- singleRet
-			}
+			work.singleRet <- singleRet
 		}
 	}
 	for i := 1; i <= w.numWorkers; i++ {
