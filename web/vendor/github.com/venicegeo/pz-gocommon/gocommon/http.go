@@ -53,6 +53,8 @@ func (h *Http) convertResponseBodyToObject(resp *http.Response, output interface
 		return err
 	}
 
+	println(string(raw))
+
 	err = json.Unmarshal(raw, output)
 	return err
 }

@@ -20,6 +20,8 @@ import (
 	"github.com/venicegeo/vzutil-versioning/web/app"
 )
 
+var temp = `{"value":1.52649738447251149E18}`
+
 func main() {
 	app := app.NewApplication("versioning_tool", "./single", "./compare", false)
 	log.Println(<-app.Start())

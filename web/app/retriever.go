@@ -16,6 +16,7 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -118,25 +119,56 @@ func (r *Retriever) DepsFromEntry(entry *es.RepositoryEntry) (res []es.Dependenc
 func (r *Retriever) DepsByRef(info ...string) (map[string][]es.Dependency, error) {
 	switch len(info) {
 	case 1: //just a ref
-		ref := info[0]
-		re, e := es.GetAllRepositories(r.app.index, r.app.searchSize)
-		return r.byRefWork(re, e, ref)
-	case 2: //org and ref
-		org := info[0]
-		ref := info[1]
-		re, e := es.GetRepositoriesOrg(r.app.index, org, r.app.searchSize)
-		return r.byRefWork(re, e, ref)
-	case 3: //org repo and ref
-		org := info[0]
-		repo := info[1]
-		ref := info[2]
-		re, o, e := es.GetRepositoryById(r.app.index, org+"_"+repo)
-		if !o {
-			return nil, u.Error("Unable to find doc [%s_%s]", org, repo)
+		fmt.Println("what")
+		res := map[string][]es.Dependency{}
+		res["test"] = []es.Dependency{es.Dependency{"a", "b", "c"}}
+
+		in := r.newAggQuery("repos", "repo_fullname")
+		in["aggs"].(map[string]interface{})["repos"].(map[string]interface{})["aggs"] = map[string]interface{}{
+			"max_time": map[string]interface{}{
+				"max": map[string]interface{}{
+					"field": "timestamp",
+				},
+			},
 		}
-		return r.byRefWork(&[]*es.Repository{re}, e, ref)
+		in["query"] = map[string]interface{}{
+			"term": map[string]interface{}{
+				"ref_name": "refs/" + info[0],
+			},
+		}
+		dat, _ := json.MarshalIndent(in, " ", "   ")
+		fmt.Println(string(dat))
+		var out AggResponse
+		//TODO
+		if err := r.app.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", in, &out); err != nil {
+			return nil, err
+		}
+		for _, bucket := range out.Aggs["repos"].Buckets {
+			repoName := bucket.Key
+			time := bucket.MaxTime
+			fmt.Println(repoName, time)
+		}
+
+		return res, nil
+	//		ref := info[0]
+	//	re, e := es.GetAllRepositories(r.app.index, r.app.searchSize)
+	//	return r.byRefWork(re, e, ref)
+	case 2: //org and ref
+	//	org := info[0]
+	//	ref := info[1]
+	//	re, e := es.GetRepositoriesOrg(r.app.index, org, r.app.searchSize)
+	//	return r.byRefWork(re, e, ref)
+	case 3: //org repo and ref
+		//	org := info[0]
+		//	repo := info[1]
+		//	ref := info[2]
+		//	re, o, e := es.GetRepositoryById(r.app.index, org+"_"+repo)
+		//	if !o {
+		//		return nil, u.Error("Unable to find doc [%s_%s]", org, repo)
+		//	}
+		//	return r.byRefWork(&[]*es.Repository{re}, e, ref)
 	}
-	return nil, errors.New("Sorry, something is wrong with the code..")
+	return nil, u.Error("Sorry, something is wrong with the code..")
 }
 
 //func (r *Retriever) byRefWork(repos *[]*es.Repository, err error, ref string) (map[string][]es.Dependency, error) {
@@ -342,7 +374,6 @@ func (r *Retriever) ListRefsRepo(fullName string) ([]string, error) {
 		"term": map[string]interface{}{
 			"repo_fullname": fullName,
 		},
-		"size": 10000,
 	}
 	var out AggResponse
 	if err := r.app.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", in, &out); err != nil {
@@ -369,7 +400,6 @@ func (r *Retriever) ListRefs(org string) (*map[string][]string, int, error) {
 
 	work := func(repo string) {
 		in := r.newAggQuery("refs", "ref_name")
-		in["size"] = 0
 		in["query"] = map[string]interface{}{
 			"term": map[string]interface{}{
 				"repo_fullname": repo,
@@ -416,6 +446,7 @@ func (r *Retriever) newAggQuery(aggName, fieldName string) map[string]interface{
 			aggName: map[string]interface{}{
 				"terms": map[string]interface{}{
 					"field": fieldName,
+					"size":  10000,
 				},
 			},
 		},
@@ -452,13 +483,17 @@ func (r *Retriever) ListRepositoriesByOrg(org string) ([]string, error) {
 	return res, nil
 }
 
+type MaxInt64 struct {
+	Value float64 `json:"value"`
+}
 type Bucket struct {
-	Key string `json:"key"`
+	Key      string   `json:"key"`
+	DocCount int64    `json:"doc_count"`
+	MaxTime  MaxInt64 `json:"max_time_int64"`
 }
 type Agg struct {
 	Buckets []Bucket `json:"buckets"`
 }
-
 type AggResponse struct {
 	Aggs map[string]Agg `json:"aggregations"`
 }
