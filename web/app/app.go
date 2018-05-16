@@ -78,27 +78,15 @@ func (a *Application) Start() chan error {
 	i, err := elasticsearch.NewIndex2(url, user, pass, a.indexName, `
 {
 	"mappings": {
-		"repository":{
+		"repository_entry":{
 			"dynamic":"strict",
 			"properties":{
-				"full_name":{"type":"keyword"},
-				"name":{"type":"keyword"},
-				"refs":{
-					"dynamic":"strict",
-					"properties":{
-						"name":{"type":"keyword"},
-						"webhook_order":{"type":"keyword"},
-						"entries":{
-							"dynamic":"strict",
-							"properties":{
-								"sha":{"type":"keyword"},
-								"timestamp":{"type":"long"},
-								"entry_reference":{"type":"keyword"},
-								"dependencies":{"type":"keyword"}
-							}
-						}
-					}
-				}
+				"repo_fullname":{"type":"keyword"},
+				"repo_name":{"type":"keyword"},
+				"ref_name":{"type":"keyword"},
+				"sha":{"type":"keyword"},
+				"timestamp":{"type":"long"},
+				"dependencies":{"type":"keyword"}
 			}
 		},
 		"dependency":{
@@ -156,7 +144,8 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/generate/tags/:org", a.updateAllTagsOrg},
 		u.RouteData{"GET", "/generate/branch/:org/:repo/:branch", a.generateBranch},
 
-		u.RouteData{"GET", "/report/sha/:org/:repo/:sha", a.reportSha},
+		u.RouteData{"GET", "/report/sha/:shaorg", a.reportSha},
+		u.RouteData{"GET", "/report/sha/:shaorg/:repo/:sha", a.reportSha},
 		u.RouteData{"GET", "/report/ref/:reforg", a.reportRef},
 		u.RouteData{"GET", "/report/ref/:reforg/:refrepo", a.reportRef},
 		u.RouteData{"GET", "/report/ref/:reforg/:refrepo/:ref", a.reportRef},

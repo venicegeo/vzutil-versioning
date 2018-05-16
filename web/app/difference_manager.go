@@ -165,26 +165,27 @@ func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Differ
 	return d.diffCompareWrk(fullName, "Custom", toStrings(oldDeps), toStrings(newDeps), oldSha, newSha, t)
 }
 
-func (d *DifferenceManager) webhookCompare(fullName string, ref *es.Ref) (*Difference, error) {
-	if len(ref.WebhookOrder) < 2 {
-		return nil, nil
-	}
-	t := time.Now().UnixNano()
-	oldSha := ref.WebhookOrder[1]
-	newSha := ref.WebhookOrder[0]
+//TODO
+//func (d *DifferenceManager) webhookCompare(fullName string, ref *es.Ref) (*Difference, error) {
+//	if len(ref.WebhookOrder) < 2 {
+//		return nil, nil
+//	}
+//	t := time.Now().UnixNano()
+//	oldSha := ref.WebhookOrder[1]
+//	newSha := ref.WebhookOrder[0]
 
-	newEntry, ok := ref.GetEntry(newSha)
-	if !ok {
-		return nil, u.Error("Could not get new entry")
-	} else if newEntry.EntryReference == oldSha {
-		return nil, nil
-	}
-	oldEntry, ok := ref.GetEntry(oldSha)
-	if !ok {
-		return nil, u.Error("Could not get old entry")
-	}
-	return d.diffCompareWrk(fullName, ref.Name, oldEntry.Dependencies, newEntry.Dependencies, oldSha, newSha, t)
-}
+//	newEntry, ok := ref.GetEntry(newSha)
+//	if !ok {
+//		return nil, u.Error("Could not get new entry")
+//	} else if newEntry.EntryReference == oldSha {
+//		return nil, nil
+//	}
+//	oldEntry, ok := ref.GetEntry(oldSha)
+//	if !ok {
+//		return nil, u.Error("Could not get old entry")
+//	}
+//	return d.diffCompareWrk(fullName, ref.Name, oldEntry.Dependencies, newEntry.Dependencies, oldSha, newSha, t)
+//}
 
 func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldDeps, newDeps []string, oldSha, newSha string, t int64) (*Difference, error) {
 	added := []string{}

@@ -27,11 +27,24 @@ func (a *Application) reportSha(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
-	fullName := u.Format("%s/%s", c.Param("org"), c.Param("repo"))
 	sha := c.Param("sha")
-	deps, err := a.rtrvr.DepsByShaNameGen(fullName, sha)
+	var deps []es.Dependency
+	var err error
+	found := true
+	fullName := "unknown"
+	if sha == "" {
+		sha = c.Param("shaorg")
+		deps, found, err = a.rtrvr.DepsBySha(sha)
+	} else {
+		fullName = u.Format("%s/%s", c.Param("shaorg"), c.Param("repo"))
+		deps, err = a.rtrvr.DepsByShaNameGen(fullName, sha)
+	}
 	if err != nil {
 		c.String(400, err.Error())
+		return
+	}
+	if !found {
+		c.String(400, "This sha was not found and the information to generate it was not provided.")
 		return
 	}
 	header := "Report for " + fullName + " at " + sha + "\n"

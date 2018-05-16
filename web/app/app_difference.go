@@ -45,17 +45,17 @@ func (a *Application) textDiffPath(c *gin.Context) {
 		"loadRepos": []string{"", ""},
 	}
 	if tmp.Load != "" {
-		repos, err := a.rtrvr.ListRepositories()
-		if err != nil {
-			c.String(400, "Error collecting repository list: %s", err.Error())
-			return
-		}
-		load := make([]string, 0, len(repos)*2)
-		for _, repo := range repos {
-			load = append(load, repo)
-			load = append(load, "")
-		}
-		h["loadRepos"] = load
+		//		repos, err := a.rtrvr.ListRepositories()
+		//		if err != nil {
+		//			c.String(400, "Error collecting repository list: %s", err.Error())
+		//			return
+		//		}
+		//		load := make([]string, 0, len(repos)*2)
+		//		for _, repo := range repos {
+		//			load = append(load, repo)
+		//			load = append(load, "")
+		//		}
+		//		h["loadRepos"] = load
 		c.HTML(200, "textdiff.html", h)
 	} else if tmp.Ui != "" {
 		c.Redirect(303, "/ui")

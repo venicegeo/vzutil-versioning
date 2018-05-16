@@ -65,7 +65,7 @@ func (w *Worker) startCheckExist() {
 		for {
 			work := <-w.checkExistQueue
 			log.Printf("[CHECK-WORKER (%d)] Starting work on %s\n", worker, work.gitInfo.AfterSha)
-			if exists, err := es.CheckShaExists(w.app.index, work.gitInfo.Repository.FullName, work.gitInfo.AfterSha); err != nil {
+			if exists, err := w.app.index.ItemExists("respository_entry", work.gitInfo.AfterSha); err != nil {
 				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s\n", worker, err.Error())
 				continue
 			} else if exists {

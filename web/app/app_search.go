@@ -118,45 +118,47 @@ func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) 
 }
 `
 
-	repos, err := es.HitsToRepositories(a.index.SearchByJSON("repository", query))
-	if err != nil {
-		return 500, "Error getting repositories: " + err.Error()
-	}
-	//					  repoName   ref   shas
-	containingRepos := map[string]map[string][]string{}
-	for _, repo := range *repos {
-		for _, ref := range repo.Refs {
-			for _, entry := range ref.Entries {
-				breakk := false
-				for _, dep := range entry.Dependencies {
-					for _, toSearch := range deps {
-						if toSearch.GetHashSum() == dep {
-							breakk = true
-							if _, ok := containingRepos[repo.FullName]; !ok {
-								containingRepos[repo.FullName] = map[string][]string{ref.Name: []string{entry.Sha}}
-							} else {
-								containingRepos[repo.FullName][ref.Name] = append(containingRepos[repo.FullName][ref.Name], entry.Sha)
-							}
-						}
-						if breakk {
-							break
-						}
-					}
-					if breakk {
-						break
-					}
-				}
-			}
-		}
-	}
-	for repoName, e1 := range containingRepos {
-		tmp += repoName + "\n"
-		for refName, e2 := range e1 {
-			tmp += "\t" + refName + "\n"
-			for _, sha := range e2 {
-				tmp += "\t\t" + sha + "\n"
-			}
-		}
-	}
+	//TODO
+	//repos, err := es.HitsToRepositories(a.index.SearchByJSON("repository", query))
+	//	repos, err := nil, u.Error("TODO")
+	//	if err != nil {
+	//		return 500, "Error getting repositories: " + err.Error()
+	//	}
+	//	//					  repoName   ref   shas
+	//	containingRepos := map[string]map[string][]string{}
+	//	for _, repo := range *repos {
+	//		for _, ref := range repo.Refs {
+	//			for _, entry := range ref.Entries {
+	//				breakk := false
+	//				for _, dep := range entry.Dependencies {
+	//					for _, toSearch := range deps {
+	//						if toSearch.GetHashSum() == dep {
+	//							breakk = true
+	//							if _, ok := containingRepos[repo.FullName]; !ok {
+	//								containingRepos[repo.FullName] = map[string][]string{ref.Name: []string{entry.Sha}}
+	//							} else {
+	//								containingRepos[repo.FullName][ref.Name] = append(containingRepos[repo.FullName][ref.Name], entry.Sha)
+	//							}
+	//						}
+	//						if breakk {
+	//							break
+	//						}
+	//					}
+	//					if breakk {
+	//						break
+	//					}
+	//				}
+	//			}
+	//		}
+	//	}
+	//	for repoName, e1 := range containingRepos {
+	//		tmp += repoName + "\n"
+	//		for refName, e2 := range e1 {
+	//			tmp += "\t" + refName + "\n"
+	//			for _, sha := range e2 {
+	//				tmp += "\t\t" + sha + "\n"
+	//			}
+	//		}
+	//	}
 	return 200, tmp
 }
