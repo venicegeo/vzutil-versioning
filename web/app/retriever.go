@@ -15,6 +15,7 @@
 package app
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -119,224 +120,112 @@ func (r *Retriever) DepsFromEntry(entry *es.RepositoryEntry) (res []es.Dependenc
 func (r *Retriever) DepsByRef(info ...string) (map[string][]es.Dependency, error) {
 	switch len(info) {
 	case 1: //just a ref
-		fmt.Println("what")
-		res := map[string][]es.Dependency{}
-		res["test"] = []es.Dependency{es.Dependency{"a", "b", "c"}}
-
-		in := r.newAggQuery("repos", "repo_fullname")
-		in["aggs"].(map[string]interface{})["repos"].(map[string]interface{})["aggs"] = map[string]interface{}{
-			"max_time": map[string]interface{}{
-				"max": map[string]interface{}{
-					"field": "timestamp",
-				},
-			},
-		}
-		in["query"] = map[string]interface{}{
-			"term": map[string]interface{}{
-				"ref_name": "refs/" + info[0],
-			},
-		}
-		dat, _ := json.MarshalIndent(in, " ", "   ")
-		fmt.Println(string(dat))
-		var out AggResponse
-		//TODO
-		if err := r.app.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", in, &out); err != nil {
+		repoNames, err := r.ListRepositories()
+		if err != nil {
 			return nil, err
 		}
-		for _, bucket := range out.Aggs["repos"].Buckets {
-			repoName := bucket.Key
-			time := bucket.MaxTime
-			fmt.Println(repoName, time)
-		}
-
-		return res, nil
-	//		ref := info[0]
-	//	re, e := es.GetAllRepositories(r.app.index, r.app.searchSize)
-	//	return r.byRefWork(re, e, ref)
+		return r.byRefWork(repoNames, info[0])
 	case 2: //org and ref
-	//	org := info[0]
-	//	ref := info[1]
-	//	re, e := es.GetRepositoriesOrg(r.app.index, org, r.app.searchSize)
-	//	return r.byRefWork(re, e, ref)
+		repoNames, err := r.ListRepositoriesByOrg(info[0])
+		if err != nil {
+			return nil, err
+		}
+		return r.byRefWork(repoNames, info[1])
 	case 3: //org repo and ref
-		//	org := info[0]
-		//	repo := info[1]
-		//	ref := info[2]
-		//	re, o, e := es.GetRepositoryById(r.app.index, org+"_"+repo)
-		//	if !o {
-		//		return nil, u.Error("Unable to find doc [%s_%s]", org, repo)
-		//	}
-		//	return r.byRefWork(&[]*es.Repository{re}, e, ref)
+		repoNames := []string{fmt.Sprintf("%s/%s", info[0], info[1])}
+		return r.byRefWork(repoNames, info[2])
 	}
 	return nil, u.Error("Sorry, something is wrong with the code..")
 }
 
-//func (r *Retriever) byRefWork(repos *[]*es.Repository, err error, ref string) (map[string][]es.Dependency, error) {
-//	if err != nil {
-//		return nil, err
-//	}
-//	res := map[string][]es.Dependency{}
-//	mux := &sync.Mutex{}
-//	errs := make(chan error, len(*repos))
-//	work := func(repo *es.Repository, e chan error) {
-//		var refp *es.Ref = nil
-//		for _, r := range repo.Refs {
-//			if r.Name == `refs/`+ref {
-//				refp = r
-//				break
-//			}
-//		}
-//		if refp == nil {
-//			e <- nil
-//			return
-//		}
-//		if len(refp.WebhookOrder) == 0 {
-//			e <- nil
-//			return
-//		}
-//		sha := refp.WebhookOrder[0]
-//		deps, found, err := r.DepsByShaRepository(repo, sha)
-//		if err != nil {
-//			e <- err
-//			return
-//		} else if !found {
-//			e <- u.Error("Could not find sha [%s]", sha)
-//			return
-//		}
-//		sort.Sort(es.DependencySort(deps))
-//		mux.Lock()
-//		{
-//			res[repo.FullName] = deps
-//		}
-//		mux.Unlock()
-//		e <- nil
-//	}
-//	for _, repo := range *repos {
-//		go work(repo, errs)
-//	}
-//	for i := 0; i < len(*repos); i++ {
-//		err := <-errs
-//		if err != nil {
-//			return nil, err
-//		}
-//	}
-//	return res, nil
-//}
+func (r *Retriever) byRefWork(repoNames []string, ref string) (res map[string][]es.Dependency, err error) {
+	res = map[string][]es.Dependency{}
+	query := map[string]interface{}{}
+	query["query"] = map[string]interface{}{
+		"bool": map[string]interface{}{
+			"must": []map[string]interface{}{
+				map[string]interface{}{
+					"term": map[string]interface{}{
+						"ref_name": "refs/" + ref,
+					},
+				},
+				map[string]interface{}{
+					"term": map[string]interface{}{
+						"repo_fullname": "%s",
+					},
+				},
+			},
+		},
+	}
+	query["sort"] = map[string]interface{}{
+		"timestamp": map[string]interface{}{
+			"order": "desc",
+		},
+	}
+	query["size"] = 1
+	type Hit struct {
+		Id     string          `json:"_id"`
+		Source json.RawMessage `json:"_source"`
+	}
+	type Result struct {
+		Total int64 `json:"total"`
+		Hits  []Hit `json:"hits"`
+	}
+	type Wrapper struct {
+		R Result `json:"hits"`
+	}
+	dat, err := json.MarshalIndent(query, " ", "   ")
+	if err != nil {
+		return nil, err
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(len(repoNames))
+	mux := sync.Mutex{}
+	addError := func(repoName, err string) {
+		mux.Lock()
+		res[repoName] = []es.Dependency{es.Dependency{Version: err}}
+		wg.Done()
+		mux.Unlock()
+	}
+	work := func(repoName string) {
+		q := []byte(fmt.Sprintf(string(dat), repoName))
+		var out Wrapper
+		code, dat, _, err := nt.HTTP(nt.GET, "http://localhost:9200/versioning_tool/repository_entry/_search", nt.NewHeaderBuilder().GetHeader(), bytes.NewReader(q))
+		if err != nil {
+			addError(repoName, "Error during query: "+err.Error())
+			return
+		} else if code != 200 {
+			addError(repoName, fmt.Sprintf("Query code not 200: %d", code))
+			return
+		}
+		d := json.NewDecoder(bytes.NewReader(dat))
+		d.UseNumber()
+		err = d.Decode(&out)
+		if err != nil {
+			addError(repoName, "Error decoding: "+err.Error())
+			return
+		}
+		if len(out.R.Hits) != 1 {
+			wg.Done()
+			return
+		}
+		var entry es.RepositoryEntry
+		if err = json.Unmarshal(out.R.Hits[0].Source, &entry); err != nil {
+			addError(repoName, "Couldnt get entry: "+err.Error())
+			return
+		}
+		mux.Lock()
+		res[repoName] = r.DepsFromEntry(&entry)
+		wg.Done()
+		mux.Unlock()
+	}
+	for _, repoName := range repoNames {
+		go work(repoName)
+	}
+	wg.Wait()
+	return
 
-//func (r *Retriever) byRef1(ref string) (map[string][]es.Dependency, error) {
-//	repos, err := es.GetAllRepositories(r.app.index, r.app.searchSize)
-//	if err != nil {
-//		return nil, err
-//	}
-
-//	res := map[string][]es.Dependency{}
-//	mux := &sync.Mutex{}
-//	errs := make(chan error, len(*repos))
-//	work := func(repo *es.Repository) {
-//		var refp *es.Ref = nil
-//		for _, r := range repo.Refs {
-//			if r.Name == ref {
-//				refp = r
-//				break
-//			}
-//		}
-//		if refp == nil {
-//			return
-//		}
-//		if len(refp.WebhookOrder) == 0 {
-//			return
-//		}
-//		sha := refp.WebhookOrder[0]
-//		deps, found, err := r.DepsByShaRepository(repo, sha)
-//		if err != nil {
-//			errs <- err
-//			return
-//		} else if !found {
-//			errs <- u.Error("Could not find sha [%s]", sha)
-//		}
-//		mux.Lock()
-//		{
-//			res[repo.FullName] = deps
-//			errs <- nil
-//		}
-//		mux.Unlock()
-//	}
-//	for _, repo := range *repos {
-//		go work(repo)
-//	}
-//	for i := 0; i < len(*repos); i++ {
-//		err := <-errs
-//		if err != nil {
-//			return nil, err
-//		}
-//	}
-//	return res, nil
-//}
-
-//func (r *Retriever) byRef2(org, tag string) (map[string][]es.Dependency, error) {
-//	repos, err := es.GetRepositoriesOrg(r.app.index, org, r.app.searchSize)
-//	if err != nil {
-//		return nil, err
-//	}
-//	res := map[string][]es.Dependency{}
-//	mux := &sync.Mutex{}
-//	errs := make(chan error, len(*repos))
-//	work := func(repo *es.Repository) {
-//		sha, exists := repo.GetTagFromSha(tag)
-//		if !exists {
-//			errs <- errors.New("Could not find sha for tag " + tag)
-//			return
-//		}
-//		deps, found, err := r.DepsByShaRepository(repo, sha)
-//		if err != nil {
-//			errs <- err
-//			return
-//		} else if !found {
-//			errs <- u.Error("Repository [%s] not found", repo.FullName)
-//			return
-//		}
-//		mux.Lock()
-//		res[repo.FullName] = deps
-//		mux.Unlock()
-//		errs <- nil
-//	}
-//	for _, repo := range *repos {
-//		go work(repo)
-//	}
-//	err = nil
-//	for i := 0; i < len(*repos); i++ {
-//		e := <-errs
-//		if e != nil {
-//			err = e
-//		}
-//	}
-//	return res, err
-//}
-
-//func (r *Retriever) byRef3(docName, tag string) (map[string][]es.Dependency, error) {
-//	var repo *es.Repository
-//	var err error
-//	var sha string
-//	var ok bool
-
-//	if repo, ok, err = es.GetRepositoryById(r.app.index, docName); err != nil {
-//		return nil, err
-//	} else if !ok {
-//		return nil, u.Error("Could not find [%s]", docName)
-//	}
-//	ok = false
-
-//	if sha, ok = repo.GetShaFromTag(tag); !ok {
-//		return nil, errors.New("Could not find this tag: [" + tag + "]")
-//	}
-//	deps, found, err := r.DepsByShaRepository(repo, sha)
-//	if err != nil {
-//		return nil, err
-//	} else if !found {
-//		return nil, u.Error("Could not find the dependencies for sha [%s] on repository [%s]", sha, docName)
-//	}
-//	return map[string][]es.Dependency{strings.Replace(docName, "_", "/", 1): deps}, nil
-//}
+}
 
 //
 
@@ -483,13 +372,9 @@ func (r *Retriever) ListRepositoriesByOrg(org string) ([]string, error) {
 	return res, nil
 }
 
-type MaxInt64 struct {
-	Value float64 `json:"value"`
-}
 type Bucket struct {
-	Key      string   `json:"key"`
-	DocCount int64    `json:"doc_count"`
-	MaxTime  MaxInt64 `json:"max_time_int64"`
+	Key      string `json:"key"`
+	DocCount int64  `json:"doc_count"`
 }
 type Agg struct {
 	Buckets []Bucket `json:"buckets"`

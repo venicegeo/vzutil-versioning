@@ -15,7 +15,6 @@
 package app
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -59,9 +58,9 @@ func (a *Application) reportSha(c *gin.Context) {
 }
 
 func (a *Application) reportRef(c *gin.Context) {
-	fmt.Println("wat")
 	if a.checkBack(c) {
 		return
+
 	}
 	reforg := c.Param("reforg")
 	refrepo := c.Param("refrepo")
@@ -71,10 +70,10 @@ func (a *Application) reportRef(c *gin.Context) {
 	var err error
 	if reforg != "" && refrepo != "" && ref != "" {
 		ref = strings.Replace(ref, "_", `/`, -1)
-		//		deps, err = a.rtrvr.DepsByRef(reforg, refrepo, ref)
+		deps, err = a.rtrvr.DepsByRef(reforg, refrepo, ref)
 	} else if reforg != "" && refrepo != "" {
 		ref = strings.Replace(refrepo, "_", `/`, -1)
-		//	deps, err = a.rtrvr.DepsByRef(reforg, ref)
+		deps, err = a.rtrvr.DepsByRef(reforg, ref)
 	} else if reforg != "" {
 		ref = strings.Replace(reforg, "_", `/`, -1)
 		deps, err = a.rtrvr.DepsByRef(ref)
