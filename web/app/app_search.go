@@ -16,6 +16,7 @@ package app
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/vzutil-versioning/web/es"
@@ -56,107 +57,77 @@ func (a *Application) searchForDep(c *gin.Context) {
 }
 
 func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) {
-	tmp := ""
-	query := u.Format(`
+
+	rawDat, err := es.GetAll(a.index, "dependency", u.Format(`
 {
-	"size": %d,
-	"query":{
-		"bool":{
-		"must":[
-			{
-				"term":{
-					"name":"%s"
-				}
-			},{
-				"wildcard":{
-					"version":"%s*"
-				}
+	"bool":{
+	"must":[
+		{
+			"term":{
+				"name":"%s"
 			}
-		]
+		},{
+			"wildcard":{
+				"version":"%s*"
+			}
 		}
+	]
 	}
-}`, a.searchSize, depName, depVersion)
-	resp, err := a.index.SearchByJSON("dependency", query)
+}`, depName, depVersion))
 	if err != nil {
 		return 500, "Error querying database: " + err.Error()
 	}
-	hits := resp.GetHits()
-	deps := make([]es.Dependency, resp.NumHits(), resp.NumHits())
-	for i, hit := range *hits {
+
+	containingDeps := make([]string, len(rawDat), len(rawDat))
+	tmp := "Searching for:\n"
+	for i, b := range rawDat {
+		containingDeps[i] = u.Format(`"%s"`, b.Id)
 		var dep es.Dependency
-		if err = json.Unmarshal(*hit.Source, &dep); err != nil {
-			return 500, "Error unmarshalling dependency: " + err.Error()
+		if err = json.Unmarshal(b.Dat, &dep); err != nil {
+			tmp += u.Format("\tError decoding %s\n", b.Id)
+		} else {
+			tmp += "\t" + dep.String() + "\n"
 		}
-		deps[i] = dep
 	}
-	{
-		tmp = "Searching for:\n"
-		for _, dep := range deps {
-			tmp += u.Format("\t%s\n", dep.String())
-		}
-		tmp += "\n\n\n"
-	}
+	tmp += "\n\n\n"
 
-	query = u.Format(`{
-	"size":%d,
-	"query":{
-		"bool":{
-			"should":[`, a.searchSize)
-	for i, dep := range deps {
-		query += u.Format(`{
-			"term":{
-				"refs.entries.dependencies":"%s"
-			}
-		}`, dep.GetHashSum())
-		if i != len(deps)-1 {
-			query += ","
-		}
+	q := u.Format(`
+{
+	"terms":{
+		"dependencies":[%s]
 	}
-	query += `]
-		}
-	}
-}
-`
-
-	repos, err := es.HitsToRepositories(a.index.SearchByJSON("repository", query))
+},
+"sort":{
+	"timestamp":"desc"
+}`, strings.Join(containingDeps, ","))
+	rawDat, err = es.GetAll(a.index, "repository_entry", q)
 	if err != nil {
-		return 500, "Error getting repositories: " + err.Error()
+		return 500, "Unable to query repos: " + err.Error()
 	}
-	//					  repoName   ref   shas
-	containingRepos := map[string]map[string][]string{}
-	for _, repo := range *repos {
-		for _, ref := range repo.Refs {
-			for _, entry := range ref.Entries {
-				breakk := false
-				for _, dep := range entry.Dependencies {
-					for _, toSearch := range deps {
-						if toSearch.GetHashSum() == dep {
-							breakk = true
-							if _, ok := containingRepos[repo.FullName]; !ok {
-								containingRepos[repo.FullName] = map[string][]string{ref.Name: []string{entry.Sha}}
-							} else {
-								containingRepos[repo.FullName][ref.Name] = append(containingRepos[repo.FullName][ref.Name], entry.Sha)
-							}
-						}
-						if breakk {
-							break
-						}
-					}
-					if breakk {
-						break
-					}
-				}
-			}
+
+	test := map[string]map[string][]string{}
+	for _, b := range rawDat {
+		var entry es.RepositoryEntry
+		if err = json.Unmarshal(b.Dat, &entry); err != nil {
+			return 500, "Error getting entry: " + err.Error()
 		}
+		if _, ok := test[entry.RepositoryFullName]; !ok {
+			test[entry.RepositoryFullName] = map[string][]string{}
+		}
+		if _, ok := test[entry.RepositoryFullName][entry.RefName]; !ok {
+			test[entry.RepositoryFullName][entry.RefName] = []string{}
+		}
+		test[entry.RepositoryFullName][entry.RefName] = append(test[entry.RepositoryFullName][entry.RefName], entry.Sha)
 	}
-	for repoName, e1 := range containingRepos {
+	for repoName, refs := range test {
 		tmp += repoName + "\n"
-		for refName, e2 := range e1 {
+		for refName, shas := range refs {
 			tmp += "\t" + refName + "\n"
-			for _, sha := range e2 {
+			for _, sha := range shas {
 				tmp += "\t\t" + sha + "\n"
 			}
 		}
 	}
+
 	return 200, tmp
 }

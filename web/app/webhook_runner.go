@@ -15,13 +15,12 @@
 package app
 
 import (
+	"encoding/json"
 	"log"
-	"reflect"
-	"strings"
 
-	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
+	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 type WebhookRunner struct {
@@ -50,80 +49,64 @@ func (w *WebhookRunner) RunAgainstWeb(git *s.GitWebhook) {
 
 func (w *WebhookRunner) es(workInfo *SingleResult) {
 	log.Println("[ES-WORKER] Starting work on", workInfo.sha)
-	docName := strings.Replace(workInfo.fullName, "/", "_", -1)
-	var exists bool
 	var err error
-	var repo *es.Repository
-	var ref *es.Ref
 
-	if exists, err = w.app.index.ItemExists("repository", docName); err != nil {
-		log.Println("[ES-WORKER] Error checking repository exists:", err.Error())
+	entry := es.RepositoryEntry{
+		RepositoryFullName: workInfo.fullName,
+		RepositoryName:     workInfo.name,
+		RefName:            workInfo.ref,
+		Sha:                workInfo.sha,
+		Timestamp:          workInfo.timestamp,
+		Dependencies:       workInfo.hashes,
+	}
+
+	var testAgainstEntry *es.RepositoryEntry
+	result, err := w.app.index.SearchByJSON("repository_entry", u.Format(`
+{
+	"query":{
+		"bool":{
+			"must":[{
+				"term":{
+					"repo_fullname":"%s"
+				}
+				},{
+				"range":{
+					"timestamp":{ "lt":%d }
+				}
+			}
+		]}
+	},
+	"sort":{
+		"timestamp":"desc"
+	},
+	"size":1
+}`, workInfo.fullName, workInfo.timestamp))
+	if err == nil {
+		if result.NumHits() == 1 {
+			var testAgainstEntr es.RepositoryEntry
+			if err = json.Unmarshal(*result.GetHit(0).Source, &testAgainstEntr); err == nil {
+				testAgainstEntry = &testAgainstEntr
+			}
+		}
+	}
+
+	resp, err := w.app.index.PostData("repository_entry", workInfo.sha, entry)
+	if err != nil {
+		log.Printf("[ES-WORKER] Unable to create entry %s: %s\n", workInfo.sha, err.Error())
+		return
+	} else if !resp.Created {
+		log.Printf("[ES-WORKER] Unable to create entry %s\n", workInfo.sha)
 		return
 	}
-	if exists {
-		repo, _, err = es.GetRepositoryById(w.app.index, docName)
-		if err != nil {
-			log.Println("[ES-WORKER] Unable to retrieve repository:", err.Error())
-			return
-		}
-	} else {
-		repo = es.NewRepository(workInfo.fullName, workInfo.name)
-	}
-	for _, r := range repo.Refs {
-		if r.Name == workInfo.ref {
-			ref = r
-			break
-		}
-	}
-	if ref == nil {
-		repo.Refs = append(repo.Refs, es.NewRef(workInfo.ref))
-		ref = repo.Refs[len(repo.Refs)-1]
-	}
-	newEntry := es.RepositoryEntry{Sha: workInfo.sha, Timestamp: workInfo.timestamp}
-	if len(ref.WebhookOrder) > 0 {
-		testReferenceSha := ref.WebhookOrder[0]
-		testReference := ref.MustGetEntry(testReferenceSha)
-		if testReference.EntryReference != "" {
-			testReferenceSha = testReference.EntryReference
-			testReference = ref.MustGetEntry(testReferenceSha)
-		}
-		if reflect.DeepEqual(workInfo.hashes, testReference.Dependencies) {
-			newEntry.EntryReference = testReferenceSha
-		} else {
-			newEntry.Dependencies = workInfo.hashes
-		}
-	} else {
-		newEntry.Dependencies = workInfo.hashes
-	}
-	ref.WebhookOrder = append([]string{workInfo.sha}, ref.WebhookOrder...)
 
-	ref.Entries = append(ref.Entries, newEntry)
-
-	indexRepository := func(data func(string, string, interface{}) (*elasticsearch.IndexResponse, error), method string, checkCreate bool) bool {
-		resp, err := data("repository", docName, repo)
-		if err != nil {
-			log.Println("[ES-WORKER] Unable to", method, "repository:", err.Error())
-			return true
-		} else if !resp.Created && checkCreate {
-			log.Println("[ES-WORKER] Repository was not created")
-			return true
-		}
-		return false
-	}
-	if !exists { //POST
-		if indexRepository(w.app.index.PostData, "post", true) {
-			return
-		}
-	} else { //PUT
-		if indexRepository(w.app.index.PutData, "put", false) {
-			return
-		}
-	}
 	log.Println("[ES-WORKER] Finished work on", workInfo.fullName, workInfo.sha)
-	go func() {
-		_, err := w.app.diffMan.webhookCompare(repo.FullName, ref)
+	go func(fullName string, testAgainstEntry *es.RepositoryEntry, entry es.RepositoryEntry) {
+		if testAgainstEntry == nil {
+			return
+		}
+		_, err := w.app.diffMan.webhookCompare(*testAgainstEntry, entry)
 		if err != nil {
 			log.Println("[ES-WORKER] Error creating diff:", err.Error())
 		}
-	}()
+	}(workInfo.fullName, testAgainstEntry, entry)
 }

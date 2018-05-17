@@ -52,12 +52,13 @@ func (a *Application) listRefsRepo(c *gin.Context) {
 		return
 	}
 	header := "List of refs for " + fullName + "\n"
-	t := table.NewTable(1, len(*refs))
-	for _, r := range *refs {
+	t := table.NewTable(1, len(refs))
+	for _, r := range refs {
 		t.Fill(r)
 	}
 	a.displaySuccess(c, header+t.NoRowBorders().NoColumnBorders().Format().String())
 }
+
 func (a *Application) listRefs(c *gin.Context) {
 	if a.checkBack(c) {
 		return
