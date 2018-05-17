@@ -15,10 +15,12 @@
 package app
 
 import (
+	"encoding/json"
 	"log"
 
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
+	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 type WebhookRunner struct {
@@ -47,8 +49,6 @@ func (w *WebhookRunner) RunAgainstWeb(git *s.GitWebhook) {
 
 func (w *WebhookRunner) es(workInfo *SingleResult) {
 	log.Println("[ES-WORKER] Starting work on", workInfo.sha)
-	//	docName := strings.Replace(workInfo.fullName, "/", "_", -1)
-	//	var exists bool
 	var err error
 
 	entry := es.RepositoryEntry{
@@ -58,6 +58,36 @@ func (w *WebhookRunner) es(workInfo *SingleResult) {
 		Sha:                workInfo.sha,
 		Timestamp:          workInfo.timestamp,
 		Dependencies:       workInfo.hashes,
+	}
+
+	var testAgainstEntry *es.RepositoryEntry
+	result, err := w.app.index.SearchByJSON("repository_entry", u.Format(`
+{
+	"query":{
+		"bool":{
+			"must":[{
+				"term":{
+					"repo_fullname":"%s"
+				}
+				},{
+				"range":{
+					"timestamp":{ "lt":%d }
+				}
+			}
+		]}
+	},
+	"sort":{
+		"timestamp":"desc"
+	},
+	"size":1
+}`, workInfo.fullName, workInfo.timestamp))
+	if err == nil {
+		if result.NumHits() == 1 {
+			var testAgainstEntr es.RepositoryEntry
+			if err = json.Unmarshal(*result.GetHit(0).Source, &testAgainstEntr); err == nil {
+				testAgainstEntry = &testAgainstEntr
+			}
+		}
 	}
 
 	resp, err := w.app.index.PostData("repository_entry", workInfo.sha, entry)
@@ -70,10 +100,13 @@ func (w *WebhookRunner) es(workInfo *SingleResult) {
 	}
 
 	log.Println("[ES-WORKER] Finished work on", workInfo.fullName, workInfo.sha)
-	//	go func() {
-	//		_, err := w.app.diffMan.webhookCompare(repo.FullName, ref)
-	//		if err != nil {
-	//			log.Println("[ES-WORKER] Error creating diff:", err.Error())
-	//		}
-	//	}()
+	go func(fullName string, testAgainstEntry *es.RepositoryEntry, entry es.RepositoryEntry) {
+		if testAgainstEntry == nil {
+			return
+		}
+		_, err := w.app.diffMan.webhookCompare(*testAgainstEntry, entry)
+		if err != nil {
+			log.Println("[ES-WORKER] Error creating diff:", err.Error())
+		}
+	}(workInfo.fullName, testAgainstEntry, entry)
 }

@@ -37,7 +37,7 @@ func NewSingleRunner(app *Application) *SingleRunner {
 
 func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan string, git *s.GitWebhook) *SingleResult {
 	explicitSha := isSha.MatchString(git.AfterSha)
-	sr.sendStringTo(printLocation, "%sStarting work on %s\n", printHeader, git.AfterSha)
+	sr.sendStringTo(printLocation, "%sStarting work on %s", printHeader, git.AfterSha)
 
 	var deps []es.Dependency
 	var hashes []string
@@ -48,16 +48,16 @@ func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan 
 	}
 	dat, err := exec.Command(sr.app.singleLocation, git.Repository.FullName, git.AfterSha).Output()
 	if err != nil {
-		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]\n", printHeader, git.AfterSha, err.Error())
+		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, git.AfterSha, err.Error())
 		return nil
 	}
 	var singleRet SingleReturn
 	if err = json.Unmarshal(dat, &singleRet); err != nil {
-		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]\n", printHeader, git.AfterSha, err.Error())
+		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, git.AfterSha, err.Error())
 		return nil
 	}
 	if explicitSha && singleRet.Sha != git.AfterSha {
-		sr.sendStringTo(printLocation, "%sGeneration failed to run against %s, it ran against sha %s\n", printHeader, git.AfterSha, singleRet.Sha)
+		sr.sendStringTo(printLocation, "%sGeneration failed to run against %s, it ran against sha %s", printHeader, git.AfterSha, singleRet.Sha)
 		return nil
 	}
 	{
@@ -77,16 +77,16 @@ func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan 
 				go func(dep es.Dependency, h string) {
 					resp, err := sr.app.index.PostData("dependency", h, dep)
 					if err != nil {
-						sr.sendStringTo(printLocation, "%sUnable to create dependency %s [%s]\n", printHeader, h, err.Error())
+						sr.sendStringTo(printLocation, "%sUnable to create dependency %s [%s]", printHeader, h, err.Error())
 					} else if !resp.Created {
-						sr.sendStringTo(printLocation, "%sUnable to create dependency %s\n", printHeader, h)
+						sr.sendStringTo(printLocation, "%sUnable to create dependency %s", printHeader, h)
 					}
 				}(d, hash)
 			}
 		}
 		sort.Strings(hashes)
 	}
-	sr.sendStringTo(printLocation, "%sFinished work on %s\n", printHeader, git.AfterSha)
+	sr.sendStringTo(printLocation, "%sFinished work on %s", printHeader, git.AfterSha)
 	return &SingleResult{git.Repository.FullName, git.Repository.Name, singleRet.Sha, git.Ref, deps, hashes, git.Timestamp}
 }
 func (sr *SingleRunner) sendStringTo(location chan string, format string, args ...interface{}) {

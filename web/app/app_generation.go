@@ -16,6 +16,7 @@ package app
 
 import (
 	"log"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -82,43 +83,42 @@ func (a *Application) updateAllTagsOrg(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
-	//TODO
-	//	org := c.Param("org")
-	//	repos, err := a.rtrvr.ListRepositoriesByOrg(org)
-	//	if err != nil {
-	//		a.displayFailure(c, "Problemo: ["+err.Error()+"]")
-	//		return
-	//	}
-	//	go func(repos []string) {
-	//		for _, repo := range repos {
-	//			name := strings.SplitN(repo, "/", 2)[1]
-	//			dat, err := h.NewTagsRunner(name, repo).Run()
-	//			if err != nil {
-	//				log.Println("[TAG UPDATER] Was unable to run tags against " + repo + ": [" + err.Error() + "]")
-	//				continue
-	//			}
-	//			go func(dat map[string]string, name string, repo string) {
-	//				for sha, ref := range dat {
-	//					git := s.GitWebhook{
-	//						Ref:      ref,
-	//						AfterSha: sha,
-	//						Repository: s.GitRepository{
-	//							Name:     name,
-	//							FullName: repo,
-	//						},
-	//						Timestamp: time.Now().UnixNano(),
-	//					}
-	//					log.Println(repo, sha, ref)
-	//					a.wbhkRnnr.RunAgainstWeb(&git)
-	//				}
-	//			}(dat, name, repo)
-	//		}
-	//	}(repos)
+	org := c.Param("org")
+	repos, err := a.rtrvr.ListRepositoriesByOrg(org)
+	if err != nil {
+		a.displayFailure(c, "Problemo: ["+err.Error()+"]")
+		return
+	}
+	go func(repos []string) {
+		for _, repo := range repos {
+			name := strings.SplitN(repo, "/", 2)[1]
+			dat, err := h.NewTagsRunner(name, repo).Run()
+			if err != nil {
+				log.Println("[TAG UPDATER] Was unable to run tags against " + repo + ": [" + err.Error() + "]")
+				continue
+			}
+			go func(dat map[string]string, name string, repo string) {
+				for sha, ref := range dat {
+					git := s.GitWebhook{
+						Ref:      ref,
+						AfterSha: sha,
+						Repository: s.GitRepository{
+							Name:     name,
+							FullName: repo,
+						},
+						Timestamp: time.Now().UnixNano(),
+					}
+					log.Println(repo, sha, ref)
+					a.wbhkRnnr.RunAgainstWeb(&git)
+				}
+			}(dat, name, repo)
+		}
+	}(repos)
 
 	res := "Trying to run against:\n"
-	//	for _, repo := range repos {
-	//		res += "\n" + repo
-	//	}
+	for _, repo := range repos {
+		res += "\n" + repo
+	}
 
 	a.displaySuccess(c, res)
 }

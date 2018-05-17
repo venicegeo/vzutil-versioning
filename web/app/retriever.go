@@ -243,7 +243,7 @@ func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) 
 
 	for _, entryD := range entryDat {
 		var entry es.RepositoryEntry
-		if err := json.Unmarshal(entryD, &entry); err != nil {
+		if err := json.Unmarshal(entryD.Dat, &entry); err != nil {
 			return nil, 0, err
 		}
 		if _, ok := res[entry.RefName]; !ok {
