@@ -65,22 +65,30 @@ func (w *WebhookRunner) es(workInfo *SingleResult) {
 {
 	"query":{
 		"bool":{
-			"must":[{
-				"term":{
-					"repo_fullname":"%s"
+			"must":[
+				{
+					"term":{
+						"repo_fullname":"%s"
+					}
+				},
+				{
+					"term":{
+							"ref_name":"%s"
+					}
+				},
+				{
+					"range":{
+						"timestamp":{ "lt":%d }
+					}
 				}
-				},{
-				"range":{
-					"timestamp":{ "lt":%d }
-				}
-			}
-		]}
+			]
+		}
 	},
 	"sort":{
 		"timestamp":"desc"
 	},
 	"size":1
-}`, workInfo.fullName, workInfo.timestamp))
+}`, workInfo.fullName, workInfo.ref, workInfo.timestamp))
 	if err == nil {
 		if result.NumHits() == 1 {
 			var testAgainstEntr es.RepositoryEntry
