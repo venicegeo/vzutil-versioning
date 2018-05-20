@@ -16,31 +16,39 @@ package structs
 
 import (
 	"html/template"
-	"strings"
-
-	f "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-type HtmlButton struct {
-	name  string
-	value string
-	class string
+type HtmlTable struct {
+	table [][]string
 }
 
-func NewHtmlButton(value string) *HtmlButton {
-	return &HtmlButton{"button_" + strings.ToLower(value), value, ""}
-}
-func NewHtmlButton2(name, value string) *HtmlButton {
-	return &HtmlButton{name, value, ""}
-}
-func NewHtmlButton3(name, value, class string) *HtmlButton {
-	return &HtmlButton{name, value, class}
+func NewHtmlTable() *HtmlTable {
+	return &HtmlTable{[][]string{}}
 }
 
-func (h *HtmlButton) Template() template.HTML {
+func (h *HtmlTable) AddRow() *HtmlTable {
+	h.table = append(h.table, []string{})
+	return h
+}
+
+func (h *HtmlTable) AddItem(row int, elem string) *HtmlTable {
+	h.table[row] = append(h.table[row], elem)
+	return h
+}
+
+func (h *HtmlTable) Template() template.HTML {
 	return template.HTML(h.String())
 }
 
-func (h *HtmlButton) String() string {
-	return f.Format(`<input type="submit" name="%s" value="%s" class="%s">`, h.name, h.value, h.class)
+func (h *HtmlTable) String() string {
+	res := "<table>\n"
+	for _, row := range h.table {
+		res += "\t<tr>\n"
+		for _, item := range row {
+			res += "\t\t<td>" + item + "</td>\n"
+		}
+		res += "\t</tr>\n"
+	}
+	res += "</table>"
+	return res
 }

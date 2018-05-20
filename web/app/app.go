@@ -161,6 +161,8 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/search/:dep/:version", a.searchForDep},
 
 		u.RouteData{"GET", "/ui", a.formPath},
+		u.RouteData{"GET", "/test", a.test},
+		u.RouteData{"GET", "/project/test", a.testProject},
 
 		u.RouteData{"GET", "/diff", a.diffPath},
 		u.RouteData{"GET", "/cdiff", a.customDiffPath},
@@ -181,6 +183,34 @@ func (a *Application) Stop() {
 
 func (a *Application) defaultPath(c *gin.Context) {
 	c.String(200, "Welcome to the dependency service!")
+}
+
+func (a *Application) test(c *gin.Context) {
+	type form struct {
+		Project string `form:"button_project"`
+	}
+	var f form
+	_ = c.Bind(&f)
+	if f.Project == "" {
+		table := s.NewHtmlTable()
+		makeButton := func(name string) string {
+			return s.NewHtmlButton3("button_project", name, "button").String()
+		}
+		table.AddRow().AddItem(0, makeButton("Piazza")).AddItem(0, makeButton("Beachfront")).AddItem(0, makeButton("Eventkit"))
+		table.AddRow().AddItem(1, makeButton("Add New"))
+		h := gin.H{}
+		h["table"] = table.Template()
+		c.HTML(200, "test.html", h)
+		return
+	} else if f.Project == "Add New" {
+		c.String(200, "Still working on this")
+	} else {
+		c.Redirect(303, "/project/test")
+	}
+}
+
+func (a *Application) testProject(c *gin.Context) {
+	c.HTML(200, "test2.html", nil)
 }
 
 func (a *Application) formPath(c *gin.Context) {
