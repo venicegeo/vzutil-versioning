@@ -15,6 +15,7 @@
 package app
 
 import (
+	"bytes"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -34,7 +35,7 @@ func (a *Application) reportSha(c *gin.Context) {
 	fullName := "unknown"
 	if sha == "" {
 		sha = c.Param("shaorg")
-		deps, found, err = a.rtrvr.DepsBySha(sha)
+		deps, fullName, _, found, err = a.rtrvr.DepsBySha(sha)
 	} else {
 		fullName = u.Format("%s/%s", c.Param("shaorg"), c.Param("repo"))
 		deps, err = a.rtrvr.DepsByShaNameGen(fullName, sha)
@@ -47,14 +48,15 @@ func (a *Application) reportSha(c *gin.Context) {
 		c.String(400, "This sha was not found and the information to generate it was not provided.")
 		return
 	}
-	header := "Report for " + fullName + " at " + sha + "\n"
+	buf := bytes.NewBufferString(u.Format("Report for %s at %s\n", fullName, sha))
 	t := table.NewTable(3, len(deps))
 	for _, dep := range deps {
 		t.Fill(dep.Name)
 		t.Fill(dep.Version)
 		t.Fill(dep.Language)
 	}
-	a.displaySuccess(c, header+t.SpaceColumn(1).NoRowBorders().Format().String())
+	buf.WriteString(t.SpaceColumn(1).NoRowBorders().Format().String())
+	a.displaySuccess(c, buf.String())
 }
 
 func (a *Application) reportRef(c *gin.Context) {
@@ -83,16 +85,16 @@ func (a *Application) reportRef(c *gin.Context) {
 		a.displayFailure(c, "Unable to do this: "+err.Error())
 		return
 	}
-	res := ""
+	buf := bytes.NewBufferString("")
 	for name, depss := range deps {
-		res += name + " at " + ref
+		buf.WriteString(u.Format("%s at %s", name, ref))
 		t := table.NewTable(3, len(depss))
 		for _, dep := range depss {
 			t.Fill(dep.Name)
 			t.Fill(dep.Version)
 			t.Fill(dep.Language)
 		}
-		res += "\n" + t.NoRowBorders().SpaceColumn(1).Format().String() + "\n\n"
+		buf.WriteString(u.Format("\n%s\n\n", t.NoRowBorders().SpaceColumn(1).Format().String()))
 	}
-	a.displaySuccess(c, res)
+	a.displaySuccess(c, buf.String())
 }

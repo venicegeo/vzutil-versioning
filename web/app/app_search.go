@@ -15,6 +15,7 @@
 package app
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 
@@ -79,28 +80,30 @@ func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) 
 	}
 
 	containingDeps := make([]string, len(rawDat), len(rawDat))
-	tmp := "Searching for:\n"
+	buf := bytes.NewBufferString("Searching for:\n")
 	for i, b := range rawDat {
 		containingDeps[i] = u.Format(`"%s"`, b.Id)
 		var dep es.Dependency
 		if err = json.Unmarshal(b.Dat, &dep); err != nil {
-			tmp += u.Format("\tError decoding %s\n", b.Id)
+			buf.WriteString(u.Format("\tError decoding %s\n", b.Id))
 		} else {
-			tmp += "\t" + dep.String() + "\n"
+			buf.WriteString("\t")
+			buf.WriteString(dep.String())
+			buf.WriteString("\n")
 		}
 	}
-	tmp += "\n\n\n"
+	buf.WriteString("\n\n\n")
 
 	q := u.Format(`
 {
 	"terms":{
 		"dependencies":[%s]
 	}
-},
-"sort":{
-	"timestamp":"desc"
 }`, strings.Join(containingDeps, ","))
-	rawDat, err = es.GetAll(a.index, "repository_entry", q)
+	s := `{
+	"timestamp":"desc"
+}`
+	rawDat, err = es.GetAll(a.index, "repository_entry", q, s)
 	if err != nil {
 		return 500, "Unable to query repos: " + err.Error()
 	}
@@ -120,14 +123,15 @@ func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) 
 		test[entry.RepositoryFullName][entry.RefName] = append(test[entry.RepositoryFullName][entry.RefName], entry.Sha)
 	}
 	for repoName, refs := range test {
-		tmp += repoName + "\n"
+		buf.WriteString(repoName)
+		buf.WriteString("\n")
 		for refName, shas := range refs {
-			tmp += "\t" + refName + "\n"
+			buf.WriteString(u.Format("\t%s\n", refName))
 			for _, sha := range shas {
-				tmp += "\t\t" + sha + "\n"
+				buf.WriteString(u.Format("\t\t %s \n", sha))
 			}
 		}
 	}
 
-	return 200, tmp
+	return 200, buf.String()
 }

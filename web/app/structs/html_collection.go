@@ -14,7 +14,10 @@
 
 package structs
 
-import "html/template"
+import (
+	"bytes"
+	"html/template"
+)
 
 type HtmlCollection struct {
 	html []HtmlInter
@@ -31,9 +34,9 @@ func (h *HtmlCollection) Template() template.HTML {
 	return template.HTML(h.String())
 }
 func (h *HtmlCollection) String() string {
-	res := ""
+	buf := bytes.NewBufferString("")
 	for _, ht := range h.html {
-		res += ht.String()
+		buf.WriteString(ht.String())
 	}
-	return res
+	return buf.String()
 }

@@ -14,9 +14,23 @@
 
 package structs
 
-import "html/template"
+import (
+	"fmt"
+	"html/template"
+)
 
-type HtmlInter interface {
-	Template() template.HTML
-	String() string
+type HtmlForm struct {
+	dat string
+}
+
+func NewHtmlForm(elem fmt.Stringer) *HtmlForm {
+	return &HtmlForm{elem.String()}
+}
+
+func (h *HtmlForm) Template() template.HTML {
+	return template.HTML(h.String())
+}
+
+func (h *HtmlForm) String() string {
+	return fmt.Sprintf("<form>\n%s\n</form>", h.dat)
 }

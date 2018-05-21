@@ -15,6 +15,7 @@
 package app
 
 import (
+	"bytes"
 	"log"
 	"strings"
 	"time"
@@ -79,12 +80,12 @@ func (a *Application) updateAllTags(c *gin.Context) {
 	a.displaySuccess(c, "Yeah, I can do that. Check back in a minute")
 }
 
-func (a *Application) updateAllTagsOrg(c *gin.Context) {
+func (a *Application) updateAllTagsProj(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
-	org := c.Param("org")
-	repos, err := a.rtrvr.ListRepositoriesByOrg(org)
+	proj := c.Param("proj")
+	repos, err := a.rtrvr.ListRepositoriesByProj(proj)
 	if err != nil {
 		a.displayFailure(c, "Problemo: ["+err.Error()+"]")
 		return
@@ -115,12 +116,13 @@ func (a *Application) updateAllTagsOrg(c *gin.Context) {
 		}
 	}(repos)
 
-	res := "Trying to run against:\n"
+	buf := bytes.NewBufferString("Trying to run against:\n")
 	for _, repo := range repos {
-		res += "\n" + repo
+		buf.WriteString("\n")
+		buf.WriteString(repo)
 	}
 
-	a.displaySuccess(c, res)
+	a.displaySuccess(c, buf.String())
 }
 
 func (a *Application) generateBranch(c *gin.Context) {
@@ -131,10 +133,18 @@ func (a *Application) generateBranch(c *gin.Context) {
 	repo := c.Param("repo")
 	branch := c.Param("branch")
 	fullName := u.Format("%s/%s", org, repo)
-	sha, err := h.GetBranchSha(repo, fullName, branch)
+	sha, err := a.generateBranchWrk(repo, fullName, branch)
 	if err != nil {
 		a.displayFailure(c, "Could not generate this sha: "+err.Error())
-		return
+	}
+
+	a.displaySuccess(c, "Going to run against sha "+sha)
+}
+
+func (a *Application) generateBranchWrk(repoName, fullName, branch string) (string, error) {
+	sha, err := h.GetBranchSha(repoName, fullName, branch)
+	if err != nil {
+		return "", err
 	}
 
 	go func(name, fullName, branch, sha string) {
@@ -150,7 +160,6 @@ func (a *Application) generateBranch(c *gin.Context) {
 		}
 		log.Println(fullName, sha, ref)
 		a.wbhkRnnr.RunAgainstWeb(&git)
-	}(repo, fullName, branch, sha)
-
-	a.displaySuccess(c, "Going to run against sha "+sha)
+	}(repoName, fullName, branch, sha)
+	return sha, nil
 }

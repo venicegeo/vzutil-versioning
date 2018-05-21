@@ -108,15 +108,14 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 }
 
 func (d *DifferenceManager) AllDiffs() (*[]Difference, error) {
-	resp, err := es.MatchAllSize(d.app.index, "difference", d.app.searchSize)
+	hits, err := es.GetAll(d.app.index, "difference", `{"match_all":{}}`)
 	if err != nil {
 		return nil, err
 	}
-	hits := resp.GetHits()
-	diffs := make([]Difference, len(*hits))
-	for i, hit := range *hits {
+	diffs := make([]Difference, len(hits))
+	for i, hit := range hits {
 		var diff Difference
-		if err = json.Unmarshal([]byte(*hit.Source), &diff); err != nil {
+		if err = json.Unmarshal([]byte(hit.Dat), &diff); err != nil {
 			return nil, err
 		}
 		diffs[i] = diff

@@ -36,25 +36,25 @@ func NewRetriever(app *Application) *Retriever {
 	return &Retriever{app}
 }
 
-func (r *Retriever) DepsBySha(sha string) ([]es.Dependency, bool, error) {
+func (r *Retriever) DepsBySha(sha string) ([]es.Dependency, string, string, bool, error) {
 	var entry es.RepositoryEntry
 	var err error
 	//	var found bool
 
 	result, err := r.app.index.GetByID("repository_entry", sha)
 	if result == nil {
-		return nil, false, err
+		return nil, "", "", false, err
 	} else if !result.Found {
-		return nil, false, nil
+		return nil, "", "", false, nil
 	}
 	if err = json.Unmarshal(*result.Source, &entry); err != nil {
-		return nil, true, err
+		return nil, "", "", true, err
 	}
 
-	return r.DepsFromEntry(&entry), true, nil
+	return r.DepsFromEntry(&entry), entry.RepositoryFullName, entry.RefName, true, nil
 }
 func (r *Retriever) DepsByShaNameGen(fullName, sha string) ([]es.Dependency, error) {
-	deps, found, err := r.app.rtrvr.DepsBySha(sha)
+	deps, _, _, found, err := r.app.rtrvr.DepsBySha(sha)
 	if err != nil || !found {
 		{
 			code, _, _, err := nt.HTTP(nt.HEAD, u.Format("https://github.com/%s/commit/%s", fullName, sha), nt.NewHeaderBuilder().GetHeader(), nil)
@@ -126,7 +126,7 @@ func (r *Retriever) DepsByRef(info ...string) (map[string][]es.Dependency, error
 		}
 		return r.byRefWork(repoNames, info[0])
 	case 2: //org and ref
-		repoNames, err := r.ListRepositoriesByOrg(info[0])
+		repoNames, err := r.ListRepositoriesByProj(info[0])
 		if err != nil {
 			return nil, err
 		}
@@ -234,7 +234,7 @@ func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) 
 	"term":{
 		"repo_fullname":"%s"
 	}
-}`, fullName))
+}`, fullName), `{"timestamp":"desc"}`)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -278,7 +278,7 @@ func (r *Retriever) ListRefsRepo(fullName string) ([]string, error) {
 }
 
 func (r *Retriever) ListRefs(org string) (*map[string][]string, int, error) {
-	repos, err := r.ListRepositoriesByOrg(org)
+	repos, err := r.ListRepositoriesByProj(org)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -357,17 +357,45 @@ func (r *Retriever) ListRepositories() ([]string, error) {
 	return res, nil
 }
 
-func (r *Retriever) ListRepositoriesByOrg(org string) ([]string, error) {
-	all, err := r.ListRepositories()
+//TODO
+func (r *Retriever) ListRepositoriesByProj(proj string) ([]string, error) {
+	exists, err := r.app.index.ItemExists("project", proj)
+	if err != nil {
+		return nil, err
+	} else if !exists {
+		return nil, u.Error("Project %s does not exist", err.Error())
+	}
+	hits, err := es.GetAll(r.app.index, "project_entry", u.Format(`{
+	"term": {
+		"name":"%s"
+	}
+}`, proj))
 	if err != nil {
 		return nil, err
 	}
-	org += "/"
-	res := []string{}
-	for _, repo := range all {
-		if strings.HasPrefix(repo, org) {
-			res = append(res, repo)
+	res := make([]string, len(hits), len(hits))
+	for i, hitData := range hits {
+		t := new(es.ProjectEntry)
+		if err = json.Unmarshal(hitData.Dat, t); err != nil {
+			return nil, err
 		}
+		res[i] = t.Repo
+	}
+	return res, nil
+}
+
+func (r *Retriever) ListProjects() ([]*es.Project, error) {
+	hits, err := es.GetAll(r.app.index, "project", "{}")
+	if err != nil {
+		return nil, err
+	}
+	res := make([]*es.Project, len(hits), len(hits))
+	for i, hitData := range hits {
+		t := new(es.Project)
+		if err = json.Unmarshal(hitData.Dat, t); err != nil {
+			return nil, err
+		}
+		res[i] = t
 	}
 	return res, nil
 }

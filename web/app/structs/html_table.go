@@ -15,6 +15,8 @@
 package structs
 
 import (
+	"bytes"
+	"fmt"
 	"html/template"
 )
 
@@ -31,8 +33,8 @@ func (h *HtmlTable) AddRow() *HtmlTable {
 	return h
 }
 
-func (h *HtmlTable) AddItem(row int, elem string) *HtmlTable {
-	h.table[row] = append(h.table[row], elem)
+func (h *HtmlTable) AddItem(row int, elem fmt.Stringer) *HtmlTable {
+	h.table[row] = append(h.table[row], elem.String())
 	return h
 }
 
@@ -41,14 +43,16 @@ func (h *HtmlTable) Template() template.HTML {
 }
 
 func (h *HtmlTable) String() string {
-	res := "<table>\n"
+	buf := bytes.NewBufferString("<table>\n")
 	for _, row := range h.table {
-		res += "\t<tr>\n"
+		buf.WriteString("\t<tr>\n")
 		for _, item := range row {
-			res += "\t\t<td>" + item + "</td>\n"
+			buf.WriteString("\t\t<td>")
+			buf.WriteString(item)
+			buf.WriteString("</td>\n")
 		}
-		res += "\t</tr>\n"
+		buf.WriteString("\t</tr>\n")
 	}
-	res += "</table>"
-	return res
+	buf.WriteString("</table>")
+	return buf.String()
 }

@@ -15,6 +15,8 @@
 package app
 
 import (
+	"bytes"
+
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/vzutil-versioning/common/table"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -30,7 +32,7 @@ func (a *Application) listShas(c *gin.Context) {
 		a.displayFailure(c, err.Error())
 		return
 	}
-	header := "List of Shas for " + fullName + "\n"
+	buf := bytes.NewBufferString(u.Format("List of Shas for %s\n", fullName))
 	t := table.NewTable(2, count+len(refShas))
 	for refName, shas := range refShas {
 		t.Fill(refName, "")
@@ -38,7 +40,8 @@ func (a *Application) listShas(c *gin.Context) {
 			t.Fill("", sha)
 		}
 	}
-	a.displaySuccess(c, header+t.NoRowBorders().Format().String())
+	buf.WriteString(t.NoRowBorders().Format().String())
+	a.displaySuccess(c, buf.String())
 }
 
 func (a *Application) listRefsRepo(c *gin.Context) {
@@ -51,12 +54,13 @@ func (a *Application) listRefsRepo(c *gin.Context) {
 		a.displayFailure(c, err.Error())
 		return
 	}
-	header := "List of refs for " + fullName + "\n"
+	buf := bytes.NewBufferString(u.Format("List of refs for %s\n", fullName))
 	t := table.NewTable(1, len(refs))
 	for _, r := range refs {
 		t.Fill(r)
 	}
-	a.displaySuccess(c, header+t.NoRowBorders().NoColumnBorders().Format().String())
+	buf.WriteString(t.NoRowBorders().NoColumnBorders().Format().String())
+	a.displaySuccess(c, buf.String())
 }
 
 func (a *Application) listRefs(c *gin.Context) {
@@ -69,7 +73,7 @@ func (a *Application) listRefs(c *gin.Context) {
 		a.displayFailure(c, err.Error())
 		return
 	}
-	header := "List of refs for " + org + "\n"
+	buf := bytes.NewBufferString(u.Format("List of refs for %s\n", org))
 	t := table.NewTable(2, num+len(*tags))
 	for k, v := range *tags {
 		if len(v) == 0 {
@@ -85,7 +89,8 @@ func (a *Application) listRefs(c *gin.Context) {
 			}
 		}
 	}
-	a.displaySuccess(c, header+t.SpaceColumn(1).NoRowBorders().NoColumnBorders().Format().String())
+	buf.WriteString(t.SpaceColumn(1).NoRowBorders().NoColumnBorders().Format().String())
+	a.displaySuccess(c, buf.String())
 }
 
 func (a *Application) listRepositories(c *gin.Context) {
@@ -93,19 +98,17 @@ func (a *Application) listRepositories(c *gin.Context) {
 		return
 	}
 	ps, err := a.rtrvr.ListRepositories()
-	header := "List of repositories\n"
-	a.listRepositoriesWrk(ps, err, header, c)
+	a.listRepositoriesWrk(ps, err, bytes.NewBufferString("List of repositories\n"), c)
 }
-func (a *Application) listRepositoriesOrg(c *gin.Context) {
+func (a *Application) listRepositoriesProj(c *gin.Context) {
 	if a.checkBack(c) {
 		return
 	}
-	org := c.Param("org")
-	ps, err := a.rtrvr.ListRepositoriesByOrg(org)
-	header := "List of repositories for " + org + "\n"
-	a.listRepositoriesWrk(ps, err, header, c)
+	proj := c.Param("proj")
+	ps, err := a.rtrvr.ListRepositoriesByProj(proj)
+	a.listRepositoriesWrk(ps, err, bytes.NewBufferString(u.Format("List of repositories for %s\n", proj)), c)
 }
-func (a *Application) listRepositoriesWrk(ps []string, err error, header string, c *gin.Context) {
+func (a *Application) listRepositoriesWrk(ps []string, err error, buf *bytes.Buffer, c *gin.Context) {
 	if err != nil {
 		a.displayFailure(c, err.Error())
 		return
@@ -114,5 +117,6 @@ func (a *Application) listRepositoriesWrk(ps []string, err error, header string,
 	for _, v := range ps {
 		t.Fill(v)
 	}
-	a.displaySuccess(c, header+t.NoRowBorders().NoColumnBorders().Format().String())
+	buf.WriteString(t.NoRowBorders().NoColumnBorders().Format().String())
+	a.displaySuccess(c, buf.String())
 }

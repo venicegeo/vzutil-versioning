@@ -30,7 +30,6 @@ import (
 
 type Application struct {
 	indexName       string
-	searchSize      int
 	singleLocation  string
 	compareLocation string
 	debugMode       bool
@@ -54,7 +53,6 @@ type Back struct {
 func NewApplication(indexName, singleLocation, compareLocation string, debugMode bool) *Application {
 	return &Application{
 		indexName:       indexName,
-		searchSize:      250,
 		singleLocation:  singleLocation,
 		compareLocation: compareLocation,
 		debugMode:       debugMode,
@@ -110,6 +108,20 @@ func (a *Application) Start() chan error {
 				"added":{"type":"keyword"},
 				"time":{"type":"long"}
 			}
+		},
+		"project_entry": {
+			"dynamic":"strict",
+			"properties":{
+				"name":{"type":"keyword"},
+				"repo":{"type":"keyword"}
+			}
+		},
+		"project":{
+			"dynamic":"strict",
+			"properties":{
+				"name":{"type":"keyword"},
+				"displayname":{"type":"keyword"}
+			}
 		}
 	}
 }`)
@@ -140,29 +152,34 @@ func (a *Application) Start() chan error {
 	server.Configure([]u.RouteData{
 		u.RouteData{"GET", "/", a.defaultPath},
 		u.RouteData{"POST", "/webhook", a.webhookPath},
-		u.RouteData{"GET", "/generate/tags/:org/:repo", a.updateAllTags},
-		u.RouteData{"GET", "/generate/tags/:org", a.updateAllTagsOrg},
+		u.RouteData{"GET", "/generate/tags/:proj/:repo", a.updateAllTags},
+		u.RouteData{"GET", "/generate/tags/:proj", a.updateAllTagsProj},
 		u.RouteData{"GET", "/generate/branch/:org/:repo/:branch", a.generateBranch},
 
 		u.RouteData{"GET", "/report/sha/:shaorg", a.reportSha},
 		u.RouteData{"GET", "/report/sha/:shaorg/:repo/:sha", a.reportSha},
-		u.RouteData{"GET", "/report/ref/:reforg", a.reportRef},
-		u.RouteData{"GET", "/report/ref/:reforg/:refrepo", a.reportRef},
-		u.RouteData{"GET", "/report/ref/:reforg/:refrepo/:ref", a.reportRef},
+		u.RouteData{"GET", "/report/ref/:refproj", a.reportRef},
+		u.RouteData{"GET", "/report/ref/:refproj/:refrepo", a.reportRef},
+		u.RouteData{"GET", "/report/ref/:refproj/:refrepo/:ref", a.reportRef},
 
 		u.RouteData{"GET", "/list/shas/:org/:repo", a.listShas},
 		u.RouteData{"GET", "/list/refs/:org/:repo", a.listRefsRepo},
 		u.RouteData{"GET", "/list/refs/:org", a.listRefs},
 		u.RouteData{"GET", "/list/repositories", a.listRepositories},
-		u.RouteData{"GET", "/list/repositories/:org", a.listRepositoriesOrg},
+		u.RouteData{"GET", "/list/repositories/:proj", a.listRepositoriesProj},
 
 		u.RouteData{"GET", "/search", a.uiSearchForDep},
 		u.RouteData{"GET", "/search/:dep", a.searchForDep},
 		u.RouteData{"GET", "/search/:dep/:version", a.searchForDep},
 
 		u.RouteData{"GET", "/ui", a.formPath},
+
 		u.RouteData{"GET", "/test", a.test},
-		u.RouteData{"GET", "/project/test", a.testProject},
+		u.RouteData{"GET", "/newproj", a.newProj},
+		u.RouteData{"POST", "/newproj", a.newProj},
+		u.RouteData{"GET", "/project/:proj", a.testProject},
+		u.RouteData{"GET", "/addrepo/:proj", a.addRepo},
+		u.RouteData{"GET", "/genbranch/:proj/:org/:repo", a.genBranch},
 
 		u.RouteData{"GET", "/diff", a.diffPath},
 		u.RouteData{"GET", "/cdiff", a.customDiffPath},
@@ -183,34 +200,6 @@ func (a *Application) Stop() {
 
 func (a *Application) defaultPath(c *gin.Context) {
 	c.String(200, "Welcome to the dependency service!")
-}
-
-func (a *Application) test(c *gin.Context) {
-	type form struct {
-		Project string `form:"button_project"`
-	}
-	var f form
-	_ = c.Bind(&f)
-	if f.Project == "" {
-		table := s.NewHtmlTable()
-		makeButton := func(name string) string {
-			return s.NewHtmlButton3("button_project", name, "button").String()
-		}
-		table.AddRow().AddItem(0, makeButton("Piazza")).AddItem(0, makeButton("Beachfront")).AddItem(0, makeButton("Eventkit"))
-		table.AddRow().AddItem(1, makeButton("Add New"))
-		h := gin.H{}
-		h["table"] = table.Template()
-		c.HTML(200, "test.html", h)
-		return
-	} else if f.Project == "Add New" {
-		c.String(200, "Still working on this")
-	} else {
-		c.Redirect(303, "/project/test")
-	}
-}
-
-func (a *Application) testProject(c *gin.Context) {
-	c.HTML(200, "test2.html", nil)
 }
 
 func (a *Application) formPath(c *gin.Context) {

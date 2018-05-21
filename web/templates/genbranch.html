@@ -1,0 +1,15 @@
+<form>
+<input type="submit" name="button_back" value="Back">
+<fieldset>
+					<legend>Branch</legend>
+					<table>
+						<tr><td>Org:</td>
+							<td><input type="text" name="org" value={{ .org }} readonly></td></tr>
+						<tr><td>Repo:</td>
+							<td><input type="text" name="repo" value={{ .repo }} readonly></td></tr>
+						<tr><td>Branch:</td>
+							<td><input type="text" name="branch" value=""></td></tr>
+						<tr><td><input type="submit" name="button_generatebranch" value="Submit"></td><tr>
+					</table>
+				</fieldset>
+</form>
