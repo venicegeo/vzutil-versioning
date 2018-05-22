@@ -257,8 +257,8 @@ func (a *Application) genBranch(c *gin.Context) {
 		Gen  string `form:"button_generatebranch"`
 	}
 	pproj := c.Param("proj")
-	porg := c.Param("org")
-	prepo := c.Param("repo")
+	//	porg := c.Param("org")
+	//	prepo := c.Param("repo")
 	if form.Back != "" {
 		c.Redirect(303, "/test/"+pproj)
 		return
