@@ -14,9 +14,20 @@
 
 package structs
 
-import "html/template"
+import (
+	"html/template"
+)
 
-type HtmlInter interface {
-	Template() template.HTML
-	String() string
+type HtmlBr struct{}
+
+func NewHtmlBr() *HtmlBr {
+	return &HtmlBr{}
+}
+
+func (h *HtmlBr) Template() template.HTML {
+	return template.HTML(h.String())
+}
+
+func (h *HtmlBr) String() string {
+	return "<br>"
 }

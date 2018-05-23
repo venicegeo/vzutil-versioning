@@ -14,7 +14,11 @@
 
 package table
 
-import "strings"
+import (
+	"bytes"
+	"fmt"
+	"strings"
+)
 
 type Table struct {
 	table            [][]string
@@ -61,10 +65,11 @@ func (t *Table) UnspaceAllColumns() *Table {
 	}
 	return t
 }
-func (t *Table) Fill(toFill ...string) {
+func (t *Table) Fill(toFill ...string) *Table {
 	for _, f := range toFill {
 		t.fill(f)
 	}
+	return t
 }
 func (t *Table) fill(toFill string) {
 	t.table[t.nextRow][t.nextColumn] = toFill
@@ -110,37 +115,41 @@ func (t *Table) NoColumnBorders() *Table {
 	return t
 }
 func (t *Table) String() string {
-	res := ""
+	res := bytes.NewBufferString("")
 	pipe := "|"
 	if !t.drawColumnBorder {
 		pipe = ""
 	}
 	for r := 0; r < len(t.table); r++ {
-		line := ""
+		line := bytes.NewBufferString("")
 		for c := 0; c < len(t.table[r]); c++ {
 			if t.spaceColum[c] {
-				line += " " + t.table[r][c] + " " + pipe
+				line.WriteString(fmt.Sprintf(" %s %s", t.table[r][c], pipe))
 			} else {
-				line += t.table[r][c] + pipe
+				line.WriteString(fmt.Sprintf("%s%s", t.table[r][c], pipe))
 			}
 		}
-		res += pipe + line + "\n"
+		res.WriteString(fmt.Sprintf("%s%s\n", pipe, line.String()))
 		if t.drawRowBorder {
-			for i := 0; i < len(line)+1; i++ {
-				res += "-"
+			for i := 0; i < line.Len()+1; i++ {
+				res.WriteString("-")
 			}
-			res += "\n"
+			res.WriteString("\n")
 		}
 	}
-	temp := ""
-	tmpS := len(strings.SplitN(res, "\n", 2)[0])
+	temp := bytes.NewBufferString("")
+	tmpS := len(strings.SplitN(res.String(), "\n", 2)[0])
 	if tmpS == 0 {
 		tmpS = 10
 	}
 	for i := 0; i < tmpS; i++ {
-		temp += "_"
+		temp.WriteString("_")
 	}
-	return temp + "\n" + res + temp
+	tempS := temp.String()
+	temp.WriteString("\n")
+	temp.WriteString(res.String())
+	temp.WriteString(tempS)
+	return temp.String()
 }
 func (t *Table) max(a, b int) int {
 	if a > b {

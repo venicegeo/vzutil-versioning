@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package structs
+package es
 
-import "html/template"
+type Project struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayname"`
+}
 
-type HtmlInter interface {
-	Template() template.HTML
-	String() string
+type ProjectEntry struct {
+	Name string `json:"name"`
+	Repo string `json:"repo"`
 }

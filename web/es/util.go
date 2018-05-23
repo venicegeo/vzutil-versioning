@@ -27,16 +27,21 @@ type hit struct {
 	Dat []byte
 }
 
-func GetAll(index *elasticsearch.Index, typ, query string) ([]*hit, error) {
+func GetAll(index *elasticsearch.Index, typ, query string, vsort ...string) ([]*hit, error) {
 	from := int64(0)
 	size := int64(20)
 	res := []*hit{}
+	sort := "{}"
+	if len(vsort) > 0 {
+		sort = vsort[0]
+	}
 	for {
 		str := u.Format(`{
 	"from":%d,
 	"size":%d,
-	"query":%s
-}`, from, size, query)
+	"query":%s,
+	"sort":%s
+}`, from, size, query, sort)
 		result, err := index.SearchByJSON(typ, str)
 		if err != nil {
 			return nil, err
@@ -82,13 +87,4 @@ func GetAllDependenciesStr(index *elasticsearch.Index) ([]string, error) {
 		res[i] = dep.String()
 	}
 	return res, nil
-}
-
-func MatchAllSize(index *elasticsearch.Index, typ string, size int) (*elasticsearch.SearchResult, error) {
-	return index.SearchByJSON(typ, u.Format(`
-{
-	"size": %d,
-	"query":{}
-}	
-	`, size))
 }

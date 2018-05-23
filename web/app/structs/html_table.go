@@ -16,27 +16,43 @@ package structs
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 )
 
-type HtmlCollection struct {
-	html []HtmlInter
+type HtmlTable struct {
+	table [][]string
 }
 
-func NewHtmlCollection(items ...HtmlInter) *HtmlCollection {
-	return &HtmlCollection{items}
+func NewHtmlTable() *HtmlTable {
+	return &HtmlTable{[][]string{}}
 }
 
-func (h *HtmlCollection) Add(item HtmlInter) {
-	h.html = append(h.html, item)
+func (h *HtmlTable) AddRow() *HtmlTable {
+	h.table = append(h.table, []string{})
+	return h
 }
-func (h *HtmlCollection) Template() template.HTML {
+
+func (h *HtmlTable) AddItem(row int, elem fmt.Stringer) *HtmlTable {
+	h.table[row] = append(h.table[row], elem.String())
+	return h
+}
+
+func (h *HtmlTable) Template() template.HTML {
 	return template.HTML(h.String())
 }
-func (h *HtmlCollection) String() string {
-	buf := bytes.NewBufferString("")
-	for _, ht := range h.html {
-		buf.WriteString(ht.String())
+
+func (h *HtmlTable) String() string {
+	buf := bytes.NewBufferString("<table>\n")
+	for _, row := range h.table {
+		buf.WriteString("\t<tr>\n")
+		for _, item := range row {
+			buf.WriteString("\t\t<td>")
+			buf.WriteString(item)
+			buf.WriteString("</td>\n")
+		}
+		buf.WriteString("\t</tr>\n")
 	}
+	buf.WriteString("</table>")
 	return buf.String()
 }

@@ -24,13 +24,17 @@ import (
 type HtmlButton struct {
 	name  string
 	value string
+	class string
 }
 
 func NewHtmlButton(value string) *HtmlButton {
-	return &HtmlButton{"button_" + strings.ToLower(value), value}
+	return &HtmlButton{"button_" + strings.ToLower(value), value, ""}
 }
 func NewHtmlButton2(name, value string) *HtmlButton {
-	return &HtmlButton{name, value}
+	return &HtmlButton{name, value, ""}
+}
+func NewHtmlButton3(name, value, class string) *HtmlButton {
+	return &HtmlButton{name, value, class}
 }
 
 func (h *HtmlButton) Template() template.HTML {
@@ -38,5 +42,5 @@ func (h *HtmlButton) Template() template.HTML {
 }
 
 func (h *HtmlButton) String() string {
-	return f.Format(`<input type="submit" name="%s" value="%s">`, h.name, h.value)
+	return f.Format(`<input type="submit" name="%s" value="%s" class="%s">`, h.name, h.value, h.class)
 }
