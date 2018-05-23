@@ -179,7 +179,9 @@ func (a *Application) Start() chan error {
 		u.RouteData{"POST", "/newproj", a.newProj},
 		u.RouteData{"GET", "/project/:proj", a.testProject},
 		u.RouteData{"GET", "/addrepo/:proj", a.addRepo},
+		u.RouteData{"POST", "/addrepo/:proj", a.addRepo},
 		u.RouteData{"GET", "/genbranch/:proj/:org/:repo", a.genBranch},
+		u.RouteData{"GET", "/reportref/:proj", a.reportRefNew},
 
 		u.RouteData{"GET", "/diff", a.diffPath},
 		u.RouteData{"GET", "/cdiff", a.customDiffPath},

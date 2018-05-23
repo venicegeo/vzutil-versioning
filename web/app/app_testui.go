@@ -17,6 +17,7 @@ package app
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -84,6 +85,33 @@ func (a *Application) test(c *gin.Context) {
 	}
 }
 
+func (a *Application) addRepsoToProjWrk(name string, reposs []string) {
+	realr := []string{}
+	for _, r := range reposs {
+		if strings.TrimSpace(r) == "" {
+			continue
+		}
+		realr = append(realr, strings.TrimSpace(strings.ToLower(r)))
+	}
+	//TODO thread
+	for _, fullName := range realr {
+		checkRepoExist := func(fullName string) error {
+			url := u.Format("https://github.com/%s", fullName)
+			if code, _, _, e := nt.HTTP(nt.HEAD, url, nt.NewHeaderBuilder().GetHeader(), nil); e != nil {
+				return e
+			} else if code != 200 {
+				return u.Error("Code on %s is no 200, but %d", fullName, code)
+			} else {
+				return nil
+			}
+		}
+		if err := checkRepoExist(fullName); err != nil {
+			continue
+		}
+		a.index.PostData("project_entry", "", es.ProjectEntry{name, fullName})
+	}
+}
+
 func (a *Application) newProj(c *gin.Context) {
 	type form struct {
 		Back        string   `form:"button_back"`
@@ -104,13 +132,6 @@ func (a *Application) newProj(c *gin.Context) {
 			c.String(400, "You must specify a project name")
 			return
 		}
-		realr := []string{}
-		for _, r := range f.Repos {
-			if strings.TrimSpace(r) == "" {
-				continue
-			}
-			realr = append(realr, strings.TrimSpace(strings.ToLower(r)))
-		}
 		displayName := f.ProjectName
 		name := strings.ToLower(strings.Replace(strings.Replace(f.ProjectName, "/", "_", -1), " ", "", -1))
 		exists, err := a.index.ItemExists("project", name)
@@ -129,24 +150,7 @@ func (a *Application) newProj(c *gin.Context) {
 			return
 		}
 
-		//TODO thread
-		for _, fullName := range realr {
-			checkRepoExist := func(fullName string) error {
-				url := u.Format("https://github.com/%s", fullName)
-				if code, _, _, e := nt.HTTP(nt.HEAD, url, nt.NewHeaderBuilder().GetHeader(), nil); e != nil {
-					return e
-				} else if code != 200 {
-					return u.Error("Code on %s is no 200, but %d", fullName, code)
-				} else {
-					return nil
-				}
-			}
-			err := checkRepoExist(fullName)
-			if err != nil {
-				continue
-			}
-			a.index.PostData("project_entry", "", es.ProjectEntry{name, fullName})
-		}
+		a.addRepsoToProjWrk(name, f.Repos)
 
 		c.Redirect(303, "/test")
 	} else {
@@ -169,13 +173,13 @@ func (a *Application) testProject(c *gin.Context) {
 	if f.Util != "" {
 		switch f.Util {
 		case "Report By Ref":
-			println("report")
+			c.Redirect(303, "/reportref/"+proj)
 			return
 		case "Generate All Tags":
 			println("generate")
 			return
 		case "Add Repository":
-			println("add")
+			c.Redirect(303, "/addrepo/"+proj)
 			return
 		case "Remove Repository":
 			println("remove")
@@ -204,7 +208,7 @@ func (a *Application) testProject(c *gin.Context) {
 		depsStr = hDeps.String()
 	} else if f.Gen != "" {
 		repoFullName := strings.TrimPrefix(f.Gen, "Generate Branch - ")
-		println(repoFullName)
+		c.Redirect(303, u.Format("/genbranch/%s/%s", proj, repoFullName))
 		return
 	}
 	accord := s.NewHtmlAccordion()
@@ -242,27 +246,73 @@ func (a *Application) testProject(c *gin.Context) {
 }
 
 func (a *Application) addRepo(c *gin.Context) {
+	var form struct {
+		Back   string   `form:"button_back"`
+		Repos  []string `form:"repos[]"`
+		Create string   `form:"button_submit"`
+	}
 	proj := c.Param("proj")
+	if err := c.Bind(&form); err != nil {
+		c.String(400, "Error binding form: %s", err.Error())
+		return
+	}
+	if form.Back != "" {
+		c.Redirect(303, "/project/"+proj)
+		return
+	}
+	if form.Create != "" {
+		a.addRepsoToProjWrk(proj, form.Repos)
+		c.Redirect(303, "/project/"+proj)
+		return
+	}
 	currentRepos, err := a.rtrvr.ListRepositoriesByProj(proj)
 	if err != nil {
 		c.String(400, "Error getting the projects repositories: %s", err.Error())
 		return
 	}
-	c.String(200, "%s", currentRepos)
+	buf := bytes.NewBufferString("")
+	for _, repo := range currentRepos {
+		buf.WriteString(repo)
+		buf.WriteString("\n")
+	}
+	h := gin.H{}
+	h["current"] = buf.String()
+	c.HTML(200, "addrepo.html", h)
 }
 
 func (a *Application) genBranch(c *gin.Context) {
 	var form struct {
-		Back string `form:"button_back"`
-		Gen  string `form:"button_generatebranch"`
+		Back   string `form:"button_back"`
+		Gen    string `form:"button_generatebranch"`
+		Branch string `form:"branch"`
+	}
+	if err := c.Bind(&form); err != nil {
+		c.String(400, "Could not bind form: %s", err.Error())
 	}
 	pproj := c.Param("proj")
-	//	porg := c.Param("org")
-	//	prepo := c.Param("repo")
+	porg := c.Param("org")
+	prepo := c.Param("repo")
+	branch := form.Branch
 	if form.Back != "" {
-		c.Redirect(303, "/test/"+pproj)
+		c.Redirect(303, "/project/"+pproj)
 		return
 	}
 	if form.Gen != "" {
+		fmt.Println(u.Format("%s/%s", porg, prepo), branch)
+		_, err := a.generateBranchWrk(prepo, u.Format("%s/%s", porg, prepo), branch)
+		if err != nil {
+			c.String(400, "Could not generate this sha: %s", err.Error())
+			return
+		}
+		c.Redirect(303, "/project/"+pproj)
+		return
 	}
+	h := gin.H{}
+	h["org"] = porg
+	h["repo"] = prepo
+	c.HTML(200, "genbranch.html", h)
+}
+
+func (a *Application) reportRefNew(c *gin.Context) {
+	c.String(200, "test")
 }
