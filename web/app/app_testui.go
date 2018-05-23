@@ -17,12 +17,14 @@ package app
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"log"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	"github.com/venicegeo/vzutil-versioning/common/table"
+	h "github.com/venicegeo/vzutil-versioning/web/app/helpers"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -85,7 +87,7 @@ func (a *Application) test(c *gin.Context) {
 	}
 }
 
-func (a *Application) addRepsoToProjWrk(name string, reposs []string) {
+func (a *Application) addReposToProjWrk(name string, reposs []string) {
 	realr := []string{}
 	for _, r := range reposs {
 		if strings.TrimSpace(r) == "" {
@@ -150,7 +152,7 @@ func (a *Application) newProj(c *gin.Context) {
 			return
 		}
 
-		a.addRepsoToProjWrk(name, f.Repos)
+		a.addReposToProjWrk(name, f.Repos)
 
 		c.Redirect(303, "/test")
 	} else {
@@ -160,33 +162,46 @@ func (a *Application) newProj(c *gin.Context) {
 
 func (a *Application) testProject(c *gin.Context) {
 	proj := c.Param("proj")
-	var f struct {
+	var form struct {
+		Back string `form:"button_back"`
 		Util string `form:"button_util"`
 		Sha  string `form:"button_sha"`
 		Gen  string `form:"button_gen"`
+		Diff string `form:"button_diff"`
 	}
-	if err := c.Bind(&f); err != nil {
+	if err := c.Bind(&form); err != nil {
 		c.String(400, "Unable to bind form: %s", err.Error())
 		return
 	}
-	depsStr := ""
-	if f.Util != "" {
-		switch f.Util {
+	if form.Back != "" {
+		c.Redirect(303, "/test")
+		return
+	}
+	depsStr := "Result info will appear here"
+	if form.Util != "" {
+		switch form.Util {
 		case "Report By Ref":
 			c.Redirect(303, "/reportref/"+proj)
 			return
 		case "Generate All Tags":
-			println("generate")
-			return
+			str, err := a.genTagsWrk(proj)
+			if err != nil {
+				u.Format("Unable to generate all tags: %s", err.Error())
+			} else {
+				depsStr = str
+			}
 		case "Add Repository":
 			c.Redirect(303, "/addrepo/"+proj)
 			return
 		case "Remove Repository":
-			println("remove")
+			c.Redirect(303, "/removerepo/"+proj)
+			return
+		case "Dependency Search":
+			c.Redirect(303, "/depsearch/"+proj)
 			return
 		}
-	} else if f.Sha != "" {
-		deps, fullName, _, found, err := a.rtrvr.DepsBySha(f.Sha)
+	} else if form.Sha != "" {
+		deps, fullName, _, found, err := a.rtrvr.DepsBySha(form.Sha)
 		if !found && err != nil {
 			c.String(400, "Unable to find this sha: %s", err.Error())
 			return
@@ -198,7 +213,7 @@ func (a *Application) testProject(c *gin.Context) {
 		hDeps.WriteString("Report for ")
 		hDeps.WriteString(fullName)
 		hDeps.WriteString(" at ")
-		hDeps.WriteString(f.Sha)
+		hDeps.WriteString(form.Sha)
 		hDeps.WriteString("\n")
 		t := table.NewTable(3, len(deps))
 		for _, dep := range deps {
@@ -206,9 +221,12 @@ func (a *Application) testProject(c *gin.Context) {
 		}
 		hDeps.WriteString(t.SpaceColumn(1).NoRowBorders().Format().String())
 		depsStr = hDeps.String()
-	} else if f.Gen != "" {
-		repoFullName := strings.TrimPrefix(f.Gen, "Generate Branch - ")
+	} else if form.Gen != "" {
+		repoFullName := strings.TrimPrefix(form.Gen, "Generate Branch - ")
 		c.Redirect(303, u.Format("/genbranch/%s/%s", proj, repoFullName))
+		return
+	} else if form.Diff != "" {
+		c.Redirect(303, "/diff/"+proj)
 		return
 	}
 	accord := s.NewHtmlAccordion()
@@ -242,7 +260,15 @@ func (a *Application) testProject(c *gin.Context) {
 	h := gin.H{}
 	h["accordion"] = accord.Template()
 	h["deps"] = depsStr
-	c.HTML(200, "test2.html", h)
+	{
+		diffs, err := a.diffMan.DiffList()
+		if err != nil {
+			h["diff"] = ""
+		} else {
+			h["diff"] = u.Format(" (%d)", len(diffs))
+		}
+	}
+	c.HTML(200, "project.html", h)
 }
 
 func (a *Application) addRepo(c *gin.Context) {
@@ -261,7 +287,7 @@ func (a *Application) addRepo(c *gin.Context) {
 		return
 	}
 	if form.Create != "" {
-		a.addRepsoToProjWrk(proj, form.Repos)
+		a.addReposToProjWrk(proj, form.Repos)
 		c.Redirect(303, "/project/"+proj)
 		return
 	}
@@ -298,7 +324,6 @@ func (a *Application) genBranch(c *gin.Context) {
 		return
 	}
 	if form.Gen != "" {
-		fmt.Println(u.Format("%s/%s", porg, prepo), branch)
 		_, err := a.generateBranchWrk(prepo, u.Format("%s/%s", porg, prepo), branch)
 		if err != nil {
 			c.String(400, "Could not generate this sha: %s", err.Error())
@@ -314,5 +339,240 @@ func (a *Application) genBranch(c *gin.Context) {
 }
 
 func (a *Application) reportRefNew(c *gin.Context) {
-	c.String(200, "test")
+	proj := c.Param("proj")
+	var form struct {
+		Back string `form:"button_back"`
+		Ref  string `form:"button_submit"`
+	}
+	if err := c.Bind(&form); err != nil {
+		c.String(400, "Unable to bind form: %s", err.Error())
+		return
+	}
+	if form.Back != "" {
+		c.Redirect(303, "/project/"+proj)
+		return
+	}
+	h := gin.H{"report": ""}
+	refs, err := a.rtrvr.ListRefsInProj(proj)
+	if err != nil {
+		h["refs"] = u.Format("Unable to retrieve this projects refs: %s", err.Error())
+	} else {
+		buttons := s.NewHtmlCollection()
+		for _, ref := range refs {
+			buttons.Add(s.NewHtmlButton2("button_submit", ref))
+			buttons.Add(s.NewHtmlBr())
+		}
+		h["refs"] = buttons.Template()
+	}
+	if form.Ref != "" {
+		deps, err := a.rtrvr.DepsByRef(proj, form.Ref)
+		if err != nil {
+			h["report"] = u.Format("Unable to generate report: %s", err.Error())
+		} else {
+			buf := bytes.NewBufferString("")
+			for name, depss := range deps {
+				buf.WriteString(u.Format("%s at %s", name, form.Ref))
+				t := table.NewTable(3, len(depss))
+				for _, dep := range depss {
+					t.Fill(dep.Name)
+					t.Fill(dep.Version)
+					t.Fill(dep.Language)
+				}
+				buf.WriteString(u.Format("\n%s\n\n", t.NoRowBorders().SpaceColumn(1).Format().String()))
+			}
+			h["report"] = buf.String()
+		}
+	}
+
+	c.HTML(200, "reportref.html", h)
+}
+func (a *Application) removeRepo(c *gin.Context) {
+	proj := c.Param("proj")
+	var form struct {
+		Back string `form:"button_back"`
+		Repo string `form:"button_submit"`
+	}
+	if err := c.Bind(&form); err != nil {
+		c.String(400, "Unable to bind form: %s", err.Error())
+		return
+	}
+	if form.Back != "" {
+		c.Redirect(303, "/project/"+proj)
+		return
+	}
+	if form.Repo != "" {
+		resp, err := a.index.SearchByJSON("project_entry", u.Format(`{
+	"query":{
+		"bool":{
+			"must":[
+				{
+					"term":{"name":"%s"}
+				},{
+					"term":{"repo":"%s"}
+				}
+			]
+		}
+	},
+	"size":1
+}`, proj, form.Repo))
+		if err != nil {
+			c.String(400, "Unable to find the project entry: %s", err.Error())
+			return
+		}
+		if resp.NumHits() != 1 {
+			c.String(400, "Could not find the project entry")
+			return
+		}
+		_, err = a.index.DeleteByIDWait("project_entry", resp.GetHit(0).ID)
+		if err != nil {
+			c.String(500, "Unable to delete project entry: %s", err.Error())
+			return
+		}
+		c.Redirect(303, "/removerepo/"+proj)
+		return
+	}
+	repos, err := a.rtrvr.ListRepositoriesByProj(proj)
+	if err != nil {
+		c.String(500, "Unable to get the repos: %s", err)
+		return
+	}
+	h := gin.H{}
+	buttons := s.NewHtmlCollection()
+	for _, repo := range repos {
+		buttons.Add(s.NewHtmlButton2("button_submit", repo))
+		buttons.Add(s.NewHtmlBr())
+	}
+	h["repos"] = buttons.Template()
+	c.HTML(200, "removerepo.html", h)
+}
+func (a *Application) genTagsWrk(proj string) (string, error) {
+	repos, err := a.rtrvr.ListRepositoriesByProj(proj)
+	if err != nil {
+		return "", err
+	}
+	go func(repos []string) {
+		for _, repo := range repos {
+			name := strings.SplitN(repo, "/", 2)[1]
+			dat, err := h.NewTagsRunner(name, repo).Run()
+			if err != nil {
+				log.Println("[TAG UPDATER] Was unable to run tags against " + repo + ": [" + err.Error() + "]")
+				continue
+			}
+			go func(dat map[string]string, name string, repo string) {
+				for sha, ref := range dat {
+					git := s.GitWebhook{
+						Ref:      ref,
+						AfterSha: sha,
+						Repository: s.GitRepository{
+							Name:     name,
+							FullName: repo,
+						},
+						Timestamp: time.Now().UnixNano(),
+					}
+					log.Println(repo, sha, ref)
+					a.wbhkRnnr.RunAgainstWeb(&git)
+				}
+			}(dat, name, repo)
+		}
+	}(repos)
+
+	buf := bytes.NewBufferString("Trying to run against:\n")
+	for _, repo := range repos {
+		buf.WriteString("\n")
+		buf.WriteString(repo)
+	}
+	return buf.String(), nil
+}
+func (a *Application) depSearch(c *gin.Context) {
+	proj := c.Param("proj")
+	var form struct {
+		Back         string `form:"button_back"`
+		DepName      string `form:"depsearchname"`
+		DepVersion   string `form:"depsearchversion"`
+		ButtonSearch string `form:"button_depsearch"`
+	}
+	if err := c.Bind(&form); err != nil {
+		c.String(400, "Unable to bind form: %s", err.Error())
+		return
+	}
+	h := gin.H{
+		"data":             "Search Results will appear here",
+		"depsearchname":    form.DepName,
+		"depsearchversion": form.DepVersion,
+	}
+	if form.Back != "" {
+		c.Redirect(303, "/project/"+proj)
+	} else if form.ButtonSearch != "" {
+		code, dat := a.searchForDepWrk(form.DepName, form.DepVersion)
+		h["data"] = dat
+		c.HTML(code, "depsearch.html", h)
+	} else {
+		c.HTML(200, "depsearch.html", h)
+	}
+}
+
+func (a *Application) diff(c *gin.Context) {
+	proj := c.Param("proj")
+	var back struct {
+		Back string `form:"button_back"`
+	}
+	if err := c.Bind(&back); err != nil {
+		c.String(400, "Unable to bind form: %s", err.Error())
+		return
+	}
+	if back.Back != "" {
+		c.Redirect(303, "/project/"+proj)
+		return
+	}
+	gh := gin.H{}
+	gh["buttons"] = "Differences will appear here"
+	gh["data"] = "Details will appear here"
+	if err := c.Request.ParseForm(); err != nil {
+		gh["buttons"] = "Error loading the form.\n" + err.Error()
+		c.HTML(500, "differences.html", gh)
+		return
+	}
+	diffs, err := a.diffMan.AllDiffs()
+	if err != nil {
+		gh["buttons"] = "Could not load this.\n" + err.Error()
+		gh["data"] = "Error loading this.\n" + err.Error()
+		c.HTML(500, "differences.html", gh)
+		return
+	}
+	form := map[string][]string(c.Request.Form)
+	{
+		buttons := make([]s.HtmlInter, len(*diffs))
+		for i, d := range *diffs {
+			buttons[i] = s.NewHtmlButton2(d.Id, d.SimpleString())
+		}
+		if len(buttons) > 0 {
+			tmp := s.NewHtmlCollection()
+			for _, b := range buttons {
+				tmp.Add(b)
+				tmp.Add(s.NewHtmlBr())
+			}
+			gh["buttons"] = tmp.Template()
+		}
+	}
+	if len(form) > 0 {
+		var res string
+		for diffId, _ := range form {
+			if diffId == "button_delete" {
+				a.diffMan.Delete(a.diffMan.CurrentDisplay)
+				a.diffMan.CurrentDisplay = ""
+				c.Redirect(307, "/diff")
+				return
+			} else {
+				for _, diff := range *diffs {
+					if diff.Id == diffId {
+						res = a.diffMan.GenerateReport(&diff) + "\n"
+						a.diffMan.CurrentDisplay = diffId
+						break
+					}
+				}
+			}
+		}
+		gh["data"] = s.NewHtmlCollection(s.NewHtmlBasic("pre", res), s.NewHtmlBasic("form", s.NewHtmlButton("Delete").String())).Template()
+	}
+	c.HTML(200, "differences.html", gh)
 }

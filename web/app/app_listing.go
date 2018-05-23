@@ -68,7 +68,7 @@ func (a *Application) listRefs(c *gin.Context) {
 		return
 	}
 	org := c.Param("org")
-	tags, num, err := a.rtrvr.ListRefs(org)
+	tags, num, err := a.rtrvr.ListRefsInProjByRepo(org)
 	if err != nil {
 		a.displayFailure(c, err.Error())
 		return

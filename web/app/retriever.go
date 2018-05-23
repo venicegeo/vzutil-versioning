@@ -277,8 +277,31 @@ func (r *Retriever) ListRefsRepo(fullName string) ([]string, error) {
 	return res, nil
 }
 
-func (r *Retriever) ListRefs(org string) (*map[string][]string, int, error) {
-	repos, err := r.ListRepositoriesByProj(org)
+func (r *Retriever) ListRefsInProj(proj string) ([]string, error) {
+	repos, err := r.ListRepositoriesByProj(proj)
+	if err != nil {
+		return nil, err
+	}
+	boolQ := es.NewBoolQ()
+	for _, repo := range repos {
+		boolQ.Add(es.NewTerm("repo_fullname", repo))
+	}
+	boool := es.NewBool().SetShould(boolQ)
+	query := r.newAggQuery("refs", "ref_name")
+	query["query"] = map[string]interface{}{"bool": boool}
+	var out AggResponse
+	if err := r.app.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", query, &out); err != nil {
+		return nil, err
+	}
+	res := make([]string, len(out.Aggs["refs"].Buckets), len(out.Aggs["refs"].Buckets))
+	for i, bucket := range out.Aggs["refs"].Buckets {
+		res[i] = strings.TrimPrefix(bucket.Key, "refs/")
+	}
+	return res, nil
+}
+
+func (r *Retriever) ListRefsInProjByRepo(proj string) (*map[string][]string, int, error) {
+	repos, err := r.ListRepositoriesByProj(proj)
 	if err != nil {
 		return nil, 0, err
 	}

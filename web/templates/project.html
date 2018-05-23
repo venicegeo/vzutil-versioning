@@ -48,13 +48,22 @@ td {
 <table>
 <tr>
 <td>
+<form>
+	<input type="submit" name="button_back" value="Back">
+</form>
+</td>
+<tr>
+<tr>
+<td>
 <fieldset>
 <legend>Util</legend>
 <form>
 	<input type="submit" name="button_util" value="Report By Ref"><br>
 	<input type="submit" name="button_util" value="Generate All Tags"><br>
 	<input type="submit" name="button_util" value="Add Repository"><br>
-	<input type="submit" name="button_util" value="Remove Repository">
+	<input type="submit" name="button_util" value="Remove Repository"><br>
+	<input type="submit" name="button_util" value="Dependency Search"><br>
+	<input type="submit" name="button_diff" value="Differences{{ .diff }}">
 </form>
 </fieldset>
 </td>
@@ -64,9 +73,11 @@ td {
 
 </td>
 <td>
+<fieldset>
 <pre>
 {{ .deps }}
 </pre>
+</fieldset>
 </td>
 </tr>
 </table>

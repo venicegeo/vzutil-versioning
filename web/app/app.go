@@ -152,27 +152,27 @@ func (a *Application) Start() chan error {
 	server.Configure([]u.RouteData{
 		u.RouteData{"GET", "/", a.defaultPath},
 		u.RouteData{"POST", "/webhook", a.webhookPath},
-		u.RouteData{"GET", "/generate/tags/:proj/:repo", a.updateAllTags},
-		u.RouteData{"GET", "/generate/tags/:proj", a.updateAllTagsProj},
-		u.RouteData{"GET", "/generate/branch/:org/:repo/:branch", a.generateBranch},
+		//		u.RouteData{"GET", "/generate/tags/:proj/:repo", a.updateAllTags},
+		//		u.RouteData{"GET", "/generate/tags/:proj", a.updateAllTagsProj},
+		//		u.RouteData{"GET", "/generate/branch/:org/:repo/:branch", a.generateBranch},
 
-		u.RouteData{"GET", "/report/sha/:shaorg", a.reportSha},
-		u.RouteData{"GET", "/report/sha/:shaorg/:repo/:sha", a.reportSha},
-		u.RouteData{"GET", "/report/ref/:refproj", a.reportRef},
-		u.RouteData{"GET", "/report/ref/:refproj/:refrepo", a.reportRef},
-		u.RouteData{"GET", "/report/ref/:refproj/:refrepo/:ref", a.reportRef},
+		//		u.RouteData{"GET", "/report/sha/:shaorg", a.reportSha},
+		//		u.RouteData{"GET", "/report/sha/:shaorg/:repo/:sha", a.reportSha},
+		//		u.RouteData{"GET", "/report/ref/:refproj", a.reportRef},
+		//		u.RouteData{"GET", "/report/ref/:refproj/:refrepo", a.reportRef},
+		//		u.RouteData{"GET", "/report/ref/:refproj/:refrepo/:ref", a.reportRef},
 
-		u.RouteData{"GET", "/list/shas/:org/:repo", a.listShas},
-		u.RouteData{"GET", "/list/refs/:org/:repo", a.listRefsRepo},
-		u.RouteData{"GET", "/list/refs/:org", a.listRefs},
-		u.RouteData{"GET", "/list/repositories", a.listRepositories},
-		u.RouteData{"GET", "/list/repositories/:proj", a.listRepositoriesProj},
+		//		u.RouteData{"GET", "/list/shas/:org/:repo", a.listShas},
+		//		u.RouteData{"GET", "/list/refs/:org/:repo", a.listRefsRepo},
+		//		u.RouteData{"GET", "/list/refs/:org", a.listRefs},
+		//		u.RouteData{"GET", "/list/repositories", a.listRepositories},
+		//		u.RouteData{"GET", "/list/repositories/:proj", a.listRepositoriesProj},
 
-		u.RouteData{"GET", "/search", a.uiSearchForDep},
-		u.RouteData{"GET", "/search/:dep", a.searchForDep},
-		u.RouteData{"GET", "/search/:dep/:version", a.searchForDep},
+		//		u.RouteData{"GET", "/search", a.uiSearchForDep},
+		//		u.RouteData{"GET", "/search/:dep", a.searchForDep},
+		//		u.RouteData{"GET", "/search/:dep/:version", a.searchForDep},
 
-		u.RouteData{"GET", "/ui", a.formPath},
+		//		u.RouteData{"GET", "/ui", a.formPath},
 
 		u.RouteData{"GET", "/test", a.test},
 		u.RouteData{"GET", "/newproj", a.newProj},
@@ -182,11 +182,14 @@ func (a *Application) Start() chan error {
 		u.RouteData{"POST", "/addrepo/:proj", a.addRepo},
 		u.RouteData{"GET", "/genbranch/:proj/:org/:repo", a.genBranch},
 		u.RouteData{"GET", "/reportref/:proj", a.reportRefNew},
+		u.RouteData{"GET", "/removerepo/:proj", a.removeRepo},
+		u.RouteData{"GET", "/depsearch/:proj", a.depSearch},
+		u.RouteData{"GET", "/diff/:proj", a.diff},
 
-		u.RouteData{"GET", "/diff", a.diffPath},
-		u.RouteData{"GET", "/cdiff", a.customDiffPath},
-		u.RouteData{"GET", "/tdiff", a.textDiffPath},
-		u.RouteData{"POST", "/tdiff", a.textDiffPath},
+		//		u.RouteData{"GET", "/diff", a.diffPath},
+		//		u.RouteData{"GET", "/cdiff", a.customDiffPath},
+		//		u.RouteData{"GET", "/tdiff", a.textDiffPath},
+		//		u.RouteData{"POST", "/tdiff", a.textDiffPath},
 	})
 	select {
 	case err = <-server.Start(":" + port):
