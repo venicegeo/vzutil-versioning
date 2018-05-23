@@ -17,6 +17,7 @@ package app
 import (
 	"bytes"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
@@ -39,15 +40,14 @@ func (a *Application) viewProject(c *gin.Context) {
 		c.String(400, "Unable to bind form: %s", err.Error())
 		return
 	}
+	depsStr := "Result info will appear here"
 	if form.Back != "" {
 		c.Redirect(303, "/ui")
 		return
 	} else if form.Reload != "" {
 		c.Redirect(303, "/project/"+proj)
 		return
-	}
-	depsStr := "Result info will appear here"
-	if form.Util != "" {
+	} else if form.Util != "" {
 		switch form.Util {
 		case "Report By Ref":
 			c.Redirect(303, "/reportref/"+proj)
@@ -93,16 +93,18 @@ func (a *Application) viewProject(c *gin.Context) {
 		c.String(500, "Unable to retrieve repository list: %s", err.Error())
 		return
 	}
-	for _, repoName := range repos {
+	mux := sync.Mutex{}
+	errs := make(chan error, len(repos))
+	work := func(repoName string) {
 		refs, err := a.rtrvr.ListRefsRepo(repoName)
 		if err != nil {
-			c.String(500, "Unable to retrieve refs:  %s", err.Error())
+			errs <- err
 			return
 		}
 		tempAccord := s.NewHtmlAccordion()
 		shas, _, err := a.rtrvr.ListShas(repoName)
 		if err != nil {
-			c.String(500, "Unable to retrieve shas: %s", err.Error())
+			errs <- err
 			return
 		}
 		for _, ref := range refs {
@@ -112,7 +114,24 @@ func (a *Application) viewProject(c *gin.Context) {
 			}
 			tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
 		}
+		mux.Lock()
 		accord.AddItem(repoName, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlButton2("button_gen", "Generate Branch - "+repoName)).Post(), tempAccord.Sort()))
+		mux.Unlock()
+		errs <- nil
+	}
+	for _, repoName := range repos {
+		go work(repoName)
+	}
+	err = nil
+	for i := 0; i < len(repos); i++ {
+		e := <-errs
+		if e != nil {
+			err = e
+		}
+	}
+	if err != nil {
+		c.String(500, "Error retrieving data: %s", err.Error())
+		return
 	}
 	accord.Sort()
 	h := gin.H{}
