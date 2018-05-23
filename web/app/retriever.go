@@ -15,7 +15,6 @@
 package app
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -150,17 +149,17 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res map[string][]
 		},
 	}
 	query["size"] = 1
-	type Hit struct {
-		Id     string          `json:"_id"`
-		Source json.RawMessage `json:"_source"`
-	}
-	type Result struct {
-		Total int64 `json:"total"`
-		Hits  []Hit `json:"hits"`
-	}
-	type Wrapper struct {
-		R Result `json:"hits"`
-	}
+	//	type Hit struct {
+	//		Id     string          `json:"_id"`
+	//		Source json.RawMessage `json:"_source"`
+	//	}
+	//	type Result struct {
+	//		Total int64 `json:"total"`
+	//		Hits  []Hit `json:"hits"`
+	//	}
+	//	type Wrapper struct {
+	//		R Result `json:"hits"`
+	//	}
 	dat, err := json.MarshalIndent(query, " ", "   ")
 	if err != nil {
 		return nil, err
@@ -176,28 +175,18 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res map[string][]
 	}
 	work := func(repoName string) {
 		q := []byte(fmt.Sprintf(string(dat), repoName))
-		var out Wrapper
-		code, dat, _, err := nt.HTTP(nt.GET, "http://localhost:9200/versioning_tool/repository_entry/_search", nt.NewHeaderBuilder().GetHeader(), bytes.NewReader(q))
+		resp, err := r.app.index.SearchByJSON("repository_entry", string(q))
 		if err != nil {
-			addError(repoName, "Error during query: "+err.Error())
-			return
-		} else if code != 200 {
-			addError(repoName, fmt.Sprintf("Query code not 200: %d", code))
+			addError(repoName, u.Format("Error during query: %s", err.Error()))
 			return
 		}
-		d := json.NewDecoder(bytes.NewReader(dat))
-		d.UseNumber()
-		err = d.Decode(&out)
-		if err != nil {
-			addError(repoName, "Error decoding: "+err.Error())
-			return
-		}
-		if len(out.R.Hits) != 1 {
+		if resp.NumHits() != 1 {
 			wg.Done()
 			return
 		}
+
 		var entry es.RepositoryEntry
-		if err = json.Unmarshal(out.R.Hits[0].Source, &entry); err != nil {
+		if err = json.Unmarshal(*resp.GetHit(0).Source, &entry); err != nil {
 			addError(repoName, "Couldnt get entry: "+err.Error())
 			return
 		}
