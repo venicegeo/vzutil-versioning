@@ -48,16 +48,16 @@ td {
 <table>
 <tr>
 <td>
-<form>
+<form method="post">
 	<input type="submit" name="button_back" value="Back">
 </form>
 </td>
-<tr>
+</tr>
 <tr>
 <td>
 <fieldset>
 <legend>Util</legend>
-<form>
+<form method="post">
 	<input type="submit" name="button_util" value="Report By Ref"><br>
 	<input type="submit" name="button_util" value="Generate All Tags"><br>
 	<input type="submit" name="button_util" value="Add Repository"><br>
@@ -68,9 +68,7 @@ td {
 </fieldset>
 </td>
 <td>
-
 {{ .accordion }}
-
 </td>
 <td>
 <fieldset>

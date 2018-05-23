@@ -51,7 +51,7 @@ func (r *Retriever) DepsBySha(sha string) ([]es.Dependency, string, string, bool
 		return nil, "", "", true, err
 	}
 
-	return r.DepsFromEntry(&entry), entry.RepositoryFullName, entry.RefName, true, nil
+	return r.depsFromEntry(&entry), entry.RepositoryFullName, entry.RefName, true, nil
 }
 func (r *Retriever) DepsByShaNameGen(fullName, sha string) ([]es.Dependency, error) {
 	deps, _, _, found, err := r.app.rtrvr.DepsBySha(sha)
@@ -81,7 +81,8 @@ func (r *Retriever) DepsByShaNameGen(fullName, sha string) ([]es.Dependency, err
 	}
 	return deps, nil
 }
-func (r *Retriever) DepsFromEntry(entry *es.RepositoryEntry) (res []es.Dependency) {
+
+func (r *Retriever) depsFromEntry(entry *es.RepositoryEntry) (res []es.Dependency) {
 	mux := &sync.Mutex{}
 	done := make(chan bool, len(entry.Dependencies))
 	work := func(dep string) {
@@ -106,7 +107,6 @@ func (r *Retriever) DepsFromEntry(entry *es.RepositoryEntry) (res []es.Dependenc
 		}
 		done <- true
 	}
-
 	for _, d := range entry.Dependencies {
 		go work(d)
 	}
@@ -117,25 +117,12 @@ func (r *Retriever) DepsFromEntry(entry *es.RepositoryEntry) (res []es.Dependenc
 	return res
 }
 
-func (r *Retriever) DepsByRef(info ...string) (map[string][]es.Dependency, error) {
-	switch len(info) {
-	case 1: //just a ref
-		repoNames, err := r.ListRepositories()
-		if err != nil {
-			return nil, err
-		}
-		return r.byRefWork(repoNames, info[0])
-	case 2: //org and ref
-		repoNames, err := r.ListRepositoriesByProj(info[0])
-		if err != nil {
-			return nil, err
-		}
-		return r.byRefWork(repoNames, info[1])
-	case 3: //org repo and ref
-		repoNames := []string{fmt.Sprintf("%s/%s", info[0], info[1])}
-		return r.byRefWork(repoNames, info[2])
+func (r *Retriever) DepsByRefInProject(proj, ref string) (map[string][]es.Dependency, error) {
+	repoNames, err := r.ListRepositoriesByProj(proj)
+	if err != nil {
+		return nil, err
 	}
-	return nil, u.Error("Sorry, something is wrong with the code..")
+	return r.byRefWork(repoNames, ref)
 }
 
 func (r *Retriever) byRefWork(repoNames []string, ref string) (res map[string][]es.Dependency, err error) {
@@ -215,7 +202,7 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res map[string][]
 			return
 		}
 		mux.Lock()
-		res[repoName] = r.DepsFromEntry(&entry)
+		res[repoName] = r.depsFromEntry(&entry)
 		wg.Done()
 		mux.Unlock()
 	}
@@ -224,10 +211,7 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res map[string][]
 	}
 	wg.Wait()
 	return
-
 }
-
-//
 
 func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) {
 	entryDat, err := es.GetAll(r.app.index, "repository_entry", u.Format(`{
@@ -254,17 +238,15 @@ func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) 
 	return res, len(entryDat), nil
 }
 
-////
-
 func (r *Retriever) ListRefsRepo(fullName string) ([]string, error) {
-	in := r.newAggQuery("refs", "ref_name")
+	in := es.NewAggQuery("refs", "ref_name")
 	in["size"] = 0
 	in["query"] = map[string]interface{}{
 		"term": map[string]interface{}{
 			"repo_fullname": fullName,
 		},
 	}
-	var out AggResponse
+	var out es.AggResponse
 	if err := r.app.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", in, &out); err != nil {
 		return nil, err
 	}
@@ -287,9 +269,9 @@ func (r *Retriever) ListRefsInProj(proj string) ([]string, error) {
 		boolQ.Add(es.NewTerm("repo_fullname", repo))
 	}
 	boool := es.NewBool().SetShould(boolQ)
-	query := r.newAggQuery("refs", "ref_name")
+	query := es.NewAggQuery("refs", "ref_name")
 	query["query"] = map[string]interface{}{"bool": boool}
-	var out AggResponse
+	var out es.AggResponse
 	if err := r.app.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", query, &out); err != nil {
 		return nil, err
 	}
@@ -311,13 +293,13 @@ func (r *Retriever) ListRefsInProjByRepo(proj string) (*map[string][]string, int
 	mux := &sync.Mutex{}
 
 	work := func(repo string) {
-		in := r.newAggQuery("refs", "ref_name")
+		in := es.NewAggQuery("refs", "ref_name")
 		in["query"] = map[string]interface{}{
 			"term": map[string]interface{}{
 				"repo_fullname": repo,
 			},
 		}
-		var out AggResponse
+		var out es.AggResponse
 		if err := r.app.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", in, &out); err != nil {
 			errs <- err
 			return
@@ -350,37 +332,6 @@ func (r *Retriever) ListRefsInProjByRepo(proj string) (*map[string][]string, int
 	return &res, totalNumber, err
 }
 
-////
-
-func (r *Retriever) newAggQuery(aggName, fieldName string) map[string]interface{} {
-	return map[string]interface{}{
-		"aggs": map[string]interface{}{
-			aggName: map[string]interface{}{
-				"terms": map[string]interface{}{
-					"field": fieldName,
-					"size":  10000,
-				},
-			},
-		},
-		"size": 0}
-}
-
-func (r *Retriever) ListRepositories() ([]string, error) {
-	var out AggResponse
-	in := r.newAggQuery("repos", "repo_fullname")
-	err := r.app.index.DirectAccess("POST", "/versioning_tool/repository_entry/_search", in, &out)
-	if err != nil {
-		return nil, err
-	}
-	res := make([]string, len(out.Aggs["repos"].Buckets), len(out.Aggs["repos"].Buckets))
-	for i, repo := range out.Aggs["repos"].Buckets {
-		res[i] = repo.Key
-	}
-	sort.Strings(res)
-	return res, nil
-}
-
-//TODO
 func (r *Retriever) ListRepositoriesByProj(proj string) ([]string, error) {
 	exists, err := r.app.index.ItemExists("project", proj)
 	if err != nil {
@@ -421,15 +372,4 @@ func (r *Retriever) ListProjects() ([]*es.Project, error) {
 		res[i] = t
 	}
 	return res, nil
-}
-
-type Bucket struct {
-	Key      string `json:"key"`
-	DocCount int64  `json:"doc_count"`
-}
-type Agg struct {
-	Buckets []Bucket `json:"buckets"`
-}
-type AggResponse struct {
-	Aggs map[string]Agg `json:"aggregations"`
 }

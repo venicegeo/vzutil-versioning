@@ -20,11 +20,20 @@ import (
 )
 
 type HtmlForm struct {
-	dat string
+	dat    string
+	method string
 }
 
 func NewHtmlForm(elem fmt.Stringer) *HtmlForm {
-	return &HtmlForm{elem.String()}
+	return &HtmlForm{elem.String(), "get"}
+}
+func (h *HtmlForm) Get() *HtmlForm {
+	h.method = "get"
+	return h
+}
+func (h *HtmlForm) Post() *HtmlForm {
+	h.method = "post"
+	return h
 }
 
 func (h *HtmlForm) Template() template.HTML {
@@ -32,5 +41,5 @@ func (h *HtmlForm) Template() template.HTML {
 }
 
 func (h *HtmlForm) String() string {
-	return fmt.Sprintf("<form>\n%s\n</form>", h.dat)
+	return fmt.Sprintf("<form method=\"%s\">\n%s\n</form>", h.method, h.dat)
 }

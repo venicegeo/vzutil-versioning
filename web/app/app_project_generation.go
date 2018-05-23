@@ -42,53 +42,65 @@ func (a *Application) webhookPath(c *gin.Context) {
 	a.wbhkRnnr.RunAgainstWeb(&git)
 }
 
-func (a *Application) updateAllTags(c *gin.Context) {
-	if a.checkBack(c) {
+func (a *Application) generateBranch(c *gin.Context) {
+	var form struct {
+		Back   string `form:"button_back"`
+		Gen    string `form:"button_generatebranch"`
+		Branch string `form:"branch"`
+	}
+	if err := c.Bind(&form); err != nil {
+		c.String(400, "Could not bind form: %s", err.Error())
+	}
+	pproj := c.Param("proj")
+	porg := c.Param("org")
+	prepo := c.Param("repo")
+	branch := form.Branch
+	if form.Back != "" {
+		c.Redirect(303, "/project/"+pproj)
 		return
 	}
-	name := c.Param("repo")
-	fullName := u.Format("%s/%s", c.Param("org"), name)
-	runner := h.NewTagsRunner(name, fullName)
-	canDo, err := runner.CanDo()
-	if err != nil {
-		a.displayFailure(c, "Sorry, no can do. Problem: ["+err.Error()+"]")
-		return
-	} else if !canDo {
-		a.displayFailure(c, "That repo doesnt appear to exist")
-		return
-	}
-	go func(name, fullName string, runner *h.TagsRunner) {
-		dat, err := h.NewTagsRunner(name, fullName).Run()
+	if form.Gen != "" {
+		_, err := a.generateBranchWrk(prepo, u.Format("%s/%s", porg, prepo), branch)
 		if err != nil {
-			log.Println("Error running tags on", fullName, ":", err.Error())
+			c.String(400, "Could not generate this sha: %s", err.Error())
 			return
 		}
-		for sha, ref := range dat {
-			git := s.GitWebhook{
-				Ref:      ref,
-				AfterSha: sha,
-				Repository: s.GitRepository{
-					Name:     name,
-					FullName: fullName,
-				},
-				Timestamp: time.Now().UnixNano(),
-			}
-			log.Println(fullName, sha, ref)
-			a.wbhkRnnr.RunAgainstWeb(&git)
-		}
-	}(name, fullName, runner)
-	a.displaySuccess(c, "Yeah, I can do that. Check back in a minute")
-}
-
-func (a *Application) updateAllTagsProj(c *gin.Context) {
-	if a.checkBack(c) {
+		c.Redirect(303, "/project/"+pproj)
 		return
 	}
-	proj := c.Param("proj")
+	h := gin.H{}
+	h["org"] = porg
+	h["repo"] = prepo
+	c.HTML(200, "genbranch.html", h)
+}
+
+func (a *Application) generateBranchWrk(repoName, fullName, branch string) (string, error) {
+	sha, err := h.GetBranchSha(repoName, fullName, branch)
+	if err != nil {
+		return "", err
+	}
+
+	go func(name, fullName, branch, sha string) {
+		ref := "refs/heads/" + branch
+		git := s.GitWebhook{
+			Ref:      ref,
+			AfterSha: sha,
+			Repository: s.GitRepository{
+				Name:     name,
+				FullName: fullName,
+			},
+			Timestamp: time.Now().UnixNano(),
+		}
+		log.Println(fullName, sha, ref)
+		a.wbhkRnnr.RunAgainstWeb(&git)
+	}(repoName, fullName, branch, sha)
+	return sha, nil
+}
+
+func (a *Application) genTagsWrk(proj string) (string, error) {
 	repos, err := a.rtrvr.ListRepositoriesByProj(proj)
 	if err != nil {
-		a.displayFailure(c, "Problemo: ["+err.Error()+"]")
-		return
+		return "", err
 	}
 	go func(repos []string) {
 		for _, repo := range repos {
@@ -121,45 +133,5 @@ func (a *Application) updateAllTagsProj(c *gin.Context) {
 		buf.WriteString("\n")
 		buf.WriteString(repo)
 	}
-
-	a.displaySuccess(c, buf.String())
-}
-
-func (a *Application) generateBranch(c *gin.Context) {
-	if a.checkBack(c) {
-		return
-	}
-	org := c.Param("org")
-	repo := c.Param("repo")
-	branch := c.Param("branch")
-	fullName := u.Format("%s/%s", org, repo)
-	sha, err := a.generateBranchWrk(repo, fullName, branch)
-	if err != nil {
-		a.displayFailure(c, "Could not generate this sha: "+err.Error())
-	}
-
-	a.displaySuccess(c, "Going to run against sha "+sha)
-}
-
-func (a *Application) generateBranchWrk(repoName, fullName, branch string) (string, error) {
-	sha, err := h.GetBranchSha(repoName, fullName, branch)
-	if err != nil {
-		return "", err
-	}
-
-	go func(name, fullName, branch, sha string) {
-		ref := "refs/heads/" + branch
-		git := s.GitWebhook{
-			Ref:      ref,
-			AfterSha: sha,
-			Repository: s.GitRepository{
-				Name:     name,
-				FullName: fullName,
-			},
-			Timestamp: time.Now().UnixNano(),
-		}
-		log.Println(fullName, sha, ref)
-		a.wbhkRnnr.RunAgainstWeb(&git)
-	}(repoName, fullName, branch, sha)
-	return sha, nil
+	return buf.String(), nil
 }

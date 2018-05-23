@@ -20,7 +20,6 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
@@ -38,7 +37,6 @@ type Application struct {
 	rtrvr    *Retriever
 	diffMan  *DifferenceManager
 	wbhkRnnr *WebhookRunner
-	plrlRnnr *PluralRunner
 	cmprRnnr *CompareRunner
 
 	killChan chan bool
@@ -137,7 +135,6 @@ func (a *Application) Start() chan error {
 	a.wrkr = NewWorker(a, 2)
 	a.rtrvr = NewRetriever(a)
 	a.wbhkRnnr = NewWebhookRunner(a)
-	a.plrlRnnr = NewPluralRunner(a)
 	a.cmprRnnr = NewCompareRunner(a)
 
 	a.wrkr.Start()
@@ -152,44 +149,19 @@ func (a *Application) Start() chan error {
 	server.Configure([]u.RouteData{
 		u.RouteData{"GET", "/", a.defaultPath},
 		u.RouteData{"POST", "/webhook", a.webhookPath},
-		//		u.RouteData{"GET", "/generate/tags/:proj/:repo", a.updateAllTags},
-		//		u.RouteData{"GET", "/generate/tags/:proj", a.updateAllTagsProj},
-		//		u.RouteData{"GET", "/generate/branch/:org/:repo/:branch", a.generateBranch},
 
-		//		u.RouteData{"GET", "/report/sha/:shaorg", a.reportSha},
-		//		u.RouteData{"GET", "/report/sha/:shaorg/:repo/:sha", a.reportSha},
-		//		u.RouteData{"GET", "/report/ref/:refproj", a.reportRef},
-		//		u.RouteData{"GET", "/report/ref/:refproj/:refrepo", a.reportRef},
-		//		u.RouteData{"GET", "/report/ref/:refproj/:refrepo/:ref", a.reportRef},
-
-		//		u.RouteData{"GET", "/list/shas/:org/:repo", a.listShas},
-		//		u.RouteData{"GET", "/list/refs/:org/:repo", a.listRefsRepo},
-		//		u.RouteData{"GET", "/list/refs/:org", a.listRefs},
-		//		u.RouteData{"GET", "/list/repositories", a.listRepositories},
-		//		u.RouteData{"GET", "/list/repositories/:proj", a.listRepositoriesProj},
-
-		//		u.RouteData{"GET", "/search", a.uiSearchForDep},
-		//		u.RouteData{"GET", "/search/:dep", a.searchForDep},
-		//		u.RouteData{"GET", "/search/:dep/:version", a.searchForDep},
-
-		//		u.RouteData{"GET", "/ui", a.formPath},
-
-		u.RouteData{"GET", "/test", a.test},
-		u.RouteData{"GET", "/newproj", a.newProj},
-		u.RouteData{"POST", "/newproj", a.newProj},
-		u.RouteData{"GET", "/project/:proj", a.testProject},
-		u.RouteData{"GET", "/addrepo/:proj", a.addRepo},
-		u.RouteData{"POST", "/addrepo/:proj", a.addRepo},
-		u.RouteData{"GET", "/genbranch/:proj/:org/:repo", a.genBranch},
-		u.RouteData{"GET", "/reportref/:proj", a.reportRefNew},
-		u.RouteData{"GET", "/removerepo/:proj", a.removeRepo},
-		u.RouteData{"GET", "/depsearch/:proj", a.depSearch},
-		u.RouteData{"GET", "/diff/:proj", a.diff},
-
-		//		u.RouteData{"GET", "/diff", a.diffPath},
-		//		u.RouteData{"GET", "/cdiff", a.customDiffPath},
-		//		u.RouteData{"GET", "/tdiff", a.textDiffPath},
-		//		u.RouteData{"POST", "/tdiff", a.textDiffPath},
+		u.RouteData{"GET", "/ui", a.projectsOverview},
+		u.RouteData{"GET", "/newproj", a.newProject},
+		u.RouteData{"POST", "/newproj", a.newProject},
+		u.RouteData{"GET", "/project/:proj", a.viewProject},
+		u.RouteData{"POST", "/project/:proj", a.viewProject},
+		u.RouteData{"GET", "/addrepo/:proj", a.addReposToProject},
+		u.RouteData{"POST", "/addrepo/:proj", a.addReposToProject},
+		u.RouteData{"GET", "/genbranch/:proj/:org/:repo", a.generateBranch},
+		u.RouteData{"GET", "/reportref/:proj", a.reportRefOnProject},
+		u.RouteData{"GET", "/removerepo/:proj", a.removeReposFromProject},
+		u.RouteData{"GET", "/depsearch/:proj", a.searchForDepInProject},
+		u.RouteData{"GET", "/diff/:proj", a.differencesInProject},
 	})
 	select {
 	case err = <-server.Start(":" + port):
@@ -205,121 +177,6 @@ func (a *Application) Stop() {
 
 func (a *Application) defaultPath(c *gin.Context) {
 	c.String(200, "Welcome to the dependency service!")
-}
-
-func (a *Application) formPath(c *gin.Context) {
-	var form s.Form
-	if err := c.Bind(&form); err != nil {
-		c.String(400, err.Error())
-		return
-	}
-	if form.IsEmpty() {
-		repos, err := a.rtrvr.ListRepositories()
-		h := gin.H{}
-		if err != nil {
-			h["repositories"] = "Sorry... could not\nload this.\n" + err.Error()
-		} else {
-			res := ""
-			for i, p := range repos {
-				if i > 0 {
-					res += "\n"
-				}
-				res += p
-			}
-			h["repositories"] = res
-		}
-		diffs, err := a.diffMan.DiffList()
-		if err != nil {
-			h["differences"] = "Sorry... could not\nload this.\n" + err.Error()
-		} else {
-			res := ""
-			for i, d := range diffs {
-				if i > 0 {
-					res += "\n"
-				}
-				res += d
-			}
-			h["differences"] = res
-		}
-		c.HTML(200, "form.html", h)
-		return
-	}
-	buttonPress := form.FindButtonPress()
-	switch buttonPress {
-	case s.DepSearch:
-		c.Redirect(303, "/search")
-	case s.ReportRef:
-		if form.ReportRefRepo != "" && form.ReportRefOrg == "" {
-			a.displayFailure(c, "Must specify an org if you specify a repo")
-		} else {
-			url := "/report/ref"
-			if form.ReportRefOrg != "" {
-				url += "/" + form.ReportRefOrg
-			}
-			if form.ReportRefRepo != "" {
-				url += "/" + form.ReportRefRepo
-			}
-			if form.ReportRefRef != "" {
-				url += "/" + strings.Replace(form.ReportRefRef, `/`, "_", -1)
-			}
-			c.Redirect(303, url)
-		}
-	case s.ReportSha:
-		c.Redirect(303, u.Format("/report/sha/%s/%s/%s", form.ReportShaOrg, form.ReportShaRepo, form.ReportShaSha))
-	case s.ListRefs:
-		if form.RefsRepo != "" {
-			c.Redirect(303, u.Format("/list/refs/%s/%s", form.RefsOrg, form.RefsRepo))
-		} else {
-			c.Redirect(303, "/list/refs/"+form.RefsOrg)
-		}
-	case s.ListShas:
-		c.Redirect(303, u.Format("/list/shas/%s/%s", form.ShasOrg, form.ShasRepo))
-	case s.GenerateTag:
-		if form.AllTagRepo != "" {
-			c.Redirect(303, u.Format("/generate/tags/%s/%s", form.AllTagOrg, form.AllTagRepo))
-		} else {
-			c.Redirect(303, "/generate/tags/"+form.AllTagOrg)
-		}
-	case s.GenerateBranch:
-		c.Redirect(303, u.Format("/generate/branch/%s/%s/%s", form.BranchOrg, form.BranchRepo, form.BranchBranch))
-	case s.Differences:
-		c.Redirect(303, "/diff")
-	case s.CustomDifference:
-		c.Redirect(303, "/cdiff")
-	case s.TextDifference:
-		c.Redirect(303, "/tdiff")
-	default:
-		c.String(400, "What did you do? :(")
-	}
-}
-
-func (a *Application) checkBack(c *gin.Context) (wasHandled bool) {
-	var back Back
-	if err := c.Bind(&back); err != nil {
-		c.String(500, err.Error())
-		return true
-	}
-	if back.BackButton != "" {
-		c.Redirect(303, "/ui")
-		return true
-	}
-	return false
-}
-
-func (a *Application) displaySuccess(c *gin.Context, data string) {
-	if !a.checkForRedirect(c) {
-		c.String(200, data)
-	} else {
-		c.HTML(200, "back.html", gin.H{"data": data})
-	}
-}
-func (a *Application) displayFailure(c *gin.Context, data string) {
-	//TODO assuming 400
-	if !a.checkForRedirect(c) {
-		c.String(400, data)
-	} else {
-		c.HTML(400, "back.html", gin.H{"data": data})
-	}
 }
 
 func (a *Application) checkForRedirect(c *gin.Context) bool {

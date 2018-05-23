@@ -60,3 +60,26 @@ func (b *Bool) SetFilter(bq *BoolQ) *Bool {
 	b.Filter = bq
 	return b
 }
+func NewAggQuery(aggName, fieldName string) map[string]interface{} {
+	return map[string]interface{}{
+		"aggs": map[string]interface{}{
+			aggName: map[string]interface{}{
+				"terms": map[string]interface{}{
+					"field": fieldName,
+					"size":  10000,
+				},
+			},
+		},
+		"size": 0}
+}
+
+type Bucket struct {
+	Key      string `json:"key"`
+	DocCount int64  `json:"doc_count"`
+}
+type Agg struct {
+	Buckets []Bucket `json:"buckets"`
+}
+type AggResponse struct {
+	Aggs map[string]Agg `json:"aggregations"`
+}
