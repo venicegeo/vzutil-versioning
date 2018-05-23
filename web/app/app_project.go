@@ -20,7 +20,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
-	"github.com/venicegeo/vzutil-versioning/common/table"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -29,11 +28,12 @@ import (
 func (a *Application) viewProject(c *gin.Context) {
 	proj := c.Param("proj")
 	var form struct {
-		Back string `form:"button_back"`
-		Util string `form:"button_util"`
-		Sha  string `form:"button_sha"`
-		Gen  string `form:"button_gen"`
-		Diff string `form:"button_diff"`
+		Back   string `form:"button_back"`
+		Util   string `form:"button_util"`
+		Sha    string `form:"button_sha"`
+		Gen    string `form:"button_gen"`
+		Diff   string `form:"button_diff"`
+		Reload string `form:"button_reload"`
 	}
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Unable to bind form: %s", err.Error())
@@ -41,6 +41,9 @@ func (a *Application) viewProject(c *gin.Context) {
 	}
 	if form.Back != "" {
 		c.Redirect(303, "/ui")
+		return
+	} else if form.Reload != "" {
+		c.Redirect(303, "/project/"+proj)
 		return
 	}
 	depsStr := "Result info will appear here"
@@ -75,18 +78,7 @@ func (a *Application) viewProject(c *gin.Context) {
 			c.String(500, "Unable to obtain the results: %s", err.Error())
 			return
 		}
-		hDeps := bytes.NewBufferString("")
-		hDeps.WriteString("Report for ")
-		hDeps.WriteString(fullName)
-		hDeps.WriteString(" at ")
-		hDeps.WriteString(form.Sha)
-		hDeps.WriteString("\n")
-		t := table.NewTable(3, len(deps))
-		for _, dep := range deps {
-			t.Fill(dep.Name, dep.Version, dep.Language)
-		}
-		hDeps.WriteString(t.SpaceColumn(1).NoRowBorders().Format().String())
-		depsStr = hDeps.String()
+		depsStr = a.reportAtShaOrRefWrk(form.Sha, map[string][]es.Dependency{fullName: deps})
 	} else if form.Gen != "" {
 		repoFullName := strings.TrimPrefix(form.Gen, "Generate Branch - ")
 		c.Redirect(303, u.Format("/genbranch/%s/%s", proj, repoFullName))

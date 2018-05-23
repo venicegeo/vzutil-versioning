@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/vzutil-versioning/common/table"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
+	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -54,20 +55,21 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 		if err != nil {
 			h["report"] = u.Format("Unable to generate report: %s", err.Error())
 		} else {
-			buf := bytes.NewBufferString("")
-			for name, depss := range deps {
-				buf.WriteString(u.Format("%s at %s", name, form.Ref))
-				t := table.NewTable(3, len(depss))
-				for _, dep := range depss {
-					t.Fill(dep.Name)
-					t.Fill(dep.Version)
-					t.Fill(dep.Language)
-				}
-				buf.WriteString(u.Format("\n%s\n\n", t.NoRowBorders().SpaceColumn(1).Format().String()))
-			}
-			h["report"] = buf.String()
+			h["report"] = a.reportAtShaOrRefWrk(form.Ref, deps)
 		}
 	}
-
 	c.HTML(200, "reportref.html", h)
+}
+
+func (a *Application) reportAtShaOrRefWrk(id string, deps map[string][]es.Dependency) string {
+	buf := bytes.NewBufferString("")
+	for name, depss := range deps {
+		buf.WriteString(u.Format("%s at %s", name, id))
+		t := table.NewTable(3, len(depss))
+		for _, dep := range depss {
+			t.Fill(dep.Name, dep.Version, dep.Language)
+		}
+		buf.WriteString(u.Format("\n%s\n\n", t.NoRowBorders().SpaceColumn(1).Format().String()))
+	}
+	return buf.String()
 }

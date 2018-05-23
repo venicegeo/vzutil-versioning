@@ -162,6 +162,7 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/removerepo/:proj", a.removeReposFromProject},
 		u.RouteData{"GET", "/depsearch/:proj", a.searchForDepInProject},
 		u.RouteData{"GET", "/diff/:proj", a.differencesInProject},
+		u.RouteData{"GET", "/reportsha", a.reportSha},
 	})
 	select {
 	case err = <-server.Start(":" + port):

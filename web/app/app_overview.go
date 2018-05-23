@@ -25,12 +25,19 @@ import (
 )
 
 func (a *Application) projectsOverview(c *gin.Context) {
-	type form struct {
-		Project string `form:"button_project"`
+	var form struct {
+		Project   string `form:"button_project"`
+		ReportSha string `form:"button_reportsha"`
 	}
-	var f form
-	_ = c.Bind(&f)
-	if f.Project == "" {
+	if err := c.Bind(&form); err != nil {
+		c.String(400, "Error binding the form: %s", err.Error())
+		return
+	}
+	if form.ReportSha != "" {
+		c.Redirect(303, "/reportsha")
+		return
+	}
+	if form.Project == "" {
 		table := s.NewHtmlTable()
 		makeButton := func(name string) *s.HtmlButton {
 			return s.NewHtmlButton3("button_project", name, "button")
@@ -53,7 +60,7 @@ func (a *Application) projectsOverview(c *gin.Context) {
 		h["table"] = table.Template()
 		c.HTML(200, "overview.html", h)
 		return
-	} else if f.Project == "Add New" {
+	} else if form.Project == "Add New" {
 		c.Redirect(303, "/newproj")
 	} else {
 		resp, err := a.index.SearchByJSON("project", u.Format(`{
@@ -63,7 +70,7 @@ func (a *Application) projectsOverview(c *gin.Context) {
 		}
 	},
 	"size":1
-}`, f.Project))
+}`, form.Project))
 		if err != nil {
 			c.String(500, "Error getting this project: %s", err.Error())
 			return
@@ -129,4 +136,33 @@ func (a *Application) newProject(c *gin.Context) {
 	} else {
 		c.HTML(200, "newproj.html", nil)
 	}
+}
+
+func (a *Application) reportSha(c *gin.Context) {
+	var form struct {
+		Back   string `form:"button_back"`
+		Org    string `form:"org"`
+		Repo   string `form:"repo"`
+		Sha    string `form:"sha"`
+		Submit string `form:"button_submit"`
+	}
+	if err := c.Bind(&form); err != nil {
+		c.String(400, "Could not bind the form: %s", err.Error())
+		return
+	}
+	if form.Back != "" {
+		c.Redirect(303, "/ui")
+		return
+	}
+	h := gin.H{"report": "Report will appear here"}
+	if form.Submit != "" {
+		fullName := u.Format("%s/%s", form.Org, form.Repo)
+		deps, err := a.rtrvr.DepsByShaNameGen(fullName, form.Sha)
+		if err != nil {
+			h["report"] = u.Format("Unable to run against %s at %s:\n%s", fullName, form.Sha, err.Error())
+		} else {
+			h["report"] = a.reportAtShaOrRefWrk(form.Sha, map[string][]es.Dependency{fullName: deps})
+		}
+	}
+	c.HTML(200, "reportsha.html", h)
 }

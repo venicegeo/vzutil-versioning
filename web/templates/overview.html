@@ -17,8 +17,25 @@ td {
 </style>
 </head>
 <body>
+<table>
+<tr>
+<td>
+<fieldset>
+<legend>Projects</legend>
 <form method="get">
 {{ .table }}
 </form>
+</fieldset>
+</td>
+<td>
+<fieldset>
+<legend>Utils</legend>
+<form method="get">
+	<input type="submit" name="button_reportsha" value="Report By Sha">
+</form>
+</fielset>
+</td>
+</tr>
+<table>
 </body>
 </html>
