@@ -107,8 +107,22 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 	return u.Format("Repository %s %s from\n%s -> %s\n%s", d.FullName, d.RefData, d.OldSha, d.NewSha, table.Format().NoRowBorders().SpaceAllColumns().String())
 }
 
-func (d *DifferenceManager) AllDiffs() (*[]Difference, error) {
-	hits, err := es.GetAll(d.app.index, "difference", `{"match_all":{}}`)
+func (d *DifferenceManager) AllDiffsInProject(proj string) (*[]Difference, error) {
+	repos, err := d.app.rtrvr.ListRepositoriesByProj(proj)
+	if err != nil {
+		return nil, err
+	}
+	boool := es.NewBool()
+	bq := es.NewBoolQ()
+	for _, repoName := range repos {
+		bq.Add(es.NewTerm("full_name", repoName))
+	}
+	boool.SetShould(bq)
+	dat, err := json.Marshal(boool)
+	if err != nil {
+		return nil, err
+	}
+	hits, err := es.GetAll(d.app.index, "difference", u.Format(`{"bool":%s}`, string(dat)))
 	if err != nil {
 		return nil, err
 	}
@@ -124,8 +138,8 @@ func (d *DifferenceManager) AllDiffs() (*[]Difference, error) {
 	return &diffs, nil
 }
 
-func (d *DifferenceManager) DiffList() ([]string, error) {
-	diffs, err := d.AllDiffs()
+func (d *DifferenceManager) DiffListInProject(proj string) ([]string, error) {
+	diffs, err := d.AllDiffsInProject(proj)
 	if err != nil {
 		return nil, err
 	}

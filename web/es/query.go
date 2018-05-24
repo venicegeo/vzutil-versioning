@@ -24,10 +24,26 @@ type BoolQ []interface{}
 type Term struct {
 	Term map[string]string `json:"term"`
 }
+type Wildcard struct {
+	Wildcard map[string]string `json:"wildcard"`
+}
+type Terms struct {
+	Terms map[string][]string `json:"terms"`
+}
 
 func NewTerm(key, value string) *Term {
 	ret := new(Term)
 	ret.Term = map[string]string{key: value}
+	return ret
+}
+func NewWildcard(key, value string) *Wildcard {
+	ret := new(Wildcard)
+	ret.Wildcard = map[string]string{key: value}
+	return ret
+}
+func NewTerms(key string, value ...string) *Terms {
+	ret := new(Terms)
+	ret.Terms = map[string][]string{key: value}
 	return ret
 }
 func NewBoolQ(items ...interface{}) *BoolQ {

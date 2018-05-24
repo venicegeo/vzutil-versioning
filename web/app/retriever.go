@@ -259,11 +259,7 @@ func (r *Retriever) ListRefsInProj(proj string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	boolQ := es.NewBoolQ()
-	for _, repo := range repos {
-		boolQ.Add(es.NewTerm("repo_fullname", repo))
-	}
-	boool := es.NewBool().SetShould(boolQ)
+	boool := es.NewBool().SetMust(es.NewBoolQ(es.NewTerms("repo_fullname", repos...)))
 	query := es.NewAggQuery("refs", "ref_name")
 	query["query"] = map[string]interface{}{"bool": boool}
 	var out es.AggResponse

@@ -40,7 +40,7 @@ func (a *Application) differencesInProject(c *gin.Context) {
 		c.HTML(500, "differences.html", gh)
 		return
 	}
-	diffs, err := a.diffMan.AllDiffs()
+	diffs, err := a.diffMan.AllDiffsInProject(proj)
 	if err != nil {
 		gh["buttons"] = "Could not load this.\n" + err.Error()
 		gh["data"] = "Error loading this.\n" + err.Error()
@@ -68,7 +68,7 @@ func (a *Application) differencesInProject(c *gin.Context) {
 			if diffId == "button_delete" {
 				a.diffMan.Delete(a.diffMan.CurrentDisplay)
 				a.diffMan.CurrentDisplay = ""
-				c.Redirect(307, "/diff")
+				c.Redirect(307, "/diff/"+proj)
 				return
 			} else {
 				for _, diff := range *diffs {

@@ -142,7 +142,7 @@ func (a *Application) viewProject(c *gin.Context) {
 	h["accordion"] = accord.Template()
 	h["deps"] = depsStr
 	{
-		diffs, err := a.diffMan.DiffList()
+		diffs, err := a.diffMan.DiffListInProject(proj)
 		if err != nil {
 			h["diff"] = ""
 		} else {

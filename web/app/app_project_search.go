@@ -17,14 +17,15 @@ package app
 import (
 	"bytes"
 	"encoding/json"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-//TODO the in project part
+func (a *Application) searchForDep(c *gin.Context) {
+	//TODO
+}
 
 func (a *Application) searchForDepInProject(c *gin.Context) {
 	proj := c.Param("proj")
@@ -46,7 +47,12 @@ func (a *Application) searchForDepInProject(c *gin.Context) {
 	if form.Back != "" {
 		c.Redirect(303, "/project/"+proj)
 	} else if form.ButtonSearch != "" {
-		code, dat := a.searchForDepWrk(form.DepName, form.DepVersion)
+		repos, err := a.rtrvr.ListRepositoriesByProj(proj)
+		if err != nil {
+			c.String(400, "Unable to retrieve the projects repositories: %s", err.Error())
+			return
+		}
+		code, dat := a.searchForDepWrk(form.DepName, form.DepVersion, repos)
 		h["data"] = dat
 		c.HTML(code, "depsearch.html", h)
 	} else {
@@ -54,8 +60,7 @@ func (a *Application) searchForDepInProject(c *gin.Context) {
 	}
 }
 
-func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) {
-
+func (a *Application) getDepsMatching(depName, depVersion string) ([]es.Dependency, error) {
 	rawDat, err := es.GetAll(a.index, "dependency", u.Format(`
 {
 	"bool":{
@@ -73,34 +78,53 @@ func (a *Application) searchForDepWrk(depName, depVersion string) (int, string) 
 	}
 }`, depName, depVersion))
 	if err != nil {
+		return nil, err
+	}
+
+	containingDeps := make([]es.Dependency, len(rawDat), len(rawDat))
+	for i, b := range rawDat {
+		var dep es.Dependency
+		if err = json.Unmarshal(b.Dat, &dep); err != nil {
+			containingDeps[i] = es.Dependency{"", u.Format("\tError decoding %s\n", b.Id), ""}
+		} else {
+			containingDeps[i] = dep
+		}
+	}
+	return containingDeps, nil
+}
+
+func (a *Application) searchForDepWrk(depName, depVersion string, repos []string) (int, string) {
+	boool := es.NewBool()
+	must := es.NewBoolQ(es.NewTerm("name", depName), es.NewWildcard("version", depVersion+"*"))
+	boolDat, err := json.Marshal(boool.SetMust(must))
+	if err != nil {
+		return 400, "Unable to create bool query: " + err.Error()
+	}
+	rawDat, err := es.GetAll(a.index, "dependency", u.Format(`{"bool":%s}`, string(boolDat)))
+	if err != nil {
 		return 500, "Error querying database: " + err.Error()
 	}
 
-	containingDeps := make([]string, len(rawDat), len(rawDat))
 	buf := bytes.NewBufferString("Searching for:\n")
-	for i, b := range rawDat {
-		containingDeps[i] = u.Format(`"%s"`, b.Id)
-		var dep es.Dependency
-		if err = json.Unmarshal(b.Dat, &dep); err != nil {
-			buf.WriteString(u.Format("\tError decoding %s\n", b.Id))
-		} else {
-			buf.WriteString("\t")
-			buf.WriteString(dep.String())
-			buf.WriteString("\n")
-		}
+	containingDeps, err := a.getDepsMatching(depName, depVersion)
+	if err != nil {
+		return 500, "Error querying database: " + err.Error()
+	}
+	hashes := make([]string, len(containingDeps), len(containingDeps))
+	for i, dep := range containingDeps {
+		hashes[i] = dep.GetHashSum() // u.Format(`"%s"`, dep.GetHashSum())
+		buf.WriteString("\t")
+		buf.WriteString(dep.String())
+		buf.WriteString("\n")
 	}
 	buf.WriteString("\n\n\n")
 
-	q := u.Format(`
-{
-	"terms":{
-		"dependencies":[%s]
+	boool = es.NewBool().SetMust(es.NewBoolQ(es.NewTerms("dependencies", hashes...), es.NewTerms("repo_fullname", repos...)))
+	s := `{"timestamp":"desc"}`
+	if boolDat, err = json.Marshal(boool); err != nil {
+		return 500, "Unable to create repo bool query: " + err.Error()
 	}
-}`, strings.Join(containingDeps, ","))
-	s := `{
-	"timestamp":"desc"
-}`
-	rawDat, err = es.GetAll(a.index, "repository_entry", q, s)
+	rawDat, err = es.GetAll(a.index, "repository_entry", u.Format(`{"bool":%s}`, string(boolDat)), s)
 	if err != nil {
 		return 500, "Unable to query repos: " + err.Error()
 	}
