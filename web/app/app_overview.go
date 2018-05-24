@@ -161,7 +161,7 @@ func (a *Application) reportSha(c *gin.Context) {
 		if err != nil {
 			h["report"] = u.Format("Unable to run against %s at %s:\n%s", fullName, form.Sha, err.Error())
 		} else {
-			h["report"] = a.reportAtShaOrRefWrk(form.Sha, map[string][]es.Dependency{fullName: deps})
+			h["report"] = a.reportAtShaWrk(fullName, form.Sha, deps)
 		}
 	}
 	c.HTML(200, "reportsha.html", h)

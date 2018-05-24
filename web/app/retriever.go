@@ -116,7 +116,7 @@ func (r *Retriever) depsFromEntry(entry *es.RepositoryEntry) (res []es.Dependenc
 	return res
 }
 
-func (r *Retriever) DepsByRefInProject(proj, ref string) (map[string][]es.Dependency, error) {
+func (r *Retriever) DepsByRefInProject(proj, ref string) (ReportByRefS, error) {
 	repoNames, err := r.ListRepositoriesByProj(proj)
 	if err != nil {
 		return nil, err
@@ -124,8 +124,14 @@ func (r *Retriever) DepsByRefInProject(proj, ref string) (map[string][]es.Depend
 	return r.byRefWork(repoNames, ref)
 }
 
-func (r *Retriever) byRefWork(repoNames []string, ref string) (res map[string][]es.Dependency, err error) {
-	res = map[string][]es.Dependency{}
+type ReportByRefS map[string]reportByRefS
+type reportByRefS struct {
+	deps []es.Dependency
+	sha  string
+}
+
+func (r *Retriever) byRefWork(repoNames []string, ref string) (res ReportByRefS, err error) {
+	res = ReportByRefS{}
 	query := map[string]interface{}{}
 	query["query"] = map[string]interface{}{
 		"bool": map[string]interface{}{
@@ -169,7 +175,7 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res map[string][]
 	mux := sync.Mutex{}
 	addError := func(repoName, err string) {
 		mux.Lock()
-		res[repoName] = []es.Dependency{es.Dependency{Version: err}}
+		res[repoName] = reportByRefS{[]es.Dependency{es.Dependency{Version: err}}, "Unknown"}
 		wg.Done()
 		mux.Unlock()
 	}
@@ -191,7 +197,7 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res map[string][]
 			return
 		}
 		mux.Lock()
-		res[repoName] = r.depsFromEntry(&entry)
+		res[repoName] = reportByRefS{r.depsFromEntry(&entry), entry.Sha}
 		wg.Done()
 		mux.Unlock()
 	}

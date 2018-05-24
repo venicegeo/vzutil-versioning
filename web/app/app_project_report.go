@@ -55,21 +55,32 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 		if err != nil {
 			h["report"] = u.Format("Unable to generate report: %s", err.Error())
 		} else {
-			h["report"] = a.reportAtShaOrRefWrk(form.Ref, deps)
+			h["report"] = a.reportAtRefWrk(form.Ref, deps)
 		}
 	}
 	c.HTML(200, "reportref.html", h)
 }
 
-func (a *Application) reportAtShaOrRefWrk(id string, deps map[string][]es.Dependency) string {
+func (a *Application) reportAtRefWrk(ref string, deps ReportByRefS) string {
 	buf := bytes.NewBufferString("")
 	for name, depss := range deps {
-		buf.WriteString(u.Format("%s at %s", name, id))
-		t := table.NewTable(3, len(depss))
-		for _, dep := range depss {
+		buf.WriteString(u.Format("%s at %s\n%s", name, ref, depss.sha))
+		t := table.NewTable(3, len(depss.deps))
+		for _, dep := range depss.deps {
 			t.Fill(dep.Name, dep.Version, dep.Language)
 		}
 		buf.WriteString(u.Format("\n%s\n\n", t.NoRowBorders().SpaceColumn(1).Format().String()))
 	}
+	return buf.String()
+}
+
+func (a *Application) reportAtShaWrk(name, sha string, deps []es.Dependency) string {
+	buf := bytes.NewBufferString("")
+	buf.WriteString(u.Format("%s at %s", name, sha))
+	t := table.NewTable(3, len(deps))
+	for _, dep := range deps {
+		t.Fill(dep.Name, dep.Version, dep.Language)
+	}
+	buf.WriteString(t.NoRowBorders().SpaceColumn(1).Format().String())
 	return buf.String()
 }
