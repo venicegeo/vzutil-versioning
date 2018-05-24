@@ -109,8 +109,12 @@ func (a *Application) viewProject(c *gin.Context) {
 		}
 		for _, ref := range refs {
 			c := s.NewHtmlCollection()
-			for _, sha := range shas["refs/"+ref] {
+			correctShas := shas["refs/"+ref]
+			for i, sha := range correctShas {
 				c.Add(s.NewHtmlButton2("button_sha", sha))
+				if i < len(correctShas)-1 {
+					c.Add(s.NewHtmlBr())
+				}
 			}
 			tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
 		}
