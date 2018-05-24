@@ -76,7 +76,7 @@ func (a *Application) reportAtRefWrk(ref string, deps ReportByRefS) string {
 
 func (a *Application) reportAtShaWrk(name, sha string, deps []es.Dependency) string {
 	buf := bytes.NewBufferString("")
-	buf.WriteString(u.Format("%s at %s", name, sha))
+	buf.WriteString(u.Format("%s at %s\n", name, sha))
 	t := table.NewTable(3, len(deps))
 	for _, dep := range deps {
 		t.Fill(dep.Name, dep.Version, dep.Language)
