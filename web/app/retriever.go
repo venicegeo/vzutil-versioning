@@ -323,6 +323,20 @@ func (r *Retriever) ListRefsInProjByRepo(proj string) (*map[string][]string, int
 	return &res, totalNumber, err
 }
 
+func (r *Retriever) ListRepositories() ([]string, error) {
+	agg := es.NewAggQuery("repo", "repo_fullname")
+	var resp es.AggResponse
+	if err := r.app.index.DirectAccess("POST", "/versioning_tool/repository_entry/_search", agg, &resp); err != nil {
+		return nil, err
+	}
+	hits := resp.Aggs["repo"].Buckets
+	res := make([]string, len(hits), len(hits))
+	for i, hitData := range hits {
+		res[i] = hitData.Key
+	}
+	return res, nil
+}
+
 func (r *Retriever) ListRepositoriesByProj(proj string) ([]string, error) {
 	exists, err := r.app.index.ItemExists("project", proj)
 	if err != nil {

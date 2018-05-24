@@ -161,6 +161,7 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/reportref/:proj", a.reportRefOnProject},
 		u.RouteData{"GET", "/removerepo/:proj", a.removeReposFromProject},
 		u.RouteData{"GET", "/depsearch/:proj", a.searchForDepInProject},
+		u.RouteData{"GET", "/depsearch", a.searchForDep},
 		u.RouteData{"GET", "/diff/:proj", a.differencesInProject},
 		u.RouteData{"GET", "/reportsha", a.reportSha},
 	})

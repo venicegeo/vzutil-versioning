@@ -26,15 +26,19 @@ import (
 
 func (a *Application) projectsOverview(c *gin.Context) {
 	var form struct {
-		Project   string `form:"button_project"`
-		ReportSha string `form:"button_reportsha"`
+		Project string `form:"button_project"`
+		Util    string `form:"button_util"`
 	}
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Error binding the form: %s", err.Error())
 		return
 	}
-	if form.ReportSha != "" {
+	switch form.Util {
+	case "Report By Sha":
 		c.Redirect(303, "/reportsha")
+		return
+	case "Dependency Search":
+		c.Redirect(303, "/depsearch")
 		return
 	}
 	if form.Project == "" {

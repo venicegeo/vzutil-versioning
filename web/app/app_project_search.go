@@ -24,7 +24,35 @@ import (
 )
 
 func (a *Application) searchForDep(c *gin.Context) {
-	//TODO
+	var form struct {
+		Back         string `form:"button_back"`
+		DepName      string `form:"depsearchname"`
+		DepVersion   string `form:"depsearchversion"`
+		ButtonSearch string `form:"button_depsearch"`
+	}
+	if err := c.Bind(&form); err != nil {
+		c.String(400, "Unable to bind form: %s", err.Error())
+		return
+	}
+	h := gin.H{
+		"data":             "Search Results will appear here",
+		"depsearchname":    form.DepName,
+		"depsearchversion": form.DepVersion,
+	}
+	if form.Back != "" {
+		c.Redirect(303, "ui")
+	} else if form.ButtonSearch != "" {
+		repos, err := a.rtrvr.ListRepositories()
+		if err != nil {
+			c.String(400, "Unable to retrieve the projects repositories: %s", err.Error())
+			return
+		}
+		code, dat := a.searchForDepWrk(form.DepName, form.DepVersion, repos)
+		h["data"] = dat
+		c.HTML(code, "depsearch.html", h)
+	} else {
+		c.HTML(200, "depsearch.html", h)
+	}
 }
 
 func (a *Application) searchForDepInProject(c *gin.Context) {
