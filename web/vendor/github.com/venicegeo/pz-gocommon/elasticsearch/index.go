@@ -34,8 +34,6 @@ type Index struct {
 	version string
 	index   string
 	url     string
-	user    string
-	pass    string
 }
 
 // NewIndex is the initializing constructor for the type Index.
@@ -56,8 +54,6 @@ func NewIndex2(url, user, pass, index, settings string) (*Index, error) {
 	esi := &Index{
 		index: index,
 		url:   url,
-		user:  user,
-		pass:  pass,
 	}
 
 	var err error
@@ -547,9 +543,7 @@ func (esi *Index) GetMapping(typ string) (interface{}, error) {
 
 func (esi *Index) DirectAccess(verb string, endpoint string, input interface{}, output interface{}) error {
 	h := &piazza.Http{
-		BaseUrl:   esi.url,
-		BasicUser: esi.user,
-		BasicPass: esi.pass,
+		BaseUrl: esi.url,
 	}
 
 	_, err := h.Verb(verb, endpoint, input, output)

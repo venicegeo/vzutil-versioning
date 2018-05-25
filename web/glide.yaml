@@ -1,5 +1,15 @@
 package: github.com/venicegeo/vzutil-versioning/web
+ignore:
+- github.com/venicegeo/vzutil-versioning
 import:
 - package: github.com/braintree/manners
 - package: github.com/gin-gonic/gin
+- package: github.com/gorilla/securecookie
 - package: github.com/venicegeo/pz-gocommon
+  subpackages:
+  - elasticsearch
+  - gocommon
+- package: github.com/venicegeo/vzutil-versioning
+  subpackages:
+  - common
+  - common/table

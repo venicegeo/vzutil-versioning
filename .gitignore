@@ -14,3 +14,4 @@ list/*.json
 compare/*.json
 compare/*.txt
 compare/compare
+web/localhost*

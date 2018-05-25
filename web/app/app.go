@@ -33,6 +33,8 @@ type Application struct {
 	compareLocation string
 	debugMode       bool
 
+	server *u.Server
+
 	wrkr     *Worker
 	rtrvr    *Retriever
 	diffMan  *DifferenceManager
@@ -145,31 +147,39 @@ func (a *Application) Start() chan error {
 	}
 
 	log.Println("Starting on port", port)
-	server := u.Server{}
-	server.Configure([]u.RouteData{
-		u.RouteData{"GET", "/", a.defaultPath},
-		u.RouteData{"POST", "/webhook", a.webhookPath},
+	a.server = u.NewServer()
+	if _, err := os.Stat("crt"); err != nil {
+		if _, err = os.Stat("key"); err != nil {
+			a.server.SetTLSInfo("localhost.crt", "localhost.key")
+		}
+	}
+	a.server.Configure([]u.RouteData{
+		u.RouteData{"GET", "/", a.defaultPath, false},
+		u.RouteData{"POST", "/webhook", a.webhookPath, false},
 
-		u.RouteData{"GET", "/ui", a.projectsOverview},
-		u.RouteData{"GET", "/newproj", a.newProject},
-		u.RouteData{"POST", "/newproj", a.newProject},
-		u.RouteData{"GET", "/project/:proj", a.viewProject},
-		u.RouteData{"POST", "/project/:proj", a.viewProject},
-		u.RouteData{"GET", "/addrepo/:proj", a.addReposToProject},
-		u.RouteData{"POST", "/addrepo/:proj", a.addReposToProject},
-		u.RouteData{"GET", "/genbranch/:proj/:org/:repo", a.generateBranch},
-		u.RouteData{"GET", "/reportref/:proj", a.reportRefOnProject},
-		u.RouteData{"GET", "/removerepo/:proj", a.removeReposFromProject},
-		u.RouteData{"GET", "/depsearch/:proj", a.searchForDepInProject},
-		u.RouteData{"GET", "/depsearch", a.searchForDep},
-		u.RouteData{"GET", "/diff/:proj", a.differencesInProject},
-		u.RouteData{"GET", "/reportsha", a.reportSha},
+		u.RouteData{"GET", "/login", a.login, false},
+		u.RouteData{"POST", "/login", a.login, false},
+
+		u.RouteData{"GET", "/ui", a.projectsOverview, true},
+		u.RouteData{"GET", "/newproj", a.newProject, true},
+		u.RouteData{"POST", "/newproj", a.newProject, true},
+		u.RouteData{"GET", "/project/:proj", a.viewProject, true},
+		u.RouteData{"POST", "/project/:proj", a.viewProject, true},
+		u.RouteData{"GET", "/addrepo/:proj", a.addReposToProject, true},
+		u.RouteData{"POST", "/addrepo/:proj", a.addReposToProject, true},
+		u.RouteData{"GET", "/genbranch/:proj/:org/:repo", a.generateBranch, true},
+		u.RouteData{"GET", "/reportref/:proj", a.reportRefOnProject, true},
+		u.RouteData{"GET", "/removerepo/:proj", a.removeReposFromProject, true},
+		u.RouteData{"GET", "/depsearch/:proj", a.searchForDepInProject, true},
+		u.RouteData{"GET", "/depsearch", a.searchForDep, true},
+		u.RouteData{"GET", "/diff/:proj", a.differencesInProject, true},
+		u.RouteData{"GET", "/reportsha", a.reportSha, true},
 	})
 	select {
-	case err = <-server.Start(":" + port):
+	case err = <-a.server.Start(":" + port):
 		done <- err
 	case <-a.killChan:
-		done <- errors.New(u.Format("was stopped: %s", server.Stop()))
+		done <- errors.New(u.Format("was stopped: %s", a.server.Stop()))
 	}
 	return done
 }
@@ -179,6 +189,23 @@ func (a *Application) Stop() {
 
 func (a *Application) defaultPath(c *gin.Context) {
 	c.String(200, "Welcome to the dependency service!")
+}
+
+func (a *Application) login(c *gin.Context) {
+	var form struct {
+		Key    string `form:"key"`
+		Submit string `form:"button_submit"`
+	}
+	if err := c.Bind(&form); err != nil {
+		c.String(400, "Unable to bind form")
+		return
+	}
+	if form.Submit == "" {
+		c.HTML(200, "login.html", nil)
+	} else {
+		a.server.CreateAuth(c)
+		c.Redirect(302, "/ui")
+	}
 }
 
 func (a *Application) checkForRedirect(c *gin.Context) bool {
