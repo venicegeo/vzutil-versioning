@@ -118,6 +118,7 @@ func (server *Server) middleware(route RouteData) gin.HandlerFunc {
 				c.String(400, "Unknown error with auth")
 				return
 			} else if !auth {
+				fmt.Println("redirecting to auth")
 				c.Redirect(303, server.authRedirectPath)
 				return
 			}
@@ -130,12 +131,14 @@ func (server *Server) middleware(route RouteData) gin.HandlerFunc {
 func (server *Server) VerifyAuth(c *gin.Context) (bool, error) {
 	cookie, err := c.Request.Cookie("auth")
 	if err == http.ErrNoCookie {
+		fmt.Println("No cookie")
 		return false, nil
 	} else if err != nil {
 		return false, err
 	}
 	auth, ok := server.authCollection[cookie.Value]
 	if !ok {
+		fmt.Println("not found locally")
 		return false, nil
 	}
 	if time.Now().After(auth.authorizedUntil) {

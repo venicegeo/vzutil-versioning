@@ -148,8 +148,8 @@ func (a *Application) Start() chan error {
 
 	log.Println("Starting on port", port)
 	a.server = u.NewServer()
-	if _, err := os.Stat("crt"); err == nil {
-		if _, err = os.Stat("key"); err == nil {
+	if _, err := os.Stat("localhost.crt"); err == nil {
+		if _, err = os.Stat("localhost.key"); err == nil {
 			a.server.SetTLSInfo("localhost.crt", "localhost.key")
 		}
 	}
