@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/braintree/manners"
@@ -145,8 +146,8 @@ func (server *Server) VerifyAuth(c *gin.Context) (bool, error) {
 		fmt.Println(time.Now(), auth.authorizedUntil)
 		delete(server.authCollection, cookie.Value)
 		return false, nil
-	} else if c.Request.RemoteAddr != auth.remoteAddr {
-		fmt.Println(c.Request.RemoteAddr, auth.remoteAddr)
+	} else if strings.SplitN(c.Request.RemoteAddr, ":", 2)[0] != auth.remoteAddr {
+		fmt.Println(strings.SplitN(c.Request.RemoteAddr, ":", 2)[0], auth.remoteAddr)
 		return false, nil
 	}
 	return true, nil
@@ -163,7 +164,7 @@ func (server *Server) CreateAuth(c *gin.Context) {
 			break
 		}
 	}
-	server.authCollection[key] = authInfo{expires, c.Request.RemoteAddr}
+	server.authCollection[key] = authInfo{expires, strings.SplitN(c.Request.RemoteAddr, ":", 2)[0]}
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "auth",
 		Value:    key,
