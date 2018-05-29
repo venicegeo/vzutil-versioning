@@ -16,7 +16,6 @@ package util
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -102,10 +101,22 @@ func (server *Server) Configure(routeData []RouteData) error {
 		}
 	}
 
+	router.NoRoute(server.noRoute)
+
 	router.LoadHTMLGlob("templates/*")
 	server.router = router
 
 	return nil
+}
+
+func (server *Server) noRoute(c *gin.Context) {
+	if auth, err := server.VerifyAuth(c); err != nil {
+		c.String(400, "Unknown error with auth")
+	} else if !auth {
+		c.Redirect(303, server.authRedirectPath)
+	} else {
+		c.String(404, "404 Page not found")
+	}
 }
 
 func (server *Server) middleware(route RouteData) gin.HandlerFunc {
@@ -117,7 +128,6 @@ func (server *Server) middleware(route RouteData) gin.HandlerFunc {
 				c.String(400, "Unknown error with auth")
 				return
 			} else if !auth {
-				fmt.Println("redirecting to auth")
 				c.Redirect(303, server.authRedirectPath)
 				return
 			}
@@ -130,18 +140,15 @@ func (server *Server) middleware(route RouteData) gin.HandlerFunc {
 func (server *Server) VerifyAuth(c *gin.Context) (bool, error) {
 	cookie, err := c.Request.Cookie("auth")
 	if err == http.ErrNoCookie {
-		fmt.Println("No cookie")
 		return false, nil
 	} else if err != nil {
 		return false, err
 	}
 	auth, ok := server.authCollection[cookie.Value]
 	if !ok {
-		fmt.Println("not found locally")
 		return false, nil
 	}
 	if time.Now().After(auth.authorizedUntil) {
-		fmt.Println(time.Now(), auth.authorizedUntil)
 		delete(server.authCollection, cookie.Value)
 		return false, nil
 	}
@@ -150,7 +157,6 @@ func (server *Server) VerifyAuth(c *gin.Context) (bool, error) {
 
 func (server *Server) CreateAuth(c *gin.Context) {
 	expires := time.Now().Add(server.authTimeout)
-	fmt.Println("Setting expired to", expires)
 	key := g.NewUuid().String()
 	for {
 		if _, ok := server.authCollection[key]; ok {
