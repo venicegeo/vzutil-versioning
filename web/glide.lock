@@ -19,7 +19,7 @@ imports:
 - name: github.com/pkg/errors
   version: c605e284fe17294bda444b34710735b29d1a9d90
 - name: github.com/venicegeo/pz-gocommon
-  version: 4da5df3c496f318012b4dfb25be94fe94c4e9ef8
+  version: bd00005c94a36874b67631bb9e3cb088e9ce7b3b
   subpackages:
   - elasticsearch
   - elasticsearch/elastic-5-api

@@ -16,7 +16,6 @@ package app
 
 import (
 	"bytes"
-	"log"
 	"strings"
 	"sync"
 
@@ -94,7 +93,6 @@ func (a *Application) viewProject(c *gin.Context) {
 		c.String(500, "Unable to retrieve repository list: %s", err.Error())
 		return
 	}
-	log.Println(repos)
 	mux := sync.Mutex{}
 	errs := make(chan error, len(repos))
 	work := func(repoName string) {
@@ -103,7 +101,6 @@ func (a *Application) viewProject(c *gin.Context) {
 			errs <- err
 			return
 		}
-		log.Println(repoName, refs)
 		tempAccord := s.NewHtmlAccordion()
 		shas, _, err := a.rtrvr.ListShas(repoName)
 		if err != nil {
@@ -119,7 +116,6 @@ func (a *Application) viewProject(c *gin.Context) {
 					c.Add(s.NewHtmlBr())
 				}
 			}
-			log.Println(repoName, ref)
 			tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
 		}
 		mux.Lock()
