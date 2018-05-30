@@ -16,6 +16,7 @@ package app
 
 import (
 	"bytes"
+	"log"
 	"strings"
 	"sync"
 
@@ -116,6 +117,7 @@ func (a *Application) viewProject(c *gin.Context) {
 					c.Add(s.NewHtmlBr())
 				}
 			}
+			log.Println(repoName, ref)
 			tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
 		}
 		mux.Lock()
