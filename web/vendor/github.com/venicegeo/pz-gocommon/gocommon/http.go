@@ -31,9 +31,11 @@ type FlightCheck interface {
 }
 
 type Http struct {
-	FlightCheck FlightCheck
-	ApiKey      string
-	BaseUrl     string
+	FlightCheck   FlightCheck
+	ApiKey        string
+	BaseUrl       string
+	BasicAuthUser string
+	BasicAuthPass string
 }
 
 //----------------------------------------------------------
@@ -107,6 +109,8 @@ func (h *Http) doRequest(verb string, url string, reader io.Reader) (*http.Respo
 	req.Header.Set("Content-Type", ContentTypeJSON)
 	if h.ApiKey != "" {
 		req.SetBasicAuth(h.ApiKey, "")
+	} else if h.BasicAuthPass != "" || h.BasicAuthUser != "" {
+		req.SetBasicAuth(h.BasicAuthUser, h.BasicAuthPass)
 	}
 
 	client := &http.Client{}
