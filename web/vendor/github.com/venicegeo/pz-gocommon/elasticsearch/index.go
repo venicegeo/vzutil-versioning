@@ -548,6 +548,8 @@ func (esi *Index) GetMapping(typ string) (interface{}, error) {
 func (esi *Index) DirectAccess(verb string, endpoint string, input interface{}, output interface{}) error {
 	h := &piazza.Http{
 		BaseUrl: esi.url,
+		User:    esi.user,
+		Pass:    esi.pass,
 	}
 
 	_, err := h.Verb(verb, endpoint, input, output)
