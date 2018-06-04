@@ -68,7 +68,7 @@ func (a *Application) differencesInProject(c *gin.Context) {
 			if diffId == "button_delete" {
 				a.diffMan.Delete(a.diffMan.CurrentDisplay)
 				a.diffMan.CurrentDisplay = ""
-				c.Redirect(307, "/diff/"+proj)
+				c.Redirect(303, "/diff/"+proj)
 				return
 			} else {
 				for _, diff := range *diffs {

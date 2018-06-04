@@ -16,6 +16,7 @@ package app
 
 import (
 	"bytes"
+	"sort"
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/vzutil-versioning/common/table"
@@ -27,8 +28,9 @@ import (
 func (a *Application) reportRefOnProject(c *gin.Context) {
 	proj := c.Param("proj")
 	var form struct {
-		Back string `form:"button_back"`
-		Ref  string `form:"button_submit"`
+		Back       string `form:"button_back"`
+		ReportType string `form:"reporttype"`
+		Ref        string `form:"button_submit"`
 	}
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Unable to bind form: %s", err.Error())
@@ -55,21 +57,43 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 		if err != nil {
 			h["report"] = u.Format("Unable to generate report: %s", err.Error())
 		} else {
-			h["report"] = a.reportAtRefWrk(form.Ref, deps)
+			h["report"] = a.reportAtRefWrk(form.Ref, deps, form.ReportType)
 		}
 	}
 	c.HTML(200, "reportref.html", h)
 }
 
-func (a *Application) reportAtRefWrk(ref string, deps ReportByRefS) string {
+func (a *Application) reportAtRefWrk(ref string, deps ReportByRefS, typ string) string {
 	buf := bytes.NewBufferString("")
-	for name, depss := range deps {
-		buf.WriteString(u.Format("%s at %s\n%s", name, ref, depss.sha))
-		t := table.NewTable(3, len(depss.deps))
-		for _, dep := range depss.deps {
+	switch typ {
+	case "seperate":
+		for name, depss := range deps {
+			buf.WriteString(u.Format("%s at %s\n%s", name, ref, depss.sha))
+			t := table.NewTable(3, len(depss.deps))
+			for _, dep := range depss.deps {
+				t.Fill(dep.Name, dep.Version, dep.Language)
+			}
+			buf.WriteString(u.Format("\n%s\n\n", t.NoRowBorders().SpaceColumn(1).Format().String()))
+		}
+	case "grouped":
+		buf.WriteString(u.Format("All repos at %s\n", ref))
+		noDups := map[string]es.Dependency{}
+		for _, depss := range deps {
+			for _, dep := range depss.deps {
+				noDups[dep.GetHashSum()] = dep
+			}
+		}
+		sorted := make(es.DependencySort, 0, len(noDups))
+		for _, dep := range noDups {
+			sorted = append(sorted, dep)
+		}
+		sort.Sort(sorted)
+		t := table.NewTable(3, len(sorted))
+		for _, dep := range sorted {
 			t.Fill(dep.Name, dep.Version, dep.Language)
 		}
-		buf.WriteString(u.Format("\n%s\n\n", t.NoRowBorders().SpaceColumn(1).Format().String()))
+		buf.WriteString(u.Format("\n%s", t.NoRowBorders().SpaceColumn(1).Format().String()))
+	default:
 	}
 	return buf.String()
 }

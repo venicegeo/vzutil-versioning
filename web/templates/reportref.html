@@ -21,6 +21,13 @@ td {
 </td>
 <td>
 <fieldset>
+<legend>Type</legend>
+<input type="radio" name="reporttype" value="grouped" checked> Grouped<br>
+<input type="radio" name="reporttype" value="seperate"> Seperate
+</fieldset>
+</td>
+<td>
+<fieldset>
 <legend>Report</legend>
 <pre>
 {{ .report }}
