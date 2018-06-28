@@ -97,6 +97,7 @@ node {
           sh "cf set-env ${appName} DOMAIN ${env.PROVISION_DOMAIN}"
           sh "cf set-env ${appName} ARTIFACT_STORAGE_URL ${env.ARTIFACT_STORAGE_URL}"
 	  sh "cf set-env ${appName} ES_VCAP ${env.ES_VCAP}"
+	  sh "cf bind-service ${appName} ${env.ES_VCAP}"
           sh "cf start ${appName}"
         } catch (Exception e) {
 	  try {
