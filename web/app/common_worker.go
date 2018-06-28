@@ -15,6 +15,7 @@
 package app
 
 import (
+	"encoding/json"
 	"log"
 	"regexp"
 
@@ -65,12 +66,31 @@ func (w *Worker) startCheckExist() {
 		for {
 			work := <-w.checkExistQueue
 			log.Printf("[CHECK-WORKER (%d)] Starting work on %s\n", worker, work.gitInfo.AfterSha)
-			if exists, err := w.app.index.ItemExists("repository_entry", work.gitInfo.AfterSha); err != nil {
+			if item, err := w.app.index.GetByID("repository_entry", work.gitInfo.AfterSha); err != nil {
 				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s\n", worker, err.Error())
+				work.exists <- true
 				continue
-			} else if exists {
+			} else if item.Found {
+				var repEntry es.RepositoryEntry
+				if err = json.Unmarshal(*item.Source, &repEntry); err != nil {
+					log.Printf("[CHECK-WORKER (%d)] Unable to unmarshal sha: %s\nReason: %s\n", worker, work.gitInfo.AfterSha, err.Error())
+					work.exists <- true
+					continue
+				}
 				work.exists <- true
 				log.Printf("[CHECK-WORKER (%d)] This sha already exists\n", worker)
+				found := false
+				for _, name := range repEntry.RefNames {
+					if name == work.gitInfo.Ref {
+						found = true
+						break
+					}
+				}
+				if !found {
+					log.Printf("[CHECK-WORKER (%d)] Adding ref [%s] to sha [%s]\n", worker, work.gitInfo.Ref, work.gitInfo.AfterSha)
+					repEntry.RefNames = append(repEntry.RefNames, work.gitInfo.Ref)
+					w.app.index.PostData("repository_entry", work.gitInfo.AfterSha, repEntry)
+				}
 				continue
 			}
 			work.exists <- false

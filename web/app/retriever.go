@@ -50,7 +50,7 @@ func (r *Retriever) DepsBySha(sha string) ([]es.Dependency, string, string, bool
 		return nil, "", "", true, err
 	}
 
-	return r.depsFromEntry(&entry), entry.RepositoryFullName, entry.RefName, true, nil
+	return r.depsFromEntry(&entry), entry.RepositoryFullName, u.Format("%s", entry.RefNames), true, nil
 }
 func (r *Retriever) DepsByShaNameGen(fullName, sha string) ([]es.Dependency, error) {
 	deps, _, _, found, err := r.app.rtrvr.DepsBySha(sha)
@@ -138,7 +138,7 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res ReportByRefS,
 			"must": []map[string]interface{}{
 				map[string]interface{}{
 					"term": map[string]interface{}{
-						"ref_name": "refs/" + ref,
+						"ref_names": "refs/" + ref,
 					},
 				},
 				map[string]interface{}{
@@ -225,16 +225,18 @@ func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) 
 		if err := json.Unmarshal(entryD.Dat, &entry); err != nil {
 			return nil, 0, err
 		}
-		if _, ok := res[entry.RefName]; !ok {
-			res[entry.RefName] = []string{}
+		for _, refName := range entry.RefNames {
+			if _, ok := res[refName]; !ok {
+				res[refName] = []string{}
+			}
+			res[refName] = append(res[refName], entry.Sha)
 		}
-		res[entry.RefName] = append(res[entry.RefName], entry.Sha)
 	}
 	return res, len(entryDat), nil
 }
 
 func (r *Retriever) ListRefsRepo(fullName string) ([]string, error) {
-	in := es.NewAggQuery("refs", "ref_name")
+	in := es.NewAggQuery("refs", "ref_names")
 	in["size"] = 0
 	in["query"] = map[string]interface{}{
 		"term": map[string]interface{}{
@@ -260,7 +262,7 @@ func (r *Retriever) ListRefsInProj(proj string) ([]string, error) {
 		return nil, err
 	}
 	boool := es.NewBool().SetMust(es.NewBoolQ(es.NewTerms("repo_fullname", repos...)))
-	query := es.NewAggQuery("refs", "ref_name")
+	query := es.NewAggQuery("refs", "ref_names")
 	query["query"] = map[string]interface{}{"bool": boool}
 	var out es.AggResponse
 	if err := r.app.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", query, &out); err != nil {
@@ -284,7 +286,7 @@ func (r *Retriever) ListRefsInProjByRepo(proj string) (*map[string][]string, int
 	mux := &sync.Mutex{}
 
 	work := func(repo string) {
-		in := es.NewAggQuery("refs", "ref_name")
+		in := es.NewAggQuery("refs", "ref_names")
 		in["query"] = map[string]interface{}{
 			"term": map[string]interface{}{
 				"repo_fullname": repo,

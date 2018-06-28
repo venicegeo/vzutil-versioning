@@ -17,7 +17,7 @@ package es
 type RepositoryEntry struct {
 	RepositoryFullName string   `json:"repo_fullname"`
 	RepositoryName     string   `json:"repo_name"`
-	RefName            string   `json:"ref_name"`
+	RefNames           []string `json:"ref_names"`
 	Sha                string   `json:"sha"`
 	Timestamp          int64    `json:"timestamp"`
 	Dependencies       []string `json:"dependencies"`

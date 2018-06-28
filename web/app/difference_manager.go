@@ -189,7 +189,7 @@ func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Differ
 }
 
 func (d *DifferenceManager) webhookCompare(oldEntry, newEntry es.RepositoryEntry) (*Difference, error) {
-	return d.diffCompareWrk(newEntry.RepositoryFullName, newEntry.RefName, oldEntry.Dependencies, newEntry.Dependencies, oldEntry.Sha, newEntry.Sha, newEntry.Timestamp)
+	return d.diffCompareWrk(newEntry.RepositoryFullName, newEntry.RefNames[0], oldEntry.Dependencies, newEntry.Dependencies, oldEntry.Sha, newEntry.Sha, newEntry.Timestamp)
 }
 
 func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldDeps, newDeps []string, oldSha, newSha string, t int64) (*Difference, error) {

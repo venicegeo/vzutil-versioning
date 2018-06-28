@@ -54,7 +54,7 @@ func (w *WebhookRunner) es(workInfo *SingleResult) {
 	entry := es.RepositoryEntry{
 		RepositoryFullName: workInfo.fullName,
 		RepositoryName:     workInfo.name,
-		RefName:            workInfo.ref,
+		RefNames:           []string{workInfo.ref},
 		Sha:                workInfo.sha,
 		Timestamp:          workInfo.timestamp,
 		Dependencies:       workInfo.hashes,
@@ -73,7 +73,7 @@ func (w *WebhookRunner) es(workInfo *SingleResult) {
 				},
 				{
 					"term":{
-							"ref_name":"%s"
+							"ref_names":"[%s]"
 					}
 				},
 				{
