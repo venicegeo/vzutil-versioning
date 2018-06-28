@@ -51,7 +51,7 @@ func GetVcapES() (string, string, string, error) {
 	}
 	searchArr := func(services VcapServices) (string, string, string, bool) {
 		for _, e := range services {
-			if e.Name == "pz-elasticsearch" {
+			if e.Name == os.Getenv("ES_VCAP") {
 				url := e.Credentials.Host
 				if e.Credentials.ClusterId != "" {
 					url = e.Credentials.ClusterId + "." + url
