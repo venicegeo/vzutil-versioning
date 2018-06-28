@@ -166,10 +166,12 @@ func (a *Application) searchForDepWrk(depName, depVersion string, repos []string
 		if _, ok := test[entry.RepositoryFullName]; !ok {
 			test[entry.RepositoryFullName] = map[string][]string{}
 		}
-		if _, ok := test[entry.RepositoryFullName][entry.RefName]; !ok {
-			test[entry.RepositoryFullName][entry.RefName] = []string{}
+		for _, refName := range entry.RefNames {
+			if _, ok := test[entry.RepositoryFullName][refName]; !ok {
+				test[entry.RepositoryFullName][refName] = []string{}
+			}
+			test[entry.RepositoryFullName][refName] = append(test[entry.RepositoryFullName][refName], entry.Sha)
 		}
-		test[entry.RepositoryFullName][entry.RefName] = append(test[entry.RepositoryFullName][entry.RefName], entry.Sha)
 	}
 	for repoName, refs := range test {
 		buf.WriteString(repoName)

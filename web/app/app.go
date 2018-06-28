@@ -81,7 +81,7 @@ func (a *Application) Start() chan error {
 			"properties":{
 				"repo_fullname":{"type":"keyword"},
 				"repo_name":{"type":"keyword"},
-				"ref_name":{"type":"keyword"},
+				"ref_names":{"type":"keyword"},
 				"sha":{"type":"keyword"},
 				"timestamp":{"type":"long"},
 				"dependencies":{"type":"keyword"}
