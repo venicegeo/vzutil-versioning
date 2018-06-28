@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -29,6 +31,47 @@ import (
 
 var removeNewLineRE = regexp.MustCompile(`\r?\n`)
 var removeInfoSpace = regexp.MustCompile(`(\[INFO\] +)`)
+var getFilePath = regexp.MustCompile(`([^\/]+$)`)
+
+func ResolvePomXml(location string, test bool) ([]*dependency.GenericDependency, []*issue.Issue, error) {
+	poms := PomCollection{}
+	data, err := ioutil.ReadFile(location)
+	if err != nil {
+		return nil, nil, err
+	}
+	jsn, err := XmlToMap(data)
+	if err != nil {
+		return nil, nil, err
+	}
+	if _, ok := jsn["project"]; ok {
+		if jproj, ok := jsn["project"].(map[string]interface{}); ok {
+			for k, v := range map[string]reflect.Kind{"dependencies": reflect.Interface, "repositories": reflect.Interface, "properties": reflect.String, "dependencyManagement": reflect.Interface} {
+				if keyName, ok := jproj[k]; ok {
+					if reflect.TypeOf(keyName).Kind() != reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(v)).Kind() {
+						jproj[k] = reflect.New(reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(v))).Interface()
+					}
+				}
+			}
+		}
+	}
+	data, err = json.MarshalIndent(jsn, " ", "   ")
+	if err != nil {
+		return nil, nil, err
+	}
+	var projectWrapper PomProjectWrapper
+	if err = json.Unmarshal(data, &projectWrapper); err != nil {
+		fmt.Println(string(data))
+		return nil, nil, fmt.Errorf("ingestJavaProject %s unmarshal: %s", location, err.Error())
+	}
+	fileName := getFilePath.FindStringSubmatch(location)[0]
+	projectWrapper.SetProperties(strings.TrimSuffix(location, fileName), "")
+	poms.Add(&projectWrapper)
+
+	poms.BuildHierarchy(false)
+
+	//poms.PrintHierarchy()
+	return poms.GetResults()
+}
 
 type PomProjectWrapper struct {
 	Project              *PomProject `json:"project"`
@@ -38,9 +81,6 @@ type PomProjectWrapper struct {
 	ProjectWrapper
 }
 
-func (p *PomProjectWrapper) compileCheck() {
-	var _ IProjectWrapper = (*PomProjectWrapper)(nil)
-}
 func (p *PomProjectWrapper) AddChild(p2 *PomProjectWrapper) {
 	p.Children = append(p.Children, p2)
 	p2.Parent = p

@@ -57,3 +57,8 @@ func NewWeakVersion(name, version, tag string) *Issue {
 	temp := Issue(fmt.Sprintf("Version [%s] on package [%s] is not definite. Tag: [%s]", version, name, tag))
 	return &temp
 }
+
+func NewMissingVersion(name string) *Issue {
+	temp := Issue(fmt.Sprintf("Package [%s] is missing a version", name))
+	return &temp
+}

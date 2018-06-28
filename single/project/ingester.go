@@ -26,8 +26,6 @@ import (
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
 	"github.com/venicegeo/vzutil-versioning/single/project/ingest"
 	"github.com/venicegeo/vzutil-versioning/single/project/issue"
-
-	"gopkg.in/yaml.v2"
 )
 
 type Ingester struct {
@@ -71,12 +69,6 @@ func (i *Ingester) IngestProject(p *Project) (errors []error) {
 				tempDeps, issues, err = i.ingestJavaProject(p)
 				javaHit = true
 			}
-		case lan.JavaScript:
-			tempDeps, issues, err = i.ingestJavaScriptFile(filePath, p)
-		case lan.Go:
-			tempDeps, issues, err = i.ingestGoFile(filePath, p)
-		case lan.Python:
-			tempDeps, issues, err = i.ingestPythonFile(filePath, p)
 		}
 		if tempDeps != nil {
 			deps = append(deps, tempDeps...)
@@ -136,62 +128,4 @@ func (i *Ingester) ingestJavaProject(p *Project) ([]*dependency.GenericDependenc
 
 	//poms.PrintHierarchy()
 	return poms.GetResults()
-}
-
-func (i *Ingester) ingestJavaScriptFile(filePath string, p *Project) ([]*dependency.GenericDependency, []*issue.Issue, error) {
-	data, err := i.fileReader.Read(filePath)
-	if err != nil {
-		return nil, nil, err
-	}
-	var projectWrapper ingest.JsProjectWrapper
-	if err = json.Unmarshal(data, &projectWrapper); err != nil {
-		return nil, nil, err
-	}
-	projectWrapper.SetProperties(p.FolderLocation, p.FolderName)
-	return projectWrapper.GetResults()
-}
-
-func (i *Ingester) ingestGoFile(filePath string, p *Project) ([]*dependency.GenericDependency, []*issue.Issue, error) {
-	var yamlData, lockData []byte
-	var yml ingest.GlideYaml
-	var lock ingest.GlideLock
-	var err error
-
-	if yamlData, err = i.fileReader.Read(filePath); err != nil {
-		return nil, nil, err
-	}
-	if err = yaml.Unmarshal(yamlData, &yml); err != nil {
-		return nil, nil, err
-	}
-
-	if lockData, err = i.fileReader.Read(strings.TrimSuffix(filePath, "glide.yaml") + "glide.lock"); err != nil {
-		lockData = []byte("")
-	}
-	if err = yaml.Unmarshal(lockData, &lock); err != nil {
-		return nil, nil, err
-	}
-	projectWrapper := ingest.GoProjectWrapper{Yaml: &yml, Lock: &lock}
-	projectWrapper.SetProperties(p.FolderLocation, p.FolderName)
-	return projectWrapper.GetResults()
-}
-
-func (i *Ingester) ingestPythonFile(filePath string, p *Project) ([]*dependency.GenericDependency, []*issue.Issue, error) {
-	isPip := strings.HasSuffix(filePath, "requirements.txt")
-	reqDat, err := i.fileReader.Read(filePath)
-	if err != nil {
-		return nil, nil, err
-	}
-	if isPip {
-		devDat, err := i.fileReader.Read(strings.TrimSuffix(filePath, "requirements.txt") + "requirements-dev.txt")
-		if err != nil {
-			devDat = []byte("")
-		}
-		projectWrapper := ingest.PipProjectWrapper{Filedat: reqDat, DevFileDat: devDat}
-		projectWrapper.SetProperties(p.FolderLocation, p.FolderName)
-		return projectWrapper.GetResults()
-	} else {
-		projectWrapper := ingest.CondaProjectWrapper{Filedat: reqDat}
-		projectWrapper.SetProperties(p.FolderLocation, p.FolderName)
-		return projectWrapper.GetResults()
-	}
 }

@@ -16,7 +16,6 @@ limitations under the License.
 package ingest
 
 import (
-	"github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/single/project/issue"
 )
 
@@ -34,9 +33,9 @@ func (pw *ProjectWrapper) addIssue(iss *issue.Issue) {
 	pw.issues = append(pw.issues, iss)
 }
 
-type IProjectWrapper interface {
-	compileCheck()
-	SetProperties(string, string)
-	GetResults() ([]*dependency.GenericDependency, []*issue.Issue, error)
-	addIssue(*issue.Issue)
-}
+//type IProjectWrapper interface {
+//	compileCheck()
+//	SetProperties(string, string)
+//	GetResults() ([]*dependency.GenericDependency, []*issue.Issue, error)
+//	addIssue(*issue.Issue)
+//}
