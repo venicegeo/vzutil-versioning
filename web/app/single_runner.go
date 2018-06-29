@@ -46,7 +46,7 @@ func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan 
 		Sha  string
 		Deps []string
 	}
-	dat, err := exec.Command(sr.app.singleLocation, git.Repository.FullName, git.AfterSha).Output()
+	dat, err := exec.Command(sr.app.singleLocation, "--all", git.Repository.FullName, git.AfterSha).Output()
 	if err != nil {
 		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, git.AfterSha, err.Error())
 		return nil
