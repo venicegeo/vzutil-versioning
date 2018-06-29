@@ -13,27 +13,22 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package ingest
+package resolve
 
 import (
-	"regexp"
-
-	"github.com/venicegeo/vzutil-versioning/single/project/util"
+	"github.com/venicegeo/vzutil-versioning/common/issue"
 )
 
-type MvnDependency struct {
-	GroupId    string `json:"groupId"`
-	ArtifactId string `json:"artifactId"`
-	Packaging  string `json:"packaging"`
-	Version    string `json:"version,omitempty"`
+type ProjectWrapper struct {
+	issues   []*issue.Issue
+	name     string
+	location string
 }
 
-var re = regexp.MustCompile(`Download(?:(?:ing)|(?:ed)): .+(?:\n|\r)`)
-
-func GenerateMvnReport(location string) util.CmdRet {
-	cmd := util.RunCommand("mvn", "--file", location+"pom.xml", "dependency:resolve")
-	if cmd.IsError() {
-		cmd.Stdout = re.ReplaceAllString(cmd.Stdout, "")
-	}
-	return cmd
+func (pw *ProjectWrapper) SetProperties(location, name string) {
+	pw.location = location
+	pw.name = name
+}
+func (pw *ProjectWrapper) addIssue(iss *issue.Issue) {
+	pw.issues = append(pw.issues, iss)
 }

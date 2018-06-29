@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package ingest
+package resolve
 
 import (
 	"encoding/json"
@@ -25,9 +25,12 @@ import (
 	"strings"
 
 	"github.com/venicegeo/vzutil-versioning/common/dependency"
+	"github.com/venicegeo/vzutil-versioning/common/issue"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
-	"github.com/venicegeo/vzutil-versioning/single/project/issue"
+	"github.com/venicegeo/vzutil-versioning/single/util"
 )
+
+//TODO fix this array stuff
 
 var removeNewLineRE = regexp.MustCompile(`\r?\n`)
 var removeInfoSpace = regexp.MustCompile(`(\[INFO\] +)`)
@@ -39,13 +42,13 @@ func ResolvePomXml(location string, test bool) ([]*dependency.GenericDependency,
 	if err != nil {
 		return nil, nil, err
 	}
-	jsn, err := XmlToMap(data)
+	jsn, err := util.XmlToMap(data)
 	if err != nil {
 		return nil, nil, err
 	}
 	if _, ok := jsn["project"]; ok {
 		if jproj, ok := jsn["project"].(map[string]interface{}); ok {
-			for k, v := range map[string]reflect.Kind{"dependencies": reflect.Interface, "repositories": reflect.Interface, "properties": reflect.String, "dependencyManagement": reflect.Interface} {
+			for k, v := range map[string]reflect.Kind{"dependencies": reflect.Interface, "repositories": reflect.Interface, "properties": reflect.String, "dependencyManagement": reflect.Interface, "build": reflect.Interface, "profiles": reflect.Interface} {
 				if keyName, ok := jproj[k]; ok {
 					if reflect.TypeOf(keyName).Kind() != reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(v)).Kind() {
 						jproj[k] = reflect.New(reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(v))).Interface()
@@ -138,6 +141,14 @@ type PomProject struct {
 	Dependencies         map[string]interface{} `json:"dependencies"`
 	DependencyManagement map[string]interface{} `json:"dependencyManagement"`
 	Properties           map[string]string      `json:"properties"`
+	Build                map[string]interface{} `json:"build"`
+	Profiles             map[string]interface{} `json:"profiles"`
+}
+
+type PomBuild struct {
+	Plugins map[string]interface{} `json:"plugins"`
+}
+type PomProfile struct {
 }
 
 type PomRepositoryArr struct {
@@ -203,60 +214,90 @@ func (pw *PomProjectWrapper) GetResults() ([]*dependency.GenericDependency, []*i
 	if err := pw.replaceVariables(); err != nil {
 		return nil, pw.issues, err
 	}
-	dependenciesMap := pw.Project.Dependencies
-	var dependencies []*Item
-	if val, ok := dependenciesMap["dependency"]; !ok {
-	} else {
-		dat, err := json.Marshal(val)
-		if err != nil {
-			return nil, pw.issues, err
-		}
-		var rep *Item
-		var reps []*Item
-		err1 := json.Unmarshal(dat, &rep)
-		err2 := json.Unmarshal(dat, &reps)
-		if err1 != nil && err2 != nil {
-			return nil, pw.issues, err1
-		} else if err1 == nil {
-			dependencies = []*Item{rep}
-		} else if err2 == nil {
-			dependencies = reps
+
+	getItems := func(mapp map[string]interface{}, key string) ([]*Item, error) {
+		var items []*Item
+		if val, ok := mapp[key]; !ok {
 		} else {
-			return nil, pw.issues, errors.New("Bad logic")
+			dat, err := json.Marshal(val)
+			if err != nil {
+				return nil, err
+			}
+			var rep *Item
+			var reps []*Item
+			err1 := json.Unmarshal(dat, &rep)
+			err2 := json.Unmarshal(dat, &reps)
+			if err1 != nil && err2 != nil {
+				return nil, err1
+			} else if err1 == nil {
+				items = []*Item{rep}
+			} else if err2 == nil {
+				items = reps
+			} else {
+				return nil, errors.New("Bad logic")
+			}
 		}
+		return items, nil
 	}
-	deps := make([]*dependency.GenericDependency, len(dependencies), len(dependencies))
-	for i, dep := range dependencies {
-		deps[i] = dependency.NewGenericDependency(dep.ArtifactId, dep.Version, lan.Java)
+
+	dependencies, err := getItems(pw.Project.Dependencies, "dependency")
+	if err != nil {
+		return nil, pw.issues, err
 	}
 	dependencyManagerMap := pw.Project.DependencyManagement
-	if len(dependencyManagerMap) > 0 {
-		var dependencyReference []*Item
-		if depensi, ok := dependencyManagerMap["dependencies"]; ok {
-			if depens, ok := depensi.(map[string]interface{}); ok {
-				if val, ok := depens["dependency"]; !ok {
-				} else {
-					dat, err := json.Marshal(val)
-					if err != nil {
-						return nil, pw.issues, err
-					}
-					var rep *Item
-					var reps []*Item
-					err1 := json.Unmarshal(dat, &rep)
-					err2 := json.Unmarshal(dat, &reps)
-					if err1 != nil && err2 != nil {
-						return nil, pw.issues, err1
-					} else if err1 == nil {
-						dependencyReference = []*Item{rep}
-					} else if err2 == nil {
-						dependencyReference = reps
-					} else {
-						return nil, pw.issues, errors.New("Bad logic")
+	if _, ok := dependencyManagerMap["dependencies"]; ok {
+		if _, ok = dependencyManagerMap["dependencies"].(map[string]interface{}); ok {
+			dependencyReference, err := getItems(dependencyManagerMap["dependencies"].(map[string]interface{}), "dependency")
+			if err != nil {
+				return nil, pw.issues, err
+			}
+			pw.dependencyManagement = dependencyReference
+		}
+	}
+	buildMap := pw.Project.Build
+	if _, ok := buildMap["plugins"]; ok {
+		if _, ok = buildMap["plugins"].(map[string]interface{}); ok {
+			plugins, err := getItems(buildMap["plugins"].(map[string]interface{}), "plugin")
+			if err != nil {
+				return nil, pw.issues, err
+			}
+			dependencies = append(dependencies, plugins...)
+		}
+	}
+	if pw.Project.Parent != nil {
+		dependencies = append(dependencies, pw.Project.Parent)
+	}
+	profilesMap := pw.Project.Profiles
+	if _, ok := profilesMap["profile"]; ok {
+		if _, ok = profilesMap["profile"].(map[string]interface{}); ok {
+			if _, ok = profilesMap["profile"].(map[string]interface{})["build"]; ok {
+				if _, ok = profilesMap["profile"].(map[string]interface{})["build"].(map[string]interface{}); ok {
+					if _, ok = profilesMap["profile"].(map[string]interface{})["build"].(map[string]interface{})["plugins"]; ok {
+						if _, ok = profilesMap["profile"].(map[string]interface{})["build"].(map[string]interface{})["plugins"].(map[string]interface{}); ok {
+							plugins, err := getItems(profilesMap["profile"].(map[string]interface{})["build"].(map[string]interface{})["plugins"].(map[string]interface{}), "plugin")
+							if err != nil {
+								return nil, pw.issues, nil
+							}
+							dependencies = append(dependencies, plugins...)
+						}
 					}
 				}
 			}
+			if _, ok = profilesMap["profile"].(map[string]interface{})["dependencies"]; ok {
+				if _, ok = profilesMap["profile"].(map[string]interface{})["dependencies"].(map[string]interface{}); ok {
+					deps, err := getItems(profilesMap["profile"].(map[string]interface{})["dependencies"].(map[string]interface{}), "dependency")
+					if err != nil {
+						return nil, pw.issues, nil
+					}
+					dependencies = append(dependencies, deps...)
+				}
+			}
 		}
-		pw.dependencyManagement = dependencyReference
+	}
+
+	deps := make([]*dependency.GenericDependency, len(dependencies), len(dependencies))
+	for i, dep := range dependencies {
+		deps[i] = dependency.NewGenericDependency(dep.ArtifactId, dep.Version, lan.Java)
 	}
 	return deps, pw.issues, nil
 }

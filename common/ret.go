@@ -16,10 +16,11 @@ limitations under the License.
 package com
 
 type RepositoryDependencies struct {
-	Name string
-	Sha  string
-	Ref  string
-	Deps []string
+	Name   string
+	Sha    string
+	Ref    string
+	Deps   []string
+	Issues []string
 }
 
 type RepositoriesDependencies map[string]RepositoryDependencies

@@ -16,23 +16,22 @@ limitations under the License.
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/venicegeo/vzutil-versioning/common"
+	com "github.com/venicegeo/vzutil-versioning/common"
 	dep "github.com/venicegeo/vzutil-versioning/common/dependency"
-	proj "github.com/venicegeo/vzutil-versioning/single/project"
-	"github.com/venicegeo/vzutil-versioning/single/project/ingest"
-	"github.com/venicegeo/vzutil-versioning/single/project/issue"
-	"github.com/venicegeo/vzutil-versioning/single/project/util"
+	"github.com/venicegeo/vzutil-versioning/common/issue"
+	r "github.com/venicegeo/vzutil-versioning/single/resolve"
+	"github.com/venicegeo/vzutil-versioning/single/util"
 )
 
 type stringarr []string
@@ -76,7 +75,7 @@ func main() {
 	}
 
 	name := strings.Split(info[0], "/")[1]
-	location, err := cloneAndCheckout(info[0], info[1], name)
+	location, sha, err := cloneAndCheckout(info[0], info[1], name)
 	cleanup = func() { util.RunCommand("rm", "-rf", strings.TrimSuffix(location, name)) }
 	defer cleanup()
 	if err != nil {
@@ -92,20 +91,42 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		type ret struct {
-			Files []string `json:"files"`
-		}
-		dat, err := json.MarshalIndent(ret{files}, " ", "   ")
+		str, err := util.GetJson(map[string]interface{}{"files": files})
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		fmt.Println(string(dat))
+		fmt.Println(str)
 	} else {
 		if all {
-			files, err = modeScan(location, name, includeTest)
+			if files, err = modeScan(location, name, includeTest); err != nil {
+				cleanup()
+				fmt.Println(err)
+				os.Exit(1)
+			}
 		}
-		modeResolve(location, name, files, includeTest)
+		deps, issues, err := modeResolve(location, name, files, includeTest)
+		cleanup()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		sdeps := make([]string, len(deps), len(deps))
+		for i, d := range deps {
+			sdeps[i] = d.FullString()
+		}
+		sissues := make([]string, len(issues), len(issues))
+		for i, is := range issues {
+			sissues[i] = is.String()
+		}
+		sort.Strings(sdeps)
+		sort.Strings(sissues)
+		if dat, err := util.GetJson(com.RepositoryDependencies{info[0], sha, "", sdeps, sissues}); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		} else {
+			fmt.Println(string(dat))
+		}
 	}
 }
 
@@ -154,17 +175,19 @@ func modeScan(location, name string, test bool) ([]string, error) {
 var getFile = regexp.MustCompile(`^\/?(?:[^\/]+\/)*(.+)$`)
 
 var fileToFunc = map[string]func(string, bool) ([]*dep.GenericDependency, []*issue.Issue, error){
-	"glide.yaml":           ingest.ResolveGlideYaml,
-	"package.json":         ingest.ResolvePackageJson,
-	"environment.yml":      ingest.ResolveEnvironmentYml,
-	"environment-dev.yml":  ingest.ResolveEnvironmentYml,
-	"requirements.txt":     ingest.ResolveRequirementsTxt,
-	"requirements-dev.txt": ingest.ResolveRequirementsTxt,
-	"meta.yaml":            ingest.ResolveMetaYaml,
-	"pom.xml":              ingest.ResolvePomXml,
+	"glide.yaml":           r.ResolveGlideYaml,
+	"package.json":         r.ResolvePackageJson,
+	"environment.yml":      r.ResolveEnvironmentYml,
+	"environment-dev.yml":  r.ResolveEnvironmentYml,
+	"requirements.txt":     r.ResolveRequirementsTxt,
+	"requirements-dev.txt": r.ResolveRequirementsTxt,
+	"meta.yaml":            r.ResolveMetaYaml,
+	"pom.xml":              r.ResolvePomXml,
 }
 
-func modeResolve(location, name string, files []string, test bool) {
+func modeResolve(location, name string, files []string, test bool) ([]*dep.GenericDependency, []*issue.Issue, error) {
+	var deps []*dep.GenericDependency
+	var issues []*issue.Issue
 	for _, f := range files {
 		matches := getFile.FindStringSubmatch(f)
 		if len(matches) != 2 {
@@ -179,55 +202,38 @@ func modeResolve(location, name string, files []string, test bool) {
 			cleanup()
 			os.Exit(1)
 		}
-		fmt.Println(funcc(full, test))
+		d, i, e := funcc(full, test)
+		if e != nil {
+			return nil, nil, e
+		}
+		deps = append(deps, d...)
+		issues = append(issues, i...)
 	}
-	return
-	var project *proj.Project
-	var err error
-	if project, err = proj.NewProject(fmt.Sprintf("%s/%s", location, name)); err != nil {
-		cleanup()
-		fmt.Println("Error creating project:", err)
-		os.Exit(1)
-	}
-	if err = proj.Ingest(project, false); err != nil {
-		cleanup()
-		fmt.Println("Error ingesting project:", err)
-		os.Exit(1)
-	}
-
-	//fmt.Printf("### Direct dependencies found for %s version %s\n", project.FolderName, project.Sha)
-
-	ret := com.RepositoryDependencies{project.FolderName, project.Sha, "", []string{}}
-	for _, s := range project.GetDependencies() {
-		ret.Deps = append(ret.Deps, s.FullString())
-	}
-
-	dat, err := json.MarshalIndent(ret, " ", "   ")
-	if err != nil {
-		cleanup()
-		fmt.Println("Could not marshal return value:", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(dat))
+	dep.RemoveExactDuplicates(&deps)
+	return deps, issues, nil
 }
-func cloneAndCheckout(full_name, checkout, name string) (t string, err error) {
+
+func cloneAndCheckout(full_name, checkout, name string) (t string, sha string, err error) {
 	t = fmt.Sprintf("%d", time.Now().UnixNano())
 	var cmdRet util.CmdRet
 	if cmdRet = util.RunCommand("mkdir", t); cmdRet.IsError() {
-		return t, cmdRet.Error()
+		return t, "", cmdRet.Error()
 	}
 	if t, err = filepath.Abs(t); err != nil {
-		return t, err
+		return t, "", err
 	}
 	rest := t
 	t = fmt.Sprintf("%s/%s", t, name)
 	if cmdRet = util.RunCommand("git", "clone", "https://github.com/"+full_name, t); cmdRet.IsError() {
-		return t, cmdRet.Error()
+		return t, "", cmdRet.Error()
 	}
 	if cmdRet = util.RunCommand("git", "-C", t, "checkout", checkout); cmdRet.IsError() {
-		return t, cmdRet.Error()
+		return t, "", cmdRet.Error()
 	}
-	return strings.TrimSuffix(rest, "/"), nil
+	if cmdRet = util.RunCommand("git", "-C", t, "rev-parse", "HEAD"); cmdRet.IsError() {
+		return t, "", cmdRet.Error()
+	}
+	return strings.TrimSuffix(rest, "/"), strings.TrimSpace(cmdRet.Stdout), nil
 }
 
 func runInterruptHandler() {

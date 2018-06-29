@@ -13,42 +13,60 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package ingest
+package resolve
 
 import (
+	"io/ioutil"
+	"strings"
+
 	"github.com/venicegeo/vzutil-versioning/common/dependency"
+	"github.com/venicegeo/vzutil-versioning/common/issue"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
-	"github.com/venicegeo/vzutil-versioning/single/project/issue"
+	"gopkg.in/yaml.v2"
 )
 
-type GoProjectWrapper struct {
-	Yaml *GlideYaml
-	Lock *GlideLock
-	ProjectWrapper
-}
+func ResolveGlideYaml(location string, test bool) ([]*dependency.GenericDependency, []*issue.Issue, error) {
+	yamlDat, err := ioutil.ReadFile(location)
+	if err != nil {
+		return nil, nil, err
+	}
+	lockDat, err := ioutil.ReadFile(strings.TrimSuffix(location, ".yaml") + ".lock")
+	if err != nil {
+		return nil, nil, err
+	}
+	var yml GlideYaml
+	if err := yaml.Unmarshal(yamlDat, &yml); err != nil {
+		return nil, nil, err
+	}
+	var lock GlideLock
+	if err := yaml.Unmarshal(lockDat, &lock); err != nil {
+		return nil, nil, err
+	}
 
-func (pw *GoProjectWrapper) compileCheck() {
-	var _ IProjectWrapper = (*GoProjectWrapper)(nil)
-}
-
-func (pw *GoProjectWrapper) GetResults() ([]*dependency.GenericDependency, []*issue.Issue, error) {
-	yamlArray := append(pw.Yaml.Dependences, pw.Yaml.TestDependences...)
-	lockArray := append(pw.Lock.Packages, pw.Lock.TestPackages...)
+	yamlArray := yml.Dependences
+	lockArray := lock.Packages
+	if test {
+		yamlArray = append(yamlArray, yml.TestDependences...)
+		lockArray = append(lockArray, lock.TestPackages...)
+	}
 
 	deps := make([]*dependency.GenericDependency, len(yamlArray), len(yamlArray))
-	version := ""
+	issues := []*issue.Issue{}
+	var version string
 	for i, elem := range yamlArray {
 		version = elem.Version
-		for _, lock := range lockArray {
-			if elem.Name == lock.Name && elem.Version != lock.Sha {
-				pw.addIssue(issue.NewVersionMismatch(elem.Name, version, lock.Sha))
-				version = lock.Sha
-				break
+		if version == "" {
+			issues = append(issues, issue.NewMissingVersion(elem.Name))
+			for _, lock := range lockArray {
+				if elem.Name == lock.Name {
+					version = lock.Sha
+					break
+				}
 			}
 		}
 		deps[i] = dependency.NewGenericDependency(elem.Name, version, lan.Go)
 	}
-	return deps, pw.issues, nil
+	return deps, issues, nil
 }
 
 type GlideYaml struct {

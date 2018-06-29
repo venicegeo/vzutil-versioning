@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package ingest
+package resolve
 
 import (
 	"encoding/json"
@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"github.com/venicegeo/vzutil-versioning/common/dependency"
+	"github.com/venicegeo/vzutil-versioning/common/issue"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
-	"github.com/venicegeo/vzutil-versioning/single/project/issue"
 )
 
 var package_gitRE = regexp.MustCompile(`^git(?:(?:\+(?:https)|(?:ssh))|(?:\+ssh))*:\/\/(?:git\.)*github\.com\/.+\/.+\.git(?:#(.+))?`)

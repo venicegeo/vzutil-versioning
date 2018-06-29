@@ -78,7 +78,7 @@ func (c *CmdRet) IsError() bool {
 }
 
 func (c *CmdRet) String() string {
-	return fmt.Sprintf("Command %s failed:\n\t[STDOUT]: %s\n\t[STDERR]: %s\n\t[Error ]: %s", c.args, c.Stdout, c.Stderr, c.Err)
+	return fmt.Sprintf("Command %s failed:\n\t[STDOUT]: %s\n\t[STDERR]: %s\n\t[Error ]: %#v", c.args, c.Stdout, c.Stderr, c.Err)
 }
 func (c *CmdRet) Error() error {
 	return fmt.Errorf("%s", c.String())
