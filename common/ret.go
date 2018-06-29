@@ -21,6 +21,7 @@ type RepositoryDependencies struct {
 	Ref    string
 	Deps   []string
 	Issues []string
+	Files  []string
 }
 
 type RepositoriesDependencies map[string]RepositoryDependencies

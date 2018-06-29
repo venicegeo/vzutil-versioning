@@ -98,9 +98,14 @@ func (a *Application) reportAtRefWrk(ref string, deps ReportByRefS, typ string) 
 	return buf.String()
 }
 
-func (a *Application) reportAtShaWrk(name, sha string, deps []es.Dependency) string {
+func (a *Application) reportAtShaWrk(name, sha string, deps []es.Dependency, files []string) string {
 	buf := bytes.NewBufferString("")
 	buf.WriteString(u.Format("%s at %s\n", name, sha))
+	buf.WriteString("Files scanned:\n")
+	for _, f := range files {
+		buf.WriteString(f)
+		buf.WriteString("\n")
+	}
 	t := table.NewTable(3, len(deps))
 	for _, dep := range deps {
 		t.Fill(dep.Name, dep.Version, dep.Language)

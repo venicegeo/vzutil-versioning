@@ -16,7 +16,6 @@ package app
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -180,7 +179,7 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res ReportByRefS,
 		mux.Unlock()
 	}
 	work := func(repoName string) {
-		q := []byte(fmt.Sprintf(string(dat), repoName))
+		q := []byte(u.Format(string(dat), repoName))
 		resp, err := r.app.index.SearchByJSON("repository_entry", string(q))
 		if err != nil {
 			addError(repoName, u.Format("Error during query: %s", err.Error()))

@@ -66,31 +66,35 @@ func (w *Worker) startCheckExist() {
 		for {
 			work := <-w.checkExistQueue
 			log.Printf("[CHECK-WORKER (%d)] Starting work on %s\n", worker, work.gitInfo.AfterSha)
-			if item, err := w.app.index.GetByID("repository_entry", work.gitInfo.AfterSha); err != nil {
-				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s\n", worker, err.Error())
-				work.exists <- true
-				continue
-			} else if item.Found {
+
+			item, err := w.app.index.GetByID("repository_entry", work.gitInfo.AfterSha)
+			if err != nil {
+				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s. Continuing\n", worker, err.Error())
+			}
+			if item.Found {
 				var repEntry es.RepositoryEntry
 				if err = json.Unmarshal(*item.Source, &repEntry); err != nil {
 					log.Printf("[CHECK-WORKER (%d)] Unable to unmarshal sha: %s\nReason: %s\n", worker, work.gitInfo.AfterSha, err.Error())
-					work.exists <- true
+					work.exists <- false
+					work.singleRet <- nil
 					continue
 				}
 				work.exists <- true
-				log.Printf("[CHECK-WORKER (%d)] This sha already exists\n", worker)
-				found := false
-				for _, name := range repEntry.RefNames {
-					if name == work.gitInfo.Ref {
-						found = true
-						break
+				go func() {
+					log.Printf("[CHECK-WORKER (%d)] This sha already exists\n", worker)
+					refFound := false
+					for _, name := range repEntry.RefNames {
+						if name == work.gitInfo.Ref {
+							refFound = true
+							break
+						}
 					}
-				}
-				if !found {
-					log.Printf("[CHECK-WORKER (%d)] Adding ref [%s] to sha [%s]\n", worker, work.gitInfo.Ref, work.gitInfo.AfterSha)
-					repEntry.RefNames = append(repEntry.RefNames, work.gitInfo.Ref)
-					w.app.index.PostData("repository_entry", work.gitInfo.AfterSha, repEntry)
-				}
+					if !refFound {
+						log.Printf("[CHECK-WORKER (%d)] Adding ref [%s] to sha [%s]\n", worker, work.gitInfo.Ref, work.gitInfo.AfterSha)
+						repEntry.RefNames = append(repEntry.RefNames, work.gitInfo.Ref)
+						w.app.index.PostData("repository_entry", work.gitInfo.AfterSha, repEntry)
+					}
+				}()
 				continue
 			}
 			work.exists <- false

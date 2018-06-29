@@ -121,7 +121,7 @@ func main() {
 		}
 		sort.Strings(sdeps)
 		sort.Strings(sissues)
-		if dat, err := util.GetJson(com.RepositoryDependencies{info[0], sha, "", sdeps, sissues}); err != nil {
+		if dat, err := util.GetJson(com.RepositoryDependencies{info[0], sha, "", sdeps, sissues, files}); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		} else {

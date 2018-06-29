@@ -23,6 +23,7 @@ import (
 	"github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/common/issue"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
+	"github.com/venicegeo/vzutil-versioning/single/util"
 )
 
 var requirements_gitRE = regexp.MustCompile(`^git(?:(?:\+https)|(?:\+ssh)|(?:\+git))*:\/\/(?:git\.)*github\.com\/.+\/([^@.]+)()(?:(?:.git)?@([^#]+))?`)
@@ -33,8 +34,7 @@ func ResolveRequirementsTxt(location string, test bool) ([]*dependency.GenericDe
 	if err != nil {
 		return nil, nil, err
 	}
-
-	lines := strings.Split(string(dat), "\n")
+	lines := util.StringSliceTrimSpaceRemoveEmpty(strings.Split(string(dat), "\n"))
 	deps := make([]*dependency.GenericDependency, len(lines), len(lines))
 	issues := []*issue.Issue{}
 	for i, line := range lines {

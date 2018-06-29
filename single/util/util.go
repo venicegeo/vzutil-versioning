@@ -65,6 +65,16 @@ func StringSliceToLower(s []string) {
 		s[i] = strings.ToLower(v)
 	}
 }
+func StringSliceTrimSpaceRemoveEmpty(s []string) []string {
+	u := make([]string, 0, len(s))
+	for _, t := range s {
+		v := strings.TrimSpace(t)
+		if v != "" {
+			u = append(u, v)
+		}
+	}
+	return u
+}
 
 type CmdRet struct {
 	args   []string
