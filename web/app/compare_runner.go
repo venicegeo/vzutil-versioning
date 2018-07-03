@@ -34,7 +34,7 @@ func (cr *CompareRunner) CompareStrings(actual, expected string) (string, error)
 	return string(res), err
 }
 
-func (cr *CompareRunner) CompareRepositories(actual, expected com.RepositoriesDependencies) (string, error) {
+func (cr *CompareRunner) CompareRepositories(actual, expected com.DependencyScans) (string, error) {
 	var adat, bdat []byte
 	var err error
 	if adat, err = json.Marshal(actual); err != nil {

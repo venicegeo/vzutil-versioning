@@ -15,9 +15,6 @@
 package es
 
 import (
-	"encoding/json"
-	"sort"
-
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -57,34 +54,6 @@ func GetAll(index *elasticsearch.Index, typ, query string, vsort ...string) ([]*
 		for _, h := range *hits {
 			res = append(res, &hit{h.ID, *h.Source})
 		}
-	}
-	return res, nil
-}
-
-func GetAllDependencies(index *elasticsearch.Index) ([]Dependency, error) {
-	depsDat, err := GetAll(index, "dependency", "{}")
-	if err != nil {
-		return nil, err
-	}
-	deps := make(DependencySort, len(depsDat), len(depsDat))
-	for i, dat := range depsDat {
-		var dep Dependency
-		if err = json.Unmarshal(dat.Dat, &dep); err != nil {
-			return nil, err
-		}
-		deps[i] = dep
-	}
-	sort.Sort(deps)
-	return deps, nil
-}
-func GetAllDependenciesStr(index *elasticsearch.Index) ([]string, error) {
-	deps, err := GetAllDependencies(index)
-	if err != nil {
-		return nil, err
-	}
-	res := make([]string, len(deps), len(deps))
-	for i, dep := range deps {
-		res[i] = dep.String()
 	}
 	return res, nil
 }

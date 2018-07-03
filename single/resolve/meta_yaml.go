@@ -19,13 +19,13 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/venicegeo/vzutil-versioning/common/dependency"
-	"github.com/venicegeo/vzutil-versioning/common/issue"
+	d "github.com/venicegeo/vzutil-versioning/common/dependency"
+	i "github.com/venicegeo/vzutil-versioning/common/issue"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
 	"gopkg.in/yaml.v2"
 )
 
-func ResolveMetaYaml(location string, test bool) ([]*dependency.GenericDependency, []*issue.Issue, error) {
+func ResolveMetaYaml(location string, test bool) (d.Dependencies, i.Issues, error) {
 	dat, err := ioutil.ReadFile(location)
 	if err != nil {
 		return nil, nil, err
@@ -55,12 +55,12 @@ func ResolveMetaYaml(location string, test bool) ([]*dependency.GenericDependenc
 			unique = append(unique, [2]string{p[0], p[1]})
 		}
 	}
-	deps := make([]*dependency.GenericDependency, len(unique), len(unique))
-	issues := []*issue.Issue{}
-	for i, u := range unique {
-		deps[i] = dependency.NewGenericDependency(u[0], u[1], lan.Python)
+	deps := make(d.Dependencies, len(unique), len(unique))
+	issues := i.Issues{}
+	for c, u := range unique {
+		deps[c] = d.NewDependency(u[0], u[1], lan.Python)
 		if u[1] == "" {
-			issues = append(issues, issue.NewMissingVersion(u[0]))
+			issues = append(issues, i.NewMissingVersion(u[0]))
 		}
 	}
 	return deps, issues, nil

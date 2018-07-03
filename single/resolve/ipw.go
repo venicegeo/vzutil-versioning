@@ -16,11 +16,11 @@ limitations under the License.
 package resolve
 
 import (
-	"github.com/venicegeo/vzutil-versioning/common/issue"
+	i "github.com/venicegeo/vzutil-versioning/common/issue"
 )
 
 type ProjectWrapper struct {
-	issues   []*issue.Issue
+	issues   i.Issues
 	name     string
 	location string
 }
@@ -28,7 +28,4 @@ type ProjectWrapper struct {
 func (pw *ProjectWrapper) SetProperties(location, name string) {
 	pw.location = location
 	pw.name = name
-}
-func (pw *ProjectWrapper) addIssue(iss *issue.Issue) {
-	pw.issues = append(pw.issues, iss)
 }

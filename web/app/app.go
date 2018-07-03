@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
+	c "github.com/venicegeo/vzutil-versioning/common"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -73,29 +74,10 @@ func (a *Application) Start() chan error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	i, err := elasticsearch.NewIndex2(url, user, pass, a.indexName, `
+	i, err := elasticsearch.NewIndex2(url, user, pass, a.indexName, u.Format(`
 {
 	"mappings": {
-		"repository_entry":{
-			"dynamic":"strict",
-			"properties":{
-				"repo_fullname":{"type":"keyword"},
-				"repo_name":{"type":"keyword"},
-				"ref_names":{"type":"keyword"},
-				"sha":{"type":"keyword"},
-				"timestamp":{"type":"long"},
-				"dependencies":{"type":"keyword"}
-			}
-		},
-		"dependency":{
-			"dynamic":"strict",
-			"properties":{
-				"hashsum":{"type":"keyword"},
-				"name":{"type":"keyword"},
-				"version":{"type":"keyword"},
-				"language":{"type":"keyword"}
-			}
-		},
+		"repository_entry": %s,
 		"difference":{
 			"dynamic":"strict",
 			"properties":{
@@ -106,7 +88,7 @@ func (a *Application) Start() chan error {
 				"new_sha":{"type":"keyword"},
 				"removed":{"type":"keyword"},
 				"added":{"type":"keyword"},
-				"time":{"type":"long"}
+				"time":{"type":"keyword"}
 			}
 		},
 		"project_entry": {
@@ -124,7 +106,7 @@ func (a *Application) Start() chan error {
 			}
 		}
 	}
-}`)
+}`, c.DependencyScanMapping))
 	if err != nil {
 		log.Fatal(err.Error())
 	} else {

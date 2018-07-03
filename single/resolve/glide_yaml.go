@@ -19,13 +19,13 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/venicegeo/vzutil-versioning/common/dependency"
-	"github.com/venicegeo/vzutil-versioning/common/issue"
+	d "github.com/venicegeo/vzutil-versioning/common/dependency"
+	i "github.com/venicegeo/vzutil-versioning/common/issue"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
 	"gopkg.in/yaml.v2"
 )
 
-func ResolveGlideYaml(location string, test bool) ([]*dependency.GenericDependency, []*issue.Issue, error) {
+func ResolveGlideYaml(location string, test bool) (d.Dependencies, i.Issues, error) {
 	yamlDat, err := ioutil.ReadFile(location)
 	if err != nil {
 		return nil, nil, err
@@ -50,13 +50,13 @@ func ResolveGlideYaml(location string, test bool) ([]*dependency.GenericDependen
 		lockArray = append(lockArray, lock.TestPackages...)
 	}
 
-	deps := make([]*dependency.GenericDependency, len(yamlArray), len(yamlArray))
-	issues := []*issue.Issue{}
+	deps := make(d.Dependencies, len(yamlArray), len(yamlArray))
+	issues := i.Issues{}
 	var version string
-	for i, elem := range yamlArray {
+	for c, elem := range yamlArray {
 		version = elem.Version
 		if version == "" {
-			issues = append(issues, issue.NewMissingVersion(elem.Name))
+			issues = append(issues, i.NewMissingVersion(elem.Name))
 			for _, lock := range lockArray {
 				if elem.Name == lock.Name {
 					version = lock.Sha
@@ -64,7 +64,7 @@ func ResolveGlideYaml(location string, test bool) ([]*dependency.GenericDependen
 				}
 			}
 		}
-		deps[i] = dependency.NewGenericDependency(elem.Name, version, lan.Go)
+		deps[c] = d.NewDependency(elem.Name, version, lan.Go)
 	}
 	return deps, issues, nil
 }

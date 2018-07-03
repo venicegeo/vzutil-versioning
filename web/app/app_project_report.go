@@ -19,6 +19,7 @@ import (
 	"sort"
 
 	"github.com/gin-gonic/gin"
+	c "github.com/venicegeo/vzutil-versioning/common"
 	"github.com/venicegeo/vzutil-versioning/common/table"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
@@ -98,17 +99,17 @@ func (a *Application) reportAtRefWrk(ref string, deps ReportByRefS, typ string) 
 	return buf.String()
 }
 
-func (a *Application) reportAtShaWrk(name, sha string, deps []es.Dependency, files []string) string {
+func (a *Application) reportAtShaWrk(scan c.DependencyScan) string {
 	buf := bytes.NewBufferString("")
-	buf.WriteString(u.Format("%s at %s\n", name, sha))
+	buf.WriteString(u.Format("%s at %s\n", scan.Name, scan.Sha))
 	buf.WriteString("Files scanned:\n")
-	for _, f := range files {
+	for _, f := range scan.Files {
 		buf.WriteString(f)
 		buf.WriteString("\n")
 	}
-	t := table.NewTable(3, len(deps))
-	for _, dep := range deps {
-		t.Fill(dep.Name, dep.Version, dep.Language)
+	t := table.NewTable(3, len(scan.Deps))
+	for _, dep := range scan.Deps {
+		t.Fill(dep.Name, dep.Version, dep.Language.String())
 	}
 	buf.WriteString(t.NoRowBorders().SpaceColumn(1).Format().String())
 	return buf.String()

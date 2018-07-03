@@ -15,13 +15,35 @@ limitations under the License.
 */
 package com
 
-type RepositoryDependencies struct {
-	Name   string
-	Sha    string
-	Ref    string
-	Deps   []string
-	Issues []string
-	Files  []string
+import (
+	"time"
+
+	d "github.com/venicegeo/vzutil-versioning/common/dependency"
+)
+
+const DependencyScanMapping string = `{
+	"dynamic":"strict",
+	"properties":{
+		"full_name":{"type":"keyword"},
+		"name":{"type":"keyword"},
+		"refs":{"type":"keyword"},
+		"sha":{"type":"keyword"},
+		"timestamp":{"type":"keyword"},
+		"dependencies":` + d.DependencyMapping + `,
+		"issues":{"type":"keyword"},
+		"files":{"type":"keyword"}
+	}
+}`
+
+type DependencyScan struct {
+	Fullname  string         `json:"full_name"`
+	Name      string         `json:"name"`
+	Sha       string         `json:"sha"`
+	Refs      []string       `json:"refs"`
+	Deps      []d.Dependency `json:"dependencies"`
+	Issues    []string       `json:"issues"`
+	Files     []string       `json:"files"`
+	Timestamp time.Time      `json:"timestamp"`
 }
 
-type RepositoriesDependencies map[string]RepositoryDependencies
+type DependencyScans map[string]DependencyScan
