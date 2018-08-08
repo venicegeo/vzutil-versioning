@@ -26,19 +26,18 @@ import (
 	"strings"
 
 	com "github.com/venicegeo/vzutil-versioning/common"
-	deps "github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/common/table"
 )
 
 var re = regexp.MustCompile(``)
 
-func readFile(filename string) (com.RepositoriesDependencies, error) {
+func readFile(filename string) (com.DependencyScans, error) {
 	var fileDat []byte
 	var err error
 	if fileDat, err = ioutil.ReadFile(filename); err != nil {
 		log.Fatalln(err)
 	}
-	var fileDeps com.RepositoriesDependencies
+	var fileDeps com.DependencyScans
 	err = json.Unmarshal(fileDat, &fileDeps)
 	return fileDeps, err
 }
@@ -66,7 +65,7 @@ func main() {
 	flag.StringVar(&string2, "es", "", "Expected String")
 	flag.Parse()
 
-	var expected, actual com.RepositoriesDependencies
+	var expected, actual com.DependencyScans
 	var err error
 
 	if file1 == "" && string1 == "" {
@@ -113,12 +112,12 @@ func main() {
 		}
 		str := NewCompareStruct(projectName, maxKey)
 		for _, s := range project.Deps {
-			str.ActualDeps = append(str.ActualDeps, deps.NewGenericDependencyStr(s).String())
+			str.ActualDeps = append(str.ActualDeps, s.String())
 		}
 		if str.ExpectedName != "" {
 			if proj, ok := expected[str.ExpectedName]; ok {
 				for _, s := range proj.Deps {
-					str.ExpectedDeps = append(str.ExpectedDeps, deps.NewGenericDependencyStr(s).String())
+					str.ExpectedDeps = append(str.ExpectedDeps, s.String())
 				}
 			}
 			delete(expected, str.ExpectedName)
@@ -128,7 +127,7 @@ func main() {
 	for projectName, project := range expected {
 		str := NewCompareStruct("", projectName)
 		for _, s := range project.Deps {
-			str.ExpectedDeps = append(str.ExpectedDeps, deps.NewGenericDependencyStr(s).String())
+			str.ExpectedDeps = append(str.ExpectedDeps, s.String())
 		}
 		compares = append(compares, str)
 	}
