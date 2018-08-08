@@ -63,7 +63,6 @@ func ResolvePomXml(location string, test bool) (d.Dependencies, i.Issues, error)
 	}
 	var projectWrapper PomProjectWrapper
 	if err = json.Unmarshal(data, &projectWrapper); err != nil {
-		fmt.Println(string(data))
 		return nil, nil, fmt.Errorf("ingestJavaProject %s unmarshal: %s", location, err.Error())
 	}
 	fileName := getFilePath.FindStringSubmatch(location)[0]
@@ -189,9 +188,9 @@ func getResultsAndFromChildren(pom *PomProjectWrapper, isRoot bool, dependencyMa
 		return nil, issues, err
 	}
 	mvnDeps, mvnError := pom.generateMvnDependencies()
-	if mvnError != nil && isRoot {
+	/*if mvnError != nil && isRoot {
 		return nil, nil, mvnError
-	} else if mvnError != nil {
+	} else*/if mvnError != nil {
 		issues = append(issues, i.NewIssue("Failed to build [%s] with maven", pom.Project.ArtifactId))
 		mvnDeps = previousMvnDeps
 	}
@@ -306,17 +305,19 @@ func (p *PomProjectWrapper) compareAndReplaceDependecies(deps d.Dependencies, mv
 	if deps == nil || mvnDeps == nil {
 		return
 	}
-	for _, pomDep := range deps {
+	for index, pomDep := range deps {
 		for _, manDep := range dependencyManagement {
 			if pomDep.Name == manDep.ArtifactId && pomDep.Version != manDep.Version {
 				p.issues = append(p.issues, i.NewVersionMismatch(pomDep.Name, pomDep.Version, manDep.Version))
 				pomDep.Version = manDep.Version
+				deps[index] = pomDep
 			}
 		}
 		for _, mvnDep := range mvnDeps {
 			if pomDep.Name == mvnDep.ArtifactId && pomDep.Version != mvnDep.Version {
 				p.issues = append(p.issues, i.NewVersionMismatch(pomDep.Name, pomDep.Version, mvnDep.Version))
 				pomDep.Version = mvnDep.Version
+				deps[index] = pomDep
 			}
 		}
 	}

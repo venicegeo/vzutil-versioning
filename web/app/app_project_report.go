@@ -20,9 +20,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	c "github.com/venicegeo/vzutil-versioning/common"
+	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/common/table"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
-	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -54,44 +54,44 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 		h["refs"] = buttons.Template()
 	}
 	if form.Ref != "" {
-		deps, err := a.rtrvr.DepsByRefInProject(proj, form.Ref)
+		scans, err := a.rtrvr.ScansByRefInProject(proj, form.Ref)
 		if err != nil {
 			h["report"] = u.Format("Unable to generate report: %s", err.Error())
 		} else {
-			h["report"] = a.reportAtRefWrk(form.Ref, deps, form.ReportType)
+			h["report"] = a.reportAtRefWrk(form.Ref, scans, form.ReportType)
 		}
 	}
 	c.HTML(200, "reportref.html", h)
 }
 
-func (a *Application) reportAtRefWrk(ref string, deps ReportByRefS, typ string) string {
+func (a *Application) reportAtRefWrk(ref string, deps c.DependencyScans, typ string) string {
 	buf := bytes.NewBufferString("")
 	switch typ {
 	case "seperate":
 		for name, depss := range deps {
-			buf.WriteString(u.Format("%s at %s\n%s", name, ref, depss.sha))
-			t := table.NewTable(3, len(depss.deps))
-			for _, dep := range depss.deps {
-				t.Fill(dep.Name, dep.Version, dep.Language)
+			buf.WriteString(u.Format("%s at %s\n%s", name, ref, depss.Sha))
+			t := table.NewTable(3, len(depss.Deps))
+			for _, dep := range depss.Deps {
+				t.Fill(dep.Name, dep.Version, dep.Language.String())
 			}
 			buf.WriteString(u.Format("\n%s\n\n", t.NoRowBorders().SpaceColumn(1).Format().String()))
 		}
 	case "grouped":
 		buf.WriteString(u.Format("All repos at %s\n", ref))
-		noDups := map[string]es.Dependency{}
+		noDups := map[string]d.Dependency{}
 		for _, depss := range deps {
-			for _, dep := range depss.deps {
-				noDups[dep.GetHashSum()] = dep
+			for _, dep := range depss.Deps {
+				noDups[dep.String()] = dep
 			}
 		}
-		sorted := make(es.DependencySort, 0, len(noDups))
+		sorted := make(d.DependencySort, 0, len(noDups))
 		for _, dep := range noDups {
 			sorted = append(sorted, dep)
 		}
 		sort.Sort(sorted)
 		t := table.NewTable(3, len(sorted))
 		for _, dep := range sorted {
-			t.Fill(dep.Name, dep.Version, dep.Language)
+			t.Fill(dep.Name, dep.Version, dep.Language.String())
 		}
 		buf.WriteString(u.Format("\n%s", t.NoRowBorders().SpaceColumn(1).Format().String()))
 	default:
@@ -99,7 +99,7 @@ func (a *Application) reportAtRefWrk(ref string, deps ReportByRefS, typ string) 
 	return buf.String()
 }
 
-func (a *Application) reportAtShaWrk(scan c.DependencyScan) string {
+func (a *Application) reportAtShaWrk(scan *c.DependencyScan) string {
 	buf := bytes.NewBufferString("")
 	buf.WriteString(u.Format("%s at %s\n", scan.Name, scan.Sha))
 	buf.WriteString("Files scanned:\n")

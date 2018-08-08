@@ -22,7 +22,6 @@ import (
 
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	c "github.com/venicegeo/vzutil-versioning/common"
-	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -36,25 +35,21 @@ func NewRetriever(app *Application) *Retriever {
 	return &Retriever{app}
 }
 
-func (r *Retriever) DepsBySha(sha string) ([]es.Dependency, string, string, bool, error) {
+func (r *Retriever) ScanBySha(sha string) (*c.DependencyScan, bool, error) {
 	var entry c.DependencyScan
 	var err error
 	//	var found bool
 
 	result, err := r.app.index.GetByID("repository_entry", sha)
 	if result == nil {
-		return nil, "", "", false, err
+		return nil, false, err
 	} else if !result.Found {
-		return nil, "", "", false, nil
+		return nil, false, nil
 	}
-	if err = json.Unmarshal(*result.Source, &entry); err != nil {
-		return nil, "", "", true, err
-	}
-
-	return r.depsFromEntry(&entry), entry.Fullname, u.Format("%s", entry.Refs), true, nil
+	return &entry, true, json.Unmarshal(*result.Source, &entry)
 }
-func (r *Retriever) DepsByShaNameGen(fullName, sha string) ([]es.Dependency, error) {
-	deps, _, _, found, err := r.app.rtrvr.DepsBySha(sha)
+func (r *Retriever) ScanByShaNameGen(fullName, sha string) (*c.DependencyScan, error) {
+	scan, found, err := r.app.rtrvr.ScanBySha(sha)
 	if err != nil || !found {
 		{
 			code, _, _, err := nt.HTTP(nt.HEAD, u.Format("https://github.com/%s/commit/%s", fullName, sha), nt.NewHeaderBuilder().GetHeader(), nil)
@@ -66,36 +61,36 @@ func (r *Retriever) DepsByShaNameGen(fullName, sha string) ([]es.Dependency, err
 			}
 		}
 		exists := make(chan bool, 1)
-		ret := make(chan *SingleResult, 1)
+		ret := make(chan *c.DependencyScan, 1)
 		r.app.wrkr.AddTask(&s.GitWebhook{AfterSha: sha, Repository: s.GitRepository{FullName: fullName}}, exists, ret)
 		if !<-exists {
-			sr := <-ret
-			if sr == nil {
+			scan = <-ret
+			if scan == nil {
 				return nil, u.Error("There was an error while running this")
 			}
-			deps = sr.Deps
-			sort.Sort(es.DependencySort(deps))
 		} else {
 			return nil, u.Error("Retriever said not found, worker said found")
 		}
 	}
-	return deps, nil
+	return scan, nil
 }
 
-func (r *Retriever) depsFromEntry(entry *c.DependencyScan) (res []es.Dependency) {
+//TODO delete?
+/*
+func (r *Retriever) depsFromEntry(entry *c.DependencyScan) (res []d.Dependency) {
 	mux := &sync.Mutex{}
 	done := make(chan bool, len(entry.Deps))
 	work := func(dep string) {
 		if resp, err := r.app.index.GetByID("dependency", dep); err != nil || !resp.Found {
 			name := u.Format("Cound not find [%s]", dep)
-			tmp := es.Dependency{name, "", ""}
+			tmp := d.Dependency{name, "", ""}
 			mux.Lock()
 			res = append(res, tmp)
 			mux.Unlock()
 		} else {
-			var depen es.Dependency
+			var depen d.Dependency
 			if err = json.Unmarshal([]byte(*resp.Source), &depen); err != nil {
-				tmp := es.Dependency{u.Format("Error getting [%s]: [%s]", dep, err.Error()), "", ""}
+				tmp := d.Dependency{u.Format("Error getting [%s]: [%s]", dep, err.Error()), "", ""}
 				mux.Lock()
 				res = append(res, tmp)
 				mux.Unlock()
@@ -113,11 +108,12 @@ func (r *Retriever) depsFromEntry(entry *c.DependencyScan) (res []es.Dependency)
 	for i := 0; i < len(entry.Deps); i++ {
 		<-done
 	}
-	sort.Sort(es.DependencySort(res))
+	sort.Sort(d.DependencySort(res))
 	return res
 }
+*/
 
-func (r *Retriever) DepsByRefInProject(proj, ref string) (ReportByRefS, error) {
+func (r *Retriever) ScansByRefInProject(proj, ref string) (c.DependencyScans, error) {
 	repoNames, err := r.ListRepositoriesByProj(proj)
 	if err != nil {
 		return nil, err
@@ -125,33 +121,27 @@ func (r *Retriever) DepsByRefInProject(proj, ref string) (ReportByRefS, error) {
 	return r.byRefWork(repoNames, ref)
 }
 
-type ReportByRefS map[string]reportByRefS
-type reportByRefS struct {
-	deps d.Dependencies
-	sha  string
-}
-
-func (r *Retriever) byRefWork(repoNames []string, ref string) (res ReportByRefS, err error) {
-	res = ReportByRefS{}
+func (r *Retriever) byRefWork(repoNames []string, ref string) (res c.DependencyScans, err error) {
+	res = c.DependencyScans{}
 	query := map[string]interface{}{}
 	query["query"] = map[string]interface{}{
 		"bool": map[string]interface{}{
 			"must": []map[string]interface{}{
 				map[string]interface{}{
 					"term": map[string]interface{}{
-						"ref_names": "refs/" + ref,
+						c.RefsField: "refs/" + ref,
 					},
 				},
 				map[string]interface{}{
 					"term": map[string]interface{}{
-						"repo_fullname": "%s",
+						c.FullNameField: "%s",
 					},
 				},
 			},
 		},
 	}
 	query["sort"] = map[string]interface{}{
-		"timestamp": map[string]interface{}{
+		c.TimestampField: map[string]interface{}{
 			"order": "desc",
 		},
 	}
@@ -176,7 +166,7 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res ReportByRefS,
 	mux := sync.Mutex{}
 	addError := func(repoName, err string) {
 		mux.Lock()
-		res[repoName] = reportByRefS{[]es.Dependency{es.Dependency{Version: err}}, "Unknown"}
+		res[repoName] = c.DependencyScan{Fullname: repoName, Name: repoName, Sha: err}
 		wg.Done()
 		mux.Unlock()
 	}
@@ -198,7 +188,7 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res ReportByRefS,
 			return
 		}
 		mux.Lock()
-		res[repoName] = reportByRefS{r.depsFromEntry(&entry), entry.Sha}
+		res[repoName] = entry
 		wg.Done()
 		mux.Unlock()
 	}
@@ -212,9 +202,9 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res ReportByRefS,
 func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) {
 	entryDat, err := es.GetAll(r.app.index, "repository_entry", u.Format(`{
 	"term":{
-		"repo_fullname":"%s"
+		"%s":"%s"
 	}
-}`, fullName), `{"timestamp":"desc"}`)
+}`, c.FullNameField, fullName), u.Format(`{"%s":"desc"}`, c.TimestampField))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -237,11 +227,11 @@ func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) 
 }
 
 func (r *Retriever) ListRefsRepo(fullName string) ([]string, error) {
-	in := es.NewAggQuery("refs", "ref_names")
+	in := es.NewAggQuery("refs", c.RefsField)
 	in["size"] = 0
 	in["query"] = map[string]interface{}{
 		"term": map[string]interface{}{
-			"repo_fullname": fullName,
+			c.FullNameField: fullName,
 		},
 	}
 	var out es.AggResponse
@@ -262,8 +252,8 @@ func (r *Retriever) ListRefsInProj(proj string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	boool := es.NewBool().SetMust(es.NewBoolQ(es.NewTerms("repo_fullname", repos...)))
-	query := es.NewAggQuery("refs", "ref_names")
+	boool := es.NewBool().SetMust(es.NewBoolQ(es.NewTerms(c.FullNameField, repos...)))
+	query := es.NewAggQuery("refs", c.RefsField)
 	query["query"] = map[string]interface{}{"bool": boool}
 	var out es.AggResponse
 	if err := r.app.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", query, &out); err != nil {
@@ -287,10 +277,10 @@ func (r *Retriever) ListRefsInProjByRepo(proj string) (*map[string][]string, int
 	mux := &sync.Mutex{}
 
 	work := func(repo string) {
-		in := es.NewAggQuery("refs", "ref_names")
+		in := es.NewAggQuery("refs", c.RefsField)
 		in["query"] = map[string]interface{}{
 			"term": map[string]interface{}{
-				"repo_fullname": repo,
+				c.FullNameField: repo,
 			},
 		}
 		var out es.AggResponse
@@ -327,7 +317,7 @@ func (r *Retriever) ListRefsInProjByRepo(proj string) (*map[string][]string, int
 }
 
 func (r *Retriever) ListRepositories() ([]string, error) {
-	agg := es.NewAggQuery("repo", "repo_fullname")
+	agg := es.NewAggQuery("repo", c.FullNameField)
 	var resp es.AggResponse
 	if err := r.app.index.DirectAccess("POST", "/versioning_tool/repository_entry/_search", agg, &resp); err != nil {
 		return nil, err
@@ -349,9 +339,9 @@ func (r *Retriever) ListRepositoriesByProj(proj string) ([]string, error) {
 	}
 	hits, err := es.GetAll(r.app.index, "project_entry", u.Format(`{
 	"term": {
-		"name":"%s"
+		"%s":"%s"
 	}
-}`, proj))
+}`, c.NameField, proj))
 	if err != nil {
 		return nil, err
 	}

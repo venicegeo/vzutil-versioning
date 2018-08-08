@@ -227,14 +227,40 @@ func cloneAndCheckout(full_name, checkout, name string) (string, string, []strin
 		return t, "", nil, cmdRet.Error()
 	}
 	sha := strings.TrimSpace(cmdRet.Stdout)
-	if cmdRet = util.RunCommand("git", "-C", t, "show-ref", "--heads", "--tags"); cmdRet.IsError() {
+	if cmdRet = util.RunCommand("git", "-C", t, "show-ref", "-d"); cmdRet.IsError() {
 		return t, "", nil, cmdRet.Error()
 	}
-	matches := regexp.MustCompile(fmt.Sprintf(`%s (.+)`, sha)).FindAllStringSubmatch(cmdRet.Stdout, -1)
-	refs := make([]string, len(matches), len(matches))
-	for i, m := range matches {
-		refs[i] = m[1]
+	tmp := map[string]string{}
+	lines := strings.Split(cmdRet.Stdout, "\n")
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if l == "" {
+			continue
+		}
+		parts := strings.Split(strings.TrimSpace(l), " ")
+		sha := strings.TrimSuffix(parts[1], `^{}`)
+		if !strings.HasSuffix(sha, "/HEAD") {
+			tmp[strings.Replace(sha, "remotes/origin", "heads", -1)] = parts[0]
+		}
 	}
+	refs := []string{}
+	for k, v := range tmp {
+		if v == sha {
+			refs = append(refs, k)
+		}
+	}
+	//TODO delete?
+	//	matches := regexp.MustCompile(fmt.Sprintf(`%s (.+)`, sha)).FindAllStringSubmatch(cmdRet.Stdout, -1)
+	//	refsM := map[string]struct{}{}
+	//	for _, m := range matches {
+	//		if !strings.HasSuffix(m[1], "/HEAD") {
+	//			refsM[strings.Replace(m[1], "remotes/origin", "heads", -1)] = struct{}{}
+	//		}
+	//	}
+	//	refs := make([]string, 0, len(refsM))
+	//	for k := range refsM {
+	//		refs = append(refs, k)
+	//	}
 	return strings.TrimSuffix(rest, "/"), sha, refs, nil
 }
 

@@ -17,10 +17,10 @@ package app
 import (
 	"encoding/json"
 	"log"
+	"strings"
 
 	c "github.com/venicegeo/vzutil-versioning/common"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
-	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -35,7 +35,7 @@ func NewWebhookRunner(app *Application) *WebhookRunner {
 func (w *WebhookRunner) RunAgainstWeb(git *s.GitWebhook) {
 	go func(git *s.GitWebhook) {
 		exists := make(chan bool, 1)
-		ret := make(chan *SingleResult, 1)
+		ret := make(chan *c.DependencyScan, 1)
 		w.app.wrkr.AddTask(git, exists, ret)
 		e := <-exists
 		if e {
@@ -48,8 +48,8 @@ func (w *WebhookRunner) RunAgainstWeb(git *s.GitWebhook) {
 	}(git)
 }
 
-func (w *WebhookRunner) es(workInfo *c.DependencyScan) {
-	log.Println("[ES-WORKER] Starting work on", workInfo.sha)
+func (w *WebhookRunner) es(scan *c.DependencyScan) {
+	log.Println("[ES-WORKER] Starting work on", scan.Sha)
 	var err error
 
 	var testAgainstEntry *c.DependencyScan
@@ -60,53 +60,53 @@ func (w *WebhookRunner) es(workInfo *c.DependencyScan) {
 			"must":[
 				{
 					"term":{
-						"repo_fullname":"%s"
+						"%s":"%s"
 					}
 				},
 				{
 					"term":{
-							"ref_names":"[%s]"
+							"%s": [%s]
 					}
 				},
 				{
 					"range":{
-						"timestamp":{ "lt":%d }
+						"%s":{ "lt":%d }
 					}
 				}
 			]
 		}
 	},
 	"sort":{
-		"timestamp":"desc"
+		"%s":"desc"
 	},
 	"size":1
-}`, workInfo.fullName, workInfo.ref, workInfo.timestamp))
+}`, c.FullNameField, scan.Fullname, c.RefsField, strings.TrimSuffix(strings.TrimPrefix(u.Format("%#v", scan.Refs), `[]string{`), `}`), c.TimestampField, scan.Timestamp, c.TimestampField))
 	if err == nil {
 		if result.NumHits() == 1 {
-			var testAgainstEntr es.RepositoryEntry
+			var testAgainstEntr c.DependencyScan
 			if err = json.Unmarshal(*result.GetHit(0).Source, &testAgainstEntr); err == nil {
 				testAgainstEntry = &testAgainstEntr
 			}
 		}
 	}
 
-	resp, err := w.app.index.PostData("repository_entry", workInfo.sha, entry)
+	resp, err := w.app.index.PostData("repository_entry", scan.Sha, scan)
 	if err != nil {
-		log.Printf("[ES-WORKER] Unable to create entry %s: %s\n", workInfo.sha, err.Error())
+		log.Printf("[ES-WORKER] Unable to create entry %s: %s\n", scan.Sha, err.Error())
 		return
 	} else if !resp.Created {
-		log.Printf("[ES-WORKER] Unable to create entry %s\n", workInfo.sha)
+		log.Printf("[ES-WORKER] Unable to create entry %s\n", scan.Sha)
 		return
 	}
 
-	log.Println("[ES-WORKER] Finished work on", workInfo.fullName, workInfo.sha)
-	go func(fullName string, testAgainstEntry *es.RepositoryEntry, entry es.RepositoryEntry) {
+	log.Println("[ES-WORKER] Finished work on", scan.Fullname, scan.Sha)
+	go func(fullName string, testAgainstEntry, entry *c.DependencyScan) {
 		if testAgainstEntry == nil {
 			return
 		}
-		_, err := w.app.diffMan.webhookCompare(*testAgainstEntry, entry)
+		_, err := w.app.diffMan.webhookCompare(testAgainstEntry, entry)
 		if err != nil {
 			log.Println("[ES-WORKER] Error creating diff:", err.Error())
 		}
-	}(workInfo.fullName, testAgainstEntry, entry)
+	}(scan.Fullname, testAgainstEntry, scan)
 }

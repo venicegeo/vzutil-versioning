@@ -20,6 +20,7 @@ import (
 	"time"
 
 	c "github.com/venicegeo/vzutil-versioning/common"
+	depend "github.com/venicegeo/vzutil-versioning/common/dependency"
 	t "github.com/venicegeo/vzutil-versioning/common/table"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -36,14 +37,14 @@ func NewDifferenceManager(app *Application) *DifferenceManager {
 }
 
 type Difference struct {
-	Id        string    `json:"id"`
-	FullName  string    `json:"full_name"`
-	RefData   string    `json:"ref"`
-	OldSha    string    `json:"old_sha"`
-	NewSha    string    `json:"new_sha"`
-	Removed   []string  `json:"removed"`
-	Added     []string  `json:"added"`
-	Timestamp time.Time `json:"time"`
+	Id        string              `json:"id"`
+	FullName  string              `json:"full_name"`
+	RefData   string              `json:"ref"`
+	OldSha    string              `json:"old_sha"`
+	NewSha    string              `json:"new_sha"`
+	Removed   depend.Dependencies `json:"removed"`
+	Added     depend.Dependencies `json:"added"`
+	Timestamp time.Time           `json:"time"`
 }
 
 func (d *Difference) SimpleString() string {
@@ -63,19 +64,22 @@ func (d diffSort) Less(i, j int) bool {
 }
 
 func (dm *DifferenceManager) GenerateReport(d *Difference) string {
-	getDep := func(dep string) string {
-		if resp, err := dm.app.index.GetByID("dependency", dep); err != nil || !resp.Found {
-			return dep
-		} else {
-			var depen es.Dependency
-			if err = json.Unmarshal([]byte(*resp.Source), &depen); err != nil {
-				tmp := es.Dependency{u.Format("Error getting [%s]: [%s]", dep, err.Error()), "", ""}
-				return u.Format("%s:%s:%s", tmp.Name, tmp.Version, tmp.Language)
-			} else {
-				return u.Format("%s:%s:%s", depen.Name, depen.Version, depen.Language)
-			}
-		}
-	}
+	//TODO delete?
+	/*
+	   getDep := func(dep string) string {
+	   		if resp, err := dm.app.index.GetByID("dependency", dep); err != nil || !resp.Found {
+	   			return dep
+	   		} else {
+	   			var depen depend.Dependency
+	   			if err = json.Unmarshal([]byte(*resp.Source), &depen); err != nil {
+	   				tmp := depend.Dependency{u.Format("Error getting [%s]: [%s]", dep, err.Error()), "", ""}
+	   				return u.Format("%s:%s:%s", tmp.Name, tmp.Version, tmp.Language)
+	   			} else {
+	   				return u.Format("%s:%s:%s", depen.Name, depen.Version, depen.Language)
+	   			}
+	   		}
+	   	}
+	*/
 	height := len(d.Removed)
 	if height < len(d.Added) {
 		height = len(d.Added)
@@ -87,10 +91,10 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 	table.Fill("Added")
 	for i := 0; i < height; i++ {
 		if i < len(d.Removed) {
-			removed = append(removed, getDep(d.Removed[i]))
+			removed = append(removed, d.Removed[i].FullString())
 		}
 		if i < len(d.Added) {
-			added = append(added, getDep(d.Added[i]))
+			added = append(added, d.Added[i].FullString())
 		}
 	}
 	sort.Strings(removed)
@@ -154,24 +158,24 @@ func (d *DifferenceManager) DiffListInProject(proj string) ([]string, error) {
 func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Difference, error) {
 	t := time.Now()
 
-	var oldDeps, newDeps []es.Dependency
+	var oldDeps, newDeps []depend.Dependency
 	errs := make(chan error, 2)
 	go func() {
-		var err error
-		oldDeps, err = d.app.rtrvr.DepsByShaNameGen(fullName, oldSha)
+		oldDepsScan, err := d.app.rtrvr.ScanByShaNameGen(fullName, oldSha)
 		if err != nil {
 			errs <- u.Error("Could not get old sha: %s", err.Error())
 			return
 		}
+		oldDeps = oldDepsScan.Deps
 		errs <- nil
 	}()
 	go func() {
-		var err error
-		newDeps, err = d.app.rtrvr.DepsByShaNameGen(fullName, newSha)
+		newDepsScan, err := d.app.rtrvr.ScanByShaNameGen(fullName, newSha)
 		if err != nil {
 			errs <- u.Error("Could not get new sha: %s", err.Error())
 			return
 		}
+		newDeps = newDepsScan.Deps
 		errs <- nil
 	}()
 	for i := 0; i < 2; i++ {
@@ -179,30 +183,33 @@ func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Differ
 			return nil, err
 		}
 	}
-	toStrings := func(deps []es.Dependency) []string {
-		res := make([]string, len(deps), len(deps))
-		for i, d := range deps {
-			res[i] = d.String()
+	//TODO delete?
+	/*
+		toStrings := func(deps []depend.Dependency) []string {
+			res := make([]string, len(deps), len(deps))
+			for i, d := range deps {
+				res[i] = d.String()
+			}
+			return res
 		}
-		return res
-	}
-	return d.diffCompareWrk(fullName, "Custom", toStrings(oldDeps), toStrings(newDeps), oldSha, newSha, t)
+	*/
+	return d.diffCompareWrk(fullName, "Custom", oldDeps, newDeps, oldSha, newSha, t)
 }
 
-func (d *DifferenceManager) webhookCompare(oldEntry, newEntry c.DependencyScan) (*Difference, error) {
+func (d *DifferenceManager) webhookCompare(oldEntry, newEntry *c.DependencyScan) (*Difference, error) {
 	//TODO refs
 	return d.diffCompareWrk(newEntry.Fullname, newEntry.Refs[0], oldEntry.Deps, newEntry.Deps, oldEntry.Sha, newEntry.Sha, newEntry.Timestamp)
 }
 
-func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldDeps, newDeps []string, oldSha, newSha string, t time.Time) (*Difference, error) {
-	added := []string{}
-	removed := []string{}
+func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldDeps, newDeps depend.Dependencies, oldSha, newSha string, t time.Time) (*Difference, error) {
+	added := depend.Dependencies{}
+	removed := depend.Dependencies{}
 
 	done := make(chan bool, 2)
 
 	go func() {
 		for _, newDep := range newDeps {
-			if !strscont(oldDeps, newDep) {
+			if !depscont(oldDeps, newDep) {
 				added = append(added, newDep)
 			}
 		}
@@ -210,7 +217,7 @@ func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldDeps, newDep
 	}()
 	go func() {
 		for _, oldDep := range oldDeps {
-			if !strscont(newDeps, oldDep) {
+			if !depscont(newDeps, oldDep) {
 				removed = append(removed, oldDep)
 			}
 		}
@@ -238,7 +245,7 @@ func (d *DifferenceManager) Delete(id string) {
 	d.app.index.DeleteByIDWait("difference", id)
 }
 
-func strscont(sl []string, s string) bool {
+func depscont(sl depend.Dependencies, s depend.Dependency) bool {
 	for _, ss := range sl {
 		if ss == s {
 			return true

@@ -21,6 +21,15 @@ import (
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 )
 
+const FullNameField = `full_name`
+const NameField = `name`
+const RefsField = `refs`
+const ShaField = `sha`
+const TimestampField = `timestamp`
+const DependenciesField = `dependencies`
+const IssuesField = `issues`
+const FilesField = `files`
+
 const DependencyScanMapping string = `{
 	"dynamic":"strict",
 	"properties":{

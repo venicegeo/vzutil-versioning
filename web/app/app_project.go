@@ -70,7 +70,7 @@ func (a *Application) viewProject(c *gin.Context) {
 			return
 		}
 	} else if form.Sha != "" {
-		deps, fullName, _, found, err := a.rtrvr.DepsBySha(form.Sha)
+		scan, found, err := a.rtrvr.ScanBySha(form.Sha)
 		if !found && err != nil {
 			c.String(400, "Unable to find this sha: %s", err.Error())
 			return
@@ -78,7 +78,7 @@ func (a *Application) viewProject(c *gin.Context) {
 			c.String(500, "Unable to obtain the results: %s", err.Error())
 			return
 		}
-		depsStr = a.reportAtShaWrk(fullName, form.Sha, deps)
+		depsStr = a.reportAtShaWrk(scan)
 	} else if form.Gen != "" {
 		repoFullName := strings.TrimPrefix(form.Gen, "Generate Branch - ")
 		c.Redirect(303, u.Format("/genbranch/%s/%s", proj, repoFullName))

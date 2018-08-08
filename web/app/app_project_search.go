@@ -20,6 +20,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	c "github.com/venicegeo/vzutil-versioning/common"
+	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -89,32 +90,32 @@ func (a *Application) searchForDepInProject(c *gin.Context) {
 	}
 }
 
-func (a *Application) getDepsMatching(depName, depVersion string) ([]es.Dependency, error) {
+func (a *Application) getDepsMatching(depName, depVersion string) ([]d.Dependency, error) {
 	rawDat, err := es.GetAll(a.index, "dependency", u.Format(`
 {
 	"bool":{
 	"must":[
 		{
 			"term":{
-				"name":"%s"
+				"%s":"%s"
 			}
 		},{
 			"wildcard":{
-				"version":"%s*"
+				"%s":"%s*"
 			}
 		}
 	]
 	}
-}`, depName, depVersion))
+}`, d.NameField, depName, d.VersionField, depVersion))
 	if err != nil {
 		return nil, err
 	}
 
-	containingDeps := make([]es.Dependency, len(rawDat), len(rawDat))
+	containingDeps := make([]d.Dependency, len(rawDat), len(rawDat))
 	for i, b := range rawDat {
-		var dep es.Dependency
+		var dep d.Dependency
 		if err = json.Unmarshal(b.Dat, &dep); err != nil {
-			containingDeps[i] = es.Dependency{"", u.Format("\tError decoding %s\n", b.Id), ""}
+			containingDeps[i] = d.Dependency{"", u.Format("\tError decoding %s\n", b.Id), ""}
 		} else {
 			containingDeps[i] = dep
 		}
@@ -124,7 +125,7 @@ func (a *Application) getDepsMatching(depName, depVersion string) ([]es.Dependen
 
 func (a *Application) searchForDepWrk(depName, depVersion string, repos []string) (int, string) {
 	boool := es.NewBool()
-	must := es.NewBoolQ(es.NewTerm("name", depName), es.NewWildcard("version", depVersion+"*"))
+	must := es.NewBoolQ(es.NewTerm(d.NameField, depName), es.NewWildcard(d.VersionField, depVersion+"*"))
 	boolDat, err := json.Marshal(boool.SetMust(must))
 	if err != nil {
 		return 400, "Unable to create bool query: " + err.Error()
@@ -141,7 +142,7 @@ func (a *Application) searchForDepWrk(depName, depVersion string, repos []string
 	}
 	hashes := make([]string, len(containingDeps), len(containingDeps))
 	for i, dep := range containingDeps {
-		hashes[i] = dep.GetHashSum() // u.Format(`"%s"`, dep.GetHashSum())
+		hashes[i] = dep.FullString() // u.Format(`"%s"`, dep.GetHashSum())
 		buf.WriteString("\t")
 		buf.WriteString(dep.String())
 		buf.WriteString("\n")
@@ -149,7 +150,7 @@ func (a *Application) searchForDepWrk(depName, depVersion string, repos []string
 	buf.WriteString("\n\n\n")
 
 	boool = es.NewBool().SetMust(es.NewBoolQ(es.NewTerms("dependencies", hashes...), es.NewTerms("repo_fullname", repos...)))
-	s := `{"timestamp":"desc"}`
+	s := u.Format(`{"%s":"desc"}`, c.TimestampField)
 	if boolDat, err = json.Marshal(boool); err != nil {
 		return 500, "Unable to create repo bool query: " + err.Error()
 	}

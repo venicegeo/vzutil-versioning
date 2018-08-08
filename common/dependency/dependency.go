@@ -23,6 +23,10 @@ import (
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
 )
 
+const NameField = `name`
+const VersionField = `version`
+const LanguageField = `language`
+
 const DependencyMapping string = `{
 	"dynamic":"strict",
 	"properties":{
@@ -31,6 +35,18 @@ const DependencyMapping string = `{
 		"language":{"type":"keyword"}
 	}
 }`
+
+type DependencySort []Dependency
+
+func (d DependencySort) Len() int      { return len(d) }
+func (d DependencySort) Swap(i, j int) { d[i], d[j] = d[j], d[i] }
+func (d DependencySort) Less(i, j int) bool {
+	if d[i].Language != d[j].Language {
+		return d[i].Language < d[j].Language
+	} else {
+		return d[i].Name < d[j].Name
+	}
+}
 
 type Dependency struct {
 	Name     string       `json:"name"`

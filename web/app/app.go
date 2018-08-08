@@ -24,6 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	c "github.com/venicegeo/vzutil-versioning/common"
+	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -86,8 +87,8 @@ func (a *Application) Start() chan error {
 				"ref":{"type":"keyword"},
 				"old_sha":{"type":"keyword"},
 				"new_sha":{"type":"keyword"},
-				"removed":{"type":"keyword"},
-				"added":{"type":"keyword"},
+				"removed":%s,
+				"added":%s,
 				"time":{"type":"keyword"}
 			}
 		},
@@ -106,7 +107,7 @@ func (a *Application) Start() chan error {
 			}
 		}
 	}
-}`, c.DependencyScanMapping))
+}`, c.DependencyScanMapping, d.DependencyMapping, d.DependencyMapping))
 	if err != nil {
 		log.Fatal(err.Error())
 	} else {
