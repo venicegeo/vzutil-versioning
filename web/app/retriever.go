@@ -228,7 +228,6 @@ func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) 
 
 func (r *Retriever) ListRefsRepo(fullName string) ([]string, error) {
 	in := es.NewAggQuery("refs", c.RefsField)
-	in["size"] = 0
 	in["query"] = map[string]interface{}{
 		"term": map[string]interface{}{
 			c.FullNameField: fullName,
@@ -263,6 +262,7 @@ func (r *Retriever) ListRefsInProj(proj string) ([]string, error) {
 	for i, bucket := range out.Aggs["refs"].Buckets {
 		res[i] = strings.TrimPrefix(bucket.Key, "refs/")
 	}
+	sort.Strings(res)
 	return res, nil
 }
 

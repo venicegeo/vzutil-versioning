@@ -28,7 +28,7 @@ const VersionField = `version`
 const LanguageField = `language`
 
 const DependencyMapping string = `{
-	"dynamic":"strict",
+	"type":"nested",
 	"properties":{
 		"name":{"type":"keyword"},
 		"version":{"type":"keyword"},
