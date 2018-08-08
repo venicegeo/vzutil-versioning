@@ -20,8 +20,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/venicegeo/vzutil-versioning/common/dependency"
-	"github.com/venicegeo/vzutil-versioning/common/issue"
+	d "github.com/venicegeo/vzutil-versioning/common/dependency"
+	i "github.com/venicegeo/vzutil-versioning/common/issue"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
 	"github.com/venicegeo/vzutil-versioning/single/util"
 )
@@ -29,15 +29,15 @@ import (
 var requirements_gitRE = regexp.MustCompile(`^git(?:(?:\+https)|(?:\+ssh)|(?:\+git))*:\/\/(?:git\.)*github\.com\/.+\/([^@.]+)()(?:(?:.git)?@([^#]+))?`)
 var requirements_elseRE = regexp.MustCompile(`^([^>=<]+)((?:(?:<=)|(?:>=))|(?:==))?(.+)?$`)
 
-func ResolveRequirementsTxt(location string, test bool) ([]*dependency.GenericDependency, []*issue.Issue, error) {
+func ResolveRequirementsTxt(location string, test bool) (d.Dependencies, i.Issues, error) {
 	dat, err := ioutil.ReadFile(location)
 	if err != nil {
 		return nil, nil, err
 	}
 	lines := util.StringSliceTrimSpaceRemoveEmpty(strings.Split(string(dat), "\n"))
-	deps := make([]*dependency.GenericDependency, len(lines), len(lines))
-	issues := []*issue.Issue{}
-	for i, line := range lines {
+	deps := make(d.Dependencies, len(lines), len(lines))
+	issues := i.Issues{}
+	for c, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.Contains(line, "lib/python") || strings.HasPrefix(line, "-r") || strings.HasPrefix(line, "#") {
 			continue
@@ -48,10 +48,10 @@ func ResolveRequirementsTxt(location string, test bool) ([]*dependency.GenericDe
 		} else {
 			parts = requirements_elseRE.FindStringSubmatch(line)[1:]
 			if parts[1] != "==" {
-				issues = append(issues, issue.NewWeakVersion(parts[0], parts[2], parts[1]))
+				issues = append(issues, i.NewWeakVersion(parts[0], parts[2], parts[1]))
 			}
 		}
-		deps[i] = dependency.NewGenericDependency(parts[0], parts[2], lan.Python)
+		deps[c] = d.NewDependency(parts[0], parts[2], lan.Python)
 	}
 	return deps, issues, nil
 }

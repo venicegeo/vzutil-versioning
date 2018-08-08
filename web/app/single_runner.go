@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"sort"
 
+	c "github.com/venicegeo/vzutil-versioning/common"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -35,7 +36,7 @@ func NewSingleRunner(app *Application) *SingleRunner {
 	return &SingleRunner{app}
 }
 
-func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan string, git *s.GitWebhook) *SingleResult {
+func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan string, git *s.GitWebhook) *c.DependencyScan {
 	explicitSha := isSha.MatchString(git.AfterSha)
 	sr.sendStringTo(printLocation, "%sStarting work on %s", printHeader, git.AfterSha)
 

@@ -21,15 +21,15 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/venicegeo/vzutil-versioning/common/dependency"
-	"github.com/venicegeo/vzutil-versioning/common/issue"
+	d "github.com/venicegeo/vzutil-versioning/common/dependency"
+	i "github.com/venicegeo/vzutil-versioning/common/issue"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
 	"gopkg.in/yaml.v2"
 )
 
 var environment_splitRE = regexp.MustCompile(`^([^>=<]+)((?:(?:<=)|(?:>=))|(?:=))?(.+)?$`)
 
-func ResolveEnvironmentYml(location string, test bool) ([]*dependency.GenericDependency, []*issue.Issue, error) {
+func ResolveEnvironmentYml(location string, test bool) (d.Dependencies, i.Issues, error) {
 	dat, err := ioutil.ReadFile(location)
 	if err != nil {
 		return nil, nil, err
@@ -42,14 +42,14 @@ func ResolveEnvironmentYml(location string, test bool) ([]*dependency.GenericDep
 	if err != nil {
 		return nil, nil, err
 	}
-	deps := make([]*dependency.GenericDependency, len(env.Dependencies), len(env.Dependencies))
-	issues := []*issue.Issue{}
-	for i, dep := range env.Dependencies {
+	deps := make(d.Dependencies, len(env.Dependencies), len(env.Dependencies))
+	issues := i.Issues{}
+	for c, dep := range env.Dependencies {
 		parts := environment_splitRE.FindStringSubmatch(dep)[1:]
 		if parts[1] != "=" {
-			issues = append(issues, issue.NewWeakVersion(parts[0], parts[2], parts[1]))
+			issues = append(issues, i.NewWeakVersion(parts[0], parts[2], parts[1]))
 		}
-		deps[i] = dependency.NewGenericDependency(parts[0], strings.Split(parts[2], "=")[0], lan.Python)
+		deps[c] = d.NewDependency(parts[0], strings.Split(parts[2], "=")[0], lan.Python)
 	}
 	return deps, issues, nil
 }

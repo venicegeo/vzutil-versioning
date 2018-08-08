@@ -19,8 +19,8 @@ import (
 	"log"
 	"regexp"
 
+	c "github.com/venicegeo/vzutil-versioning/common"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
-	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -36,17 +36,7 @@ type Worker struct {
 type workS struct {
 	gitInfo   *s.GitWebhook
 	exists    chan bool
-	singleRet chan *SingleResult
-}
-
-type SingleResult struct {
-	fullName  string
-	name      string
-	sha       string
-	ref       string
-	Deps      []es.Dependency
-	hashes    []string
-	timestamp int64
+	singleRet chan *c.DependencyScan
 }
 
 func NewWorker(app *Application, numWorkers int) *Worker {
@@ -72,7 +62,7 @@ func (w *Worker) startCheckExist() {
 				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s. Continuing\n", worker, err.Error())
 			}
 			if item.Found {
-				var repEntry es.RepositoryEntry
+				var repEntry c.DependencyScan
 				if err = json.Unmarshal(*item.Source, &repEntry); err != nil {
 					log.Printf("[CHECK-WORKER (%d)] Unable to unmarshal sha: %s\nReason: %s\n", worker, work.gitInfo.AfterSha, err.Error())
 					work.exists <- false
@@ -83,7 +73,7 @@ func (w *Worker) startCheckExist() {
 				go func() {
 					log.Printf("[CHECK-WORKER (%d)] This sha already exists\n", worker)
 					refFound := false
-					for _, name := range repEntry.RefNames {
+					for _, name := range repEntry.Refs {
 						if name == work.gitInfo.Ref {
 							refFound = true
 							break
@@ -91,7 +81,7 @@ func (w *Worker) startCheckExist() {
 					}
 					if !refFound {
 						log.Printf("[CHECK-WORKER (%d)] Adding ref [%s] to sha [%s]\n", worker, work.gitInfo.Ref, work.gitInfo.AfterSha)
-						repEntry.RefNames = append(repEntry.RefNames, work.gitInfo.Ref)
+						repEntry.Refs = append(repEntry.Refs, work.gitInfo.Ref)
 						w.app.index.PostData("repository_entry", work.gitInfo.AfterSha, repEntry)
 					}
 				}()
@@ -133,6 +123,6 @@ func (w *Worker) startClone() {
 	}
 }
 
-func (w *Worker) AddTask(git *s.GitWebhook, exists chan bool, singleRet chan *SingleResult) {
+func (w *Worker) AddTask(git *s.GitWebhook, exists chan bool, singleRet chan *c.DependencyScan) {
 	w.checkExistQueue <- &workS{git, exists, singleRet}
 }

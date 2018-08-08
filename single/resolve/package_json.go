@@ -21,8 +21,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/venicegeo/vzutil-versioning/common/dependency"
-	"github.com/venicegeo/vzutil-versioning/common/issue"
+	d "github.com/venicegeo/vzutil-versioning/common/dependency"
+	i "github.com/venicegeo/vzutil-versioning/common/issue"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
 )
 
@@ -34,7 +34,7 @@ type PackageJson struct {
 	DevDependencyMap map[string]string `json:"devDependencies"`
 }
 
-func ResolvePackageJson(location string, test bool) ([]*dependency.GenericDependency, []*issue.Issue, error) {
+func ResolvePackageJson(location string, test bool) (d.Dependencies, i.Issues, error) {
 	dat, err := ioutil.ReadFile(location)
 	if err != nil {
 		return nil, nil, err
@@ -49,19 +49,19 @@ func ResolvePackageJson(location string, test bool) ([]*dependency.GenericDepend
 			depMap[k] = v
 		}
 	}
-	deps := make([]*dependency.GenericDependency, 0, len(depMap))
-	issues := []*issue.Issue{}
+	deps := make(d.Dependencies, 0, len(depMap))
+	issues := i.Issues{}
 	for name, version := range depMap {
 		if package_gitRE.MatchString(version) {
 			version = package_gitRE.FindStringSubmatch(version)[1]
 		} else {
 			tag := package_elseRE.FindStringSubmatch(version)[1]
 			if tag != "" {
-				issues = append(issues, issue.NewWeakVersion(name, version, tag))
+				issues = append(issues, i.NewWeakVersion(name, version, tag))
 				version = strings.TrimPrefix(version, tag)
 			}
 		}
-		deps = append(deps, dependency.NewGenericDependency(name, version, lan.JavaScript))
+		deps = append(deps, d.NewDependency(name, version, lan.JavaScript))
 	}
 	return deps, issues, nil
 }

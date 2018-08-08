@@ -19,6 +19,7 @@ import (
 	"sort"
 	"time"
 
+	c "github.com/venicegeo/vzutil-versioning/common"
 	t "github.com/venicegeo/vzutil-versioning/common/table"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -35,18 +36,18 @@ func NewDifferenceManager(app *Application) *DifferenceManager {
 }
 
 type Difference struct {
-	Id       string   `json:"id"`
-	FullName string   `json:"full_name"`
-	RefData  string   `json:"ref"`
-	OldSha   string   `json:"old_sha"`
-	NewSha   string   `json:"new_sha"`
-	Removed  []string `json:"removed"`
-	Added    []string `json:"added"`
-	NanoTime int64    `json:"time"`
+	Id        string    `json:"id"`
+	FullName  string    `json:"full_name"`
+	RefData   string    `json:"ref"`
+	OldSha    string    `json:"old_sha"`
+	NewSha    string    `json:"new_sha"`
+	Removed   []string  `json:"removed"`
+	Added     []string  `json:"added"`
+	Timestamp time.Time `json:"time"`
 }
 
 func (d *Difference) SimpleString() string {
-	return u.Format("%s %s %s", d.FullName, d.RefData, time.Unix(0, d.NanoTime).Format(time.RFC3339))
+	return u.Format("%s %s %s", d.FullName, d.RefData, d.Timestamp.String())
 }
 
 type diffSort []Difference
@@ -58,7 +59,7 @@ func (d diffSort) Swap(i, j int) {
 	d[i], d[j] = d[j], d[i]
 }
 func (d diffSort) Less(i, j int) bool {
-	return d[i].NanoTime > d[j].NanoTime
+	return d[i].Timestamp.After(d[j].Timestamp)
 }
 
 func (dm *DifferenceManager) GenerateReport(d *Difference) string {
@@ -151,7 +152,7 @@ func (d *DifferenceManager) DiffListInProject(proj string) ([]string, error) {
 }
 
 func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Difference, error) {
-	t := time.Now().UnixNano()
+	t := time.Now()
 
 	var oldDeps, newDeps []es.Dependency
 	errs := make(chan error, 2)
@@ -188,11 +189,12 @@ func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Differ
 	return d.diffCompareWrk(fullName, "Custom", toStrings(oldDeps), toStrings(newDeps), oldSha, newSha, t)
 }
 
-func (d *DifferenceManager) webhookCompare(oldEntry, newEntry es.RepositoryEntry) (*Difference, error) {
-	return d.diffCompareWrk(newEntry.RepositoryFullName, newEntry.RefNames[0], oldEntry.Dependencies, newEntry.Dependencies, oldEntry.Sha, newEntry.Sha, newEntry.Timestamp)
+func (d *DifferenceManager) webhookCompare(oldEntry, newEntry c.DependencyScan) (*Difference, error) {
+	//TODO refs
+	return d.diffCompareWrk(newEntry.Fullname, newEntry.Refs[0], oldEntry.Deps, newEntry.Deps, oldEntry.Sha, newEntry.Sha, newEntry.Timestamp)
 }
 
-func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldDeps, newDeps []string, oldSha, newSha string, t int64) (*Difference, error) {
+func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldDeps, newDeps []string, oldSha, newSha string, t time.Time) (*Difference, error) {
 	added := []string{}
 	removed := []string{}
 

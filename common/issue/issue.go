@@ -19,46 +19,39 @@ import (
 	"fmt"
 )
 
-type IssuesMap map[string]*Issues
-type Issues []string
-type Issue string
+type Issues []issue
+type issue string
 
-func (i *Issue) String() string {
+func (i *issue) String() string {
 	return string(*i)
 }
 
-func NewIssue(format string, a ...interface{}) *Issue {
-	temp := Issue(fmt.Sprintf(format, a...))
-	return &temp
+func NewIssue(format string, a ...interface{}) issue {
+	return issue(fmt.Sprintf(format, a...))
 }
 
-func NewUnusedVariable(varName, value string) *Issue {
-	temp := Issue(fmt.Sprintf("Unused variable [${%s}] with value [%s]", varName, value))
-	return &temp
+func NewUnusedVariable(varName, value string) issue {
+	return issue(fmt.Sprintf("Unused variable [${%s}] with value [%s]", varName, value))
 }
 
-func NewVersionMismatch(packag, verA, verB string) *Issue {
+func NewVersionMismatch(packag, verA, verB string) issue {
 	if verA == "" {
 		verA = "NONE"
 	}
 	if verB == "" {
 		verB = "NONE"
 	}
-	temp := Issue(fmt.Sprintf("Version mismatch on package [%s]: [%s] [%s]", packag, verA, verB))
-	return &temp
+	return issue(fmt.Sprintf("Version mismatch on package [%s]: [%s] [%s]", packag, verA, verB))
 }
 
-func NewUnknownSha(name, sha string) *Issue {
-	temp := Issue(fmt.Sprintf("Unknown sha [%s] for package [%s]", sha, name))
-	return &temp
+func NewUnknownSha(name, sha string) issue {
+	return issue(fmt.Sprintf("Unknown sha [%s] for package [%s]", sha, name))
 }
 
-func NewWeakVersion(name, version, tag string) *Issue {
-	temp := Issue(fmt.Sprintf("Version [%s] on package [%s] is not definite. Tag: [%s]", version, name, tag))
-	return &temp
+func NewWeakVersion(name, version, tag string) issue {
+	return issue(fmt.Sprintf("Version [%s] on package [%s] is not definite. Tag: [%s]", version, name, tag))
 }
 
-func NewMissingVersion(name string) *Issue {
-	temp := Issue(fmt.Sprintf("Package [%s] is missing a version", name))
-	return &temp
+func NewMissingVersion(name string) issue {
+	return issue(fmt.Sprintf("Package [%s] is missing a version", name))
 }

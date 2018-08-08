@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"log"
 
+	c "github.com/venicegeo/vzutil-versioning/common"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -47,20 +48,11 @@ func (w *WebhookRunner) RunAgainstWeb(git *s.GitWebhook) {
 	}(git)
 }
 
-func (w *WebhookRunner) es(workInfo *SingleResult) {
+func (w *WebhookRunner) es(workInfo *c.DependencyScan) {
 	log.Println("[ES-WORKER] Starting work on", workInfo.sha)
 	var err error
 
-	entry := es.RepositoryEntry{
-		RepositoryFullName: workInfo.fullName,
-		RepositoryName:     workInfo.name,
-		RefNames:           []string{workInfo.ref},
-		Sha:                workInfo.sha,
-		Timestamp:          workInfo.timestamp,
-		Dependencies:       workInfo.hashes,
-	}
-
-	var testAgainstEntry *es.RepositoryEntry
+	var testAgainstEntry *c.DependencyScan
 	result, err := w.app.index.SearchByJSON("repository_entry", u.Format(`
 {
 	"query":{

@@ -21,6 +21,10 @@ import (
 
 type Language string
 
+func (l *Language) String() string {
+	return string(*l)
+}
+
 var LangToFile = map[Language][]string{
 	Java:       []string{"pom.xml"},
 	JavaScript: []string{"package.json"},
@@ -33,10 +37,6 @@ var FileToLang = map[string]Language{
 	"glide.yaml":       Go,
 	"requirements.txt": Python,
 	"environment.yml":  Python,
-}
-
-func (l *Language) String() string {
-	return string(*l)
 }
 
 const Java, JavaScript, Go, Python, Unknown Language = "java", "javascript", "go", "python", "unknown"

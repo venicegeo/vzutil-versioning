@@ -24,8 +24,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/venicegeo/vzutil-versioning/common/dependency"
-	"github.com/venicegeo/vzutil-versioning/common/issue"
+	d "github.com/venicegeo/vzutil-versioning/common/dependency"
+	i "github.com/venicegeo/vzutil-versioning/common/issue"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
 	"github.com/venicegeo/vzutil-versioning/single/util"
 )
@@ -36,7 +36,7 @@ var removeNewLineRE = regexp.MustCompile(`\r?\n`)
 var removeInfoSpace = regexp.MustCompile(`(\[INFO\] +)`)
 var getFilePath = regexp.MustCompile(`([^\/]+$)`)
 
-func ResolvePomXml(location string, test bool) ([]*dependency.GenericDependency, []*issue.Issue, error) {
+func ResolvePomXml(location string, test bool) (d.Dependencies, i.Issues, error) {
 	poms := PomCollection{}
 	data, err := ioutil.ReadFile(location)
 	if err != nil {
@@ -169,7 +169,7 @@ type Item struct {
 	Scope      string `json:"scope,omitempty"`
 }
 
-func (c *PomCollection) GetResults() (total []*dependency.GenericDependency, issues []*issue.Issue, err error) {
+func (c *PomCollection) GetResults() (total d.Dependencies, issues i.Issues, err error) {
 	for _, pom := range *c {
 		if pom.Parent != nil {
 			continue
@@ -183,7 +183,7 @@ func (c *PomCollection) GetResults() (total []*dependency.GenericDependency, iss
 	}
 	return total, issues, nil
 }
-func getResultsAndFromChildren(pom *PomProjectWrapper, isRoot bool, dependencyManagement []*Item, previousMvnDeps []*MvnDependency) ([]*dependency.GenericDependency, []*issue.Issue, error) {
+func getResultsAndFromChildren(pom *PomProjectWrapper, isRoot bool, dependencyManagement []*Item, previousMvnDeps []*MvnDependency) (d.Dependencies, i.Issues, error) {
 	deps, issues, err := pom.GetResults()
 	if err != nil {
 		return nil, issues, err
@@ -192,7 +192,7 @@ func getResultsAndFromChildren(pom *PomProjectWrapper, isRoot bool, dependencyMa
 	if mvnError != nil && isRoot {
 		return nil, nil, mvnError
 	} else if mvnError != nil {
-		issues = append(issues, issue.NewIssue("Failed to build [%s] with maven", pom.Project.ArtifactId))
+		issues = append(issues, i.NewIssue("Failed to build [%s] with maven", pom.Project.ArtifactId))
 		mvnDeps = previousMvnDeps
 	}
 	pom.compareAndReplaceDependecies(deps, mvnDeps, dependencyManagement)
@@ -210,7 +210,7 @@ func getResultsAndFromChildren(pom *PomProjectWrapper, isRoot bool, dependencyMa
 	return deps, issues, nil
 }
 
-func (pw *PomProjectWrapper) GetResults() ([]*dependency.GenericDependency, []*issue.Issue, error) {
+func (pw *PomProjectWrapper) GetResults() (d.Dependencies, i.Issues, error) {
 	if err := pw.replaceVariables(); err != nil {
 		return nil, pw.issues, err
 	}
@@ -295,28 +295,28 @@ func (pw *PomProjectWrapper) GetResults() ([]*dependency.GenericDependency, []*i
 		}
 	}
 
-	deps := make([]*dependency.GenericDependency, len(dependencies), len(dependencies))
+	deps := make(d.Dependencies, len(dependencies), len(dependencies))
 	for i, dep := range dependencies {
-		deps[i] = dependency.NewGenericDependency(dep.ArtifactId, dep.Version, lan.Java)
+		deps[i] = d.NewDependency(dep.ArtifactId, dep.Version, lan.Java)
 	}
 	return deps, pw.issues, nil
 }
 
-func (p *PomProjectWrapper) compareAndReplaceDependecies(deps []*dependency.GenericDependency, mvnDeps []*MvnDependency, dependencyManagement []*Item) {
+func (p *PomProjectWrapper) compareAndReplaceDependecies(deps d.Dependencies, mvnDeps []*MvnDependency, dependencyManagement []*Item) {
 	if deps == nil || mvnDeps == nil {
 		return
 	}
 	for _, pomDep := range deps {
 		for _, manDep := range dependencyManagement {
-			if pomDep.GetName() == manDep.ArtifactId && pomDep.GetVersion() != manDep.Version {
-				p.addIssue(issue.NewVersionMismatch(pomDep.GetName(), pomDep.GetVersion(), manDep.Version))
-				pomDep.SetVersion(manDep.Version)
+			if pomDep.Name == manDep.ArtifactId && pomDep.Version != manDep.Version {
+				p.issues = append(p.issues, i.NewVersionMismatch(pomDep.Name, pomDep.Version, manDep.Version))
+				pomDep.Version = manDep.Version
 			}
 		}
 		for _, mvnDep := range mvnDeps {
-			if pomDep.GetName() == mvnDep.ArtifactId && pomDep.GetVersion() != mvnDep.Version {
-				p.addIssue(issue.NewVersionMismatch(pomDep.GetName(), pomDep.GetVersion(), mvnDep.Version))
-				pomDep.SetVersion(mvnDep.Version)
+			if pomDep.Name == mvnDep.ArtifactId && pomDep.Version != mvnDep.Version {
+				p.issues = append(p.issues, i.NewVersionMismatch(pomDep.Name, pomDep.Version, mvnDep.Version))
+				pomDep.Version = mvnDep.Version
 			}
 		}
 	}
@@ -345,7 +345,7 @@ func (p *PomProjectWrapper) replaceVariables() error {
 	for k, v := range vars {
 		replace := fmt.Sprintf("${%s}", k)
 		if !strings.Contains(str, replace) && k != "java.version" {
-			p.addIssue(issue.NewUnusedVariable(k, v))
+			p.issues = append(p.issues, i.NewUnusedVariable(k, v))
 		}
 		str = strings.Replace(str, replace, v, -1)
 	}

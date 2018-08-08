@@ -21,6 +21,8 @@ import (
 	"sync"
 
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
+	c "github.com/venicegeo/vzutil-versioning/common"
+	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -35,7 +37,7 @@ func NewRetriever(app *Application) *Retriever {
 }
 
 func (r *Retriever) DepsBySha(sha string) ([]es.Dependency, string, string, bool, error) {
-	var entry es.RepositoryEntry
+	var entry c.DependencyScan
 	var err error
 	//	var found bool
 
@@ -49,7 +51,7 @@ func (r *Retriever) DepsBySha(sha string) ([]es.Dependency, string, string, bool
 		return nil, "", "", true, err
 	}
 
-	return r.depsFromEntry(&entry), entry.RepositoryFullName, u.Format("%s", entry.RefNames), true, nil
+	return r.depsFromEntry(&entry), entry.Fullname, u.Format("%s", entry.Refs), true, nil
 }
 func (r *Retriever) DepsByShaNameGen(fullName, sha string) ([]es.Dependency, error) {
 	deps, _, _, found, err := r.app.rtrvr.DepsBySha(sha)
@@ -80,9 +82,9 @@ func (r *Retriever) DepsByShaNameGen(fullName, sha string) ([]es.Dependency, err
 	return deps, nil
 }
 
-func (r *Retriever) depsFromEntry(entry *es.RepositoryEntry) (res []es.Dependency) {
+func (r *Retriever) depsFromEntry(entry *c.DependencyScan) (res []es.Dependency) {
 	mux := &sync.Mutex{}
-	done := make(chan bool, len(entry.Dependencies))
+	done := make(chan bool, len(entry.Deps))
 	work := func(dep string) {
 		if resp, err := r.app.index.GetByID("dependency", dep); err != nil || !resp.Found {
 			name := u.Format("Cound not find [%s]", dep)
@@ -105,10 +107,10 @@ func (r *Retriever) depsFromEntry(entry *es.RepositoryEntry) (res []es.Dependenc
 		}
 		done <- true
 	}
-	for _, d := range entry.Dependencies {
+	for _, d := range entry.Deps {
 		go work(d)
 	}
-	for i := 0; i < len(entry.Dependencies); i++ {
+	for i := 0; i < len(entry.Deps); i++ {
 		<-done
 	}
 	sort.Sort(es.DependencySort(res))
@@ -125,7 +127,7 @@ func (r *Retriever) DepsByRefInProject(proj, ref string) (ReportByRefS, error) {
 
 type ReportByRefS map[string]reportByRefS
 type reportByRefS struct {
-	deps []es.Dependency
+	deps d.Dependencies
 	sha  string
 }
 
@@ -190,7 +192,7 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res ReportByRefS,
 			return
 		}
 
-		var entry es.RepositoryEntry
+		var entry c.DependencyScan
 		if err = json.Unmarshal(*resp.GetHit(0).Source, &entry); err != nil {
 			addError(repoName, "Couldnt get entry: "+err.Error())
 			return
@@ -220,11 +222,11 @@ func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) 
 	res := map[string][]string{}
 
 	for _, entryD := range entryDat {
-		var entry es.RepositoryEntry
+		var entry c.DependencyScan
 		if err := json.Unmarshal(entryD.Dat, &entry); err != nil {
 			return nil, 0, err
 		}
-		for _, refName := range entry.RefNames {
+		for _, refName := range entry.Refs {
 			if _, ok := res[refName]; !ok {
 				res[refName] = []string{}
 			}

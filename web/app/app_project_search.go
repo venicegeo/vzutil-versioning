@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
+	c "github.com/venicegeo/vzutil-versioning/common"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -159,18 +160,18 @@ func (a *Application) searchForDepWrk(depName, depVersion string, repos []string
 
 	test := map[string]map[string][]string{}
 	for _, b := range rawDat {
-		var entry es.RepositoryEntry
+		var entry c.DependencyScan
 		if err = json.Unmarshal(b.Dat, &entry); err != nil {
 			return 500, "Error getting entry: " + err.Error()
 		}
-		if _, ok := test[entry.RepositoryFullName]; !ok {
-			test[entry.RepositoryFullName] = map[string][]string{}
+		if _, ok := test[entry.Fullname]; !ok {
+			test[entry.Fullname] = map[string][]string{}
 		}
-		for _, refName := range entry.RefNames {
-			if _, ok := test[entry.RepositoryFullName][refName]; !ok {
-				test[entry.RepositoryFullName][refName] = []string{}
+		for _, refName := range entry.Refs {
+			if _, ok := test[entry.Fullname][refName]; !ok {
+				test[entry.Fullname][refName] = []string{}
 			}
-			test[entry.RepositoryFullName][refName] = append(test[entry.RepositoryFullName][refName], entry.Sha)
+			test[entry.Fullname][refName] = append(test[entry.Fullname][refName], entry.Sha)
 		}
 	}
 	for repoName, refs := range test {

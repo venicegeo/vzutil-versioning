@@ -28,34 +28,29 @@ import (
 	"time"
 
 	com "github.com/venicegeo/vzutil-versioning/common"
-	dep "github.com/venicegeo/vzutil-versioning/common/dependency"
-	"github.com/venicegeo/vzutil-versioning/common/issue"
+	d "github.com/venicegeo/vzutil-versioning/common/dependency"
+	i "github.com/venicegeo/vzutil-versioning/common/issue"
 	r "github.com/venicegeo/vzutil-versioning/single/resolve"
 	"github.com/venicegeo/vzutil-versioning/single/util"
 )
 
 type stringarr []string
 
-func (stringarr) String() string {
-	return ""
-}
-
-func (a *stringarr) Set(value string) error {
-	*a = append(*a, value)
-	return nil
-}
+var scan bool
+var all bool
+var includeTest bool
+var files stringarr
+var full_name string
+var name string
 
 var cleanup func()
 
 func main() {
 	var err error
+	timestamp := time.Now()
 
 	runInterruptHandler()
 
-	var scan bool
-	var all bool
-	var includeTest bool
-	var files stringarr
 	flag.BoolVar(&scan, "scan", false, "Scan for dependency files")
 	flag.BoolVar(&all, "all", false, "Run against all found dependency files")
 	flag.BoolVar(&includeTest, "testing", false, "Include testing dependencies")
@@ -74,8 +69,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	name := strings.Split(info[0], "/")[1]
-	location, sha, err := cloneAndCheckout(info[0], info[1], name)
+	full_name = info[0]
+	name = strings.SplitN(info[0], "/", 2)[1]
+	location, sha, refs, err := cloneAndCheckout(info[0], info[1], name)
 	cleanup = func() { util.RunCommand("rm", "-rf", strings.TrimSuffix(location, name)) }
 	defer cleanup()
 	if err != nil {
@@ -111,17 +107,13 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		sdeps := make([]string, len(deps), len(deps))
-		for i, d := range deps {
-			sdeps[i] = d.FullString()
-		}
 		sissues := make([]string, len(issues), len(issues))
 		for i, is := range issues {
 			sissues[i] = is.String()
 		}
-		sort.Strings(sdeps)
+		sort.Sort(deps)
 		sort.Strings(sissues)
-		if dat, err := util.GetJson(com.RepositoryDependencies{info[0], sha, "", sdeps, sissues, files}); err != nil {
+		if dat, err := util.GetJson(com.DependencyScan{full_name, name, sha, refs, deps, sissues, files, timestamp}); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		} else {
@@ -174,7 +166,7 @@ func modeScan(location, name string, test bool) ([]string, error) {
 
 var getFile = regexp.MustCompile(`^\/?(?:[^\/]+\/)*(.+)$`)
 
-var fileToFunc = map[string]func(string, bool) ([]*dep.GenericDependency, []*issue.Issue, error){
+var fileToFunc = map[string]func(string, bool) (d.Dependencies, i.Issues, error){
 	"glide.yaml":           r.ResolveGlideYaml,
 	"package.json":         r.ResolvePackageJson,
 	"environment.yml":      r.ResolveEnvironmentYml,
@@ -185,9 +177,9 @@ var fileToFunc = map[string]func(string, bool) ([]*dep.GenericDependency, []*iss
 	"pom.xml":              r.ResolvePomXml,
 }
 
-func modeResolve(location, name string, files []string, test bool) ([]*dep.GenericDependency, []*issue.Issue, error) {
-	var deps []*dep.GenericDependency
-	var issues []*issue.Issue
+func modeResolve(location, name string, files []string, test bool) (d.Dependencies, i.Issues, error) {
+	var deps d.Dependencies
+	var issues i.Issues
 	for _, f := range files {
 		matches := getFile.FindStringSubmatch(f)
 		if len(matches) != 2 {
@@ -209,31 +201,41 @@ func modeResolve(location, name string, files []string, test bool) ([]*dep.Gener
 		deps = append(deps, d...)
 		issues = append(issues, i...)
 	}
-	dep.RemoveExactDuplicates(&deps)
+	d.RemoveExactDuplicates(&deps)
 	return deps, issues, nil
 }
 
-func cloneAndCheckout(full_name, checkout, name string) (t string, sha string, err error) {
-	t = fmt.Sprintf("%d", time.Now().UnixNano())
+func cloneAndCheckout(full_name, checkout, name string) (string, string, []string, error) {
+	t := fmt.Sprintf("%d", time.Now().UnixNano())
+	var err error
 	var cmdRet util.CmdRet
 	if cmdRet = util.RunCommand("mkdir", t); cmdRet.IsError() {
-		return t, "", cmdRet.Error()
+		return t, "", nil, cmdRet.Error()
 	}
 	if t, err = filepath.Abs(t); err != nil {
-		return t, "", err
+		return t, "", nil, err
 	}
 	rest := t
 	t = fmt.Sprintf("%s/%s", t, name)
 	if cmdRet = util.RunCommand("git", "clone", "https://github.com/"+full_name, t); cmdRet.IsError() {
-		return t, "", cmdRet.Error()
+		return t, "", nil, cmdRet.Error()
 	}
 	if cmdRet = util.RunCommand("git", "-C", t, "checkout", checkout); cmdRet.IsError() {
-		return t, "", cmdRet.Error()
+		return t, "", nil, cmdRet.Error()
 	}
 	if cmdRet = util.RunCommand("git", "-C", t, "rev-parse", "HEAD"); cmdRet.IsError() {
-		return t, "", cmdRet.Error()
+		return t, "", nil, cmdRet.Error()
 	}
-	return strings.TrimSuffix(rest, "/"), strings.TrimSpace(cmdRet.Stdout), nil
+	sha := strings.TrimSpace(cmdRet.Stdout)
+	if cmdRet = util.RunCommand("git", "-C", t, "show-ref", "--heads", "--tags"); cmdRet.IsError() {
+		return t, "", nil, cmdRet.Error()
+	}
+	matches := regexp.MustCompile(fmt.Sprintf(`%s (.+)`, sha)).FindAllStringSubmatch(cmdRet.Stdout, -1)
+	refs := make([]string, len(matches), len(matches))
+	for i, m := range matches {
+		refs[i] = m[1]
+	}
+	return strings.TrimSuffix(rest, "/"), sha, refs, nil
 }
 
 func runInterruptHandler() {
@@ -243,4 +245,12 @@ func runInterruptHandler() {
 		<-c
 		os.Exit(1)
 	}()
+}
+
+func (stringarr) String() string {
+	return ""
+}
+func (a *stringarr) Set(value string) error {
+	*a = append(*a, value)
+	return nil
 }
