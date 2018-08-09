@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/venicegeo/pz-gocommon/elasticsearch/elastic-5-api"
 	"github.com/venicegeo/pz-gocommon/gocommon"
 )
 
@@ -179,7 +180,7 @@ func (esi *MockIndex) newId() string {
 	return strconv.Itoa(esi.idSource)
 }
 
-func (esi *MockIndex) PostData(typeName string, id string, obj interface{}) (*IndexResponse, error) {
+func (esi *MockIndex) PostData(typeName string, id string, obj interface{}) (*elastic.IndexResponse, error) {
 	ok, err := esi.IndexExists()
 	if err != nil {
 		return nil, err
@@ -218,31 +219,31 @@ func (esi *MockIndex) PostData(typeName string, id string, obj interface{}) (*In
 
 	typ.items[id] = &raw
 
-	r := &IndexResponse{Created: true, ID: id, Index: esi.name, Type: typeName}
+	r := &elastic.IndexResponse{Created: true, Id: id, Index: esi.name, Type: typeName}
 	return r, nil
 }
 
 //TODO
-func (esi *MockIndex) PutData(typeName string, id string, obj interface{}) (*IndexResponse, error) {
+func (esi *MockIndex) PutData(typeName string, id string, obj interface{}) (*elastic.IndexResponse, error) {
 	return esi.PostData(typeName, id, obj)
 }
 
-func (esi *MockIndex) GetByID(typeName string, id string) (*GetResult, error) {
+func (esi *MockIndex) GetByID(typeName string, id string) (*elastic.GetResult, error) {
 	ok, err := esi.ItemExists(typeName, id)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return &GetResult{Found: false}, fmt.Errorf("GetById: id does not exist: %s", id)
+		return &elastic.GetResult{Found: false}, fmt.Errorf("GetById: id does not exist: %s", id)
 	}
 
 	typ := esi.types[typeName]
 	item := typ.items[id]
-	r := &GetResult{ID: id, Source: item, Found: true}
+	r := &elastic.GetResult{Id: id, Source: item, Found: true}
 	return r, nil
 }
 
-func (esi *MockIndex) DeleteByID(typeName string, id string) (*DeleteResponse, error) {
+func (esi *MockIndex) DeleteByID(typeName string, id string) (*elastic.DeleteResponse, error) {
 	ok, err := esi.TypeExists(typeName)
 	if err != nil {
 		return nil, err
@@ -255,20 +256,20 @@ func (esi *MockIndex) DeleteByID(typeName string, id string) (*DeleteResponse, e
 		return nil, err
 	}
 	if !ok {
-		return &DeleteResponse{Found: false}, err
+		return &elastic.DeleteResponse{Found: false}, err
 	}
 
 	typ := esi.types[typeName]
 	delete(typ.items, id)
-	r := &DeleteResponse{Found: true, ID: id}
+	r := &elastic.DeleteResponse{Found: true, Id: id}
 	return r, nil
 }
 
-func (esi *MockIndex) DeleteByIDWait(typeName string, id string) (*DeleteResponse, error) {
+func (esi *MockIndex) DeleteByIDWait(typeName string, id string) (*elastic.DeleteResponse, error) {
 	return esi.DeleteByID(typeName, id)
 }
 
-type srhByID []*SearchResultHit
+type srhByID []*elastic.SearchHit
 
 func (a srhByID) Len() int {
 	return len(a)
@@ -277,23 +278,26 @@ func (a srhByID) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 func (a srhByID) Less(i, j int) bool {
-	return (*a[i]).ID < (*a[j]).ID
+	return (*a[i]).Id < (*a[j]).Id
 }
-func srhSortMatches(matches []*SearchResultHit) []*SearchResultHit {
+func srhSortMatches(matches []*elastic.SearchHit) []*elastic.SearchHit {
 	sort.Sort(srhByID(matches))
 	return matches
 }
 
-func (esi *MockIndex) FilterByMatchAll(typeName string, realFormat *piazza.JsonPagination) (*SearchResult, error) {
+func (esi *MockIndex) FilterByMatchAll(typeName string, realFormat *piazza.JsonPagination) (*elastic.SearchResult, error) {
 	// pagination SortBy and Order are not supported!
 
 	format := NewQueryFormat(realFormat)
 
 	objs := make(map[string]*json.RawMessage)
 
-	emptyResp := &SearchResult{
-		totalHits: 0,
-		hits:      make([]*SearchResultHit, 0),
+	emptyResp := &elastic.SearchResult{
+		Hits: &elastic.SearchHits{
+			TotalHits: 0,
+			MaxScore:  nil,
+			Hits:      make([]*elastic.SearchHit, 0),
+		},
 	}
 
 	if typeName == "" {
@@ -317,18 +321,21 @@ func (esi *MockIndex) FilterByMatchAll(typeName string, realFormat *piazza.JsonP
 		}
 	}
 
-	resp := &SearchResult{
-		totalHits: int64(len(objs)),
-		hits:      make([]*SearchResultHit, len(objs)),
+	resp := &elastic.SearchResult{
+		Hits: &elastic.SearchHits{
+			TotalHits: int64(len(objs)),
+			MaxScore:  nil,
+			Hits:      make([]*elastic.SearchHit, len(objs)),
+		},
 	}
 
 	i := 0
 	for id, obj := range objs {
-		tmp := &SearchResultHit{
-			ID:     id,
+		tmp := &elastic.SearchHit{
+			Id:     id,
 			Source: obj,
 		}
-		resp.hits[i] = tmp
+		resp.Hits.Hits[i] = tmp
 		i++
 	}
 
@@ -338,33 +345,33 @@ func (esi *MockIndex) FilterByMatchAll(typeName string, realFormat *piazza.JsonP
 	from := format.From
 	size := format.Size
 
-	resp.hits = srhSortMatches(resp.hits)
+	resp.Hits.Hits = srhSortMatches(resp.Hits.Hits)
 
-	if from >= len(resp.hits) {
-		resp.hits = make([]*SearchResultHit, 0)
+	if from >= len(resp.Hits.Hits) {
+		resp.Hits.Hits = make([]*elastic.SearchHit, 0)
 		return resp, nil
 	}
 
-	if from+size >= len(resp.hits) {
-		resp.hits = resp.hits[from:]
+	if from+size >= len(resp.Hits.Hits) {
+		resp.Hits.Hits = resp.Hits.Hits[from:]
 		return resp, nil
 	}
 
-	resp.hits = resp.hits[from : from+size]
+	resp.Hits.Hits = resp.Hits.Hits[from : from+size]
 
 	return resp, nil
 }
 
-func (esi *MockIndex) GetAllElements(typ string) (*SearchResult, error) {
+func (esi *MockIndex) GetAllElements(typ string) (*elastic.SearchResult, error) {
 	return nil, errors.New("GetAllElements not supported under mocking")
 }
 
-func (esi *MockIndex) FilterByMatchQuery(typ string, name string, value interface{}, realFormat *piazza.JsonPagination) (*SearchResult, error) {
+func (esi *MockIndex) FilterByMatchQuery(typ string, name string, value interface{}, realFormat *piazza.JsonPagination) (*elastic.SearchResult, error) {
 
 	return nil, errors.New("FilterByMatchQuery not supported under mocking")
 }
 
-func (esi *MockIndex) FilterByTermQuery(typeName string, name string, value interface{}, realFormat *piazza.JsonPagination) (*SearchResult, error) {
+func (esi *MockIndex) FilterByTermQuery(typeName string, name string, value interface{}, realFormat *piazza.JsonPagination) (*elastic.SearchResult, error) {
 
 	objs := make(map[string]*json.RawMessage)
 
@@ -372,10 +379,12 @@ func (esi *MockIndex) FilterByTermQuery(typeName string, name string, value inte
 		objs[ik] = iv
 	}
 
-	resp := &SearchResult{
-		totalHits: int64(len(objs)),
-		hits:      make([]*SearchResultHit, 0),
-	}
+	resp := &elastic.SearchResult{
+		Hits: &elastic.SearchHits{
+			TotalHits: 0,
+			MaxScore:  nil,
+			Hits:      make([]*elastic.SearchHit, 0),
+		}}
 
 	i := 0
 	for id, obj := range objs {
@@ -388,24 +397,21 @@ func (esi *MockIndex) FilterByTermQuery(typeName string, name string, value inte
 		if actualValue != value.(string) {
 			continue
 		}
-		tmp := &SearchResultHit{
-			ID:     id,
+		tmp := &elastic.SearchHit{
+			Id:     id,
 			Source: obj,
 		}
-		resp.hits = append(resp.hits, tmp)
+		resp.Hits.Hits = append(resp.Hits.Hits, tmp)
 		i++
 	}
 
-	if len(resp.hits) > 0 {
-		resp.Found = true
-	}
-
-	resp.hits = srhSortMatches(resp.hits)
+	resp.Hits.Hits = srhSortMatches(resp.Hits.Hits)
+	resp.Hits.TotalHits = int64(i)
 
 	return resp, nil
 }
 
-func (esi *MockIndex) SearchByJSON(typ string, jsn string) (*SearchResult, error) {
+func (esi *MockIndex) SearchByJSON(typ string, jsn string) (*elastic.SearchResult, error) {
 	return nil, fmt.Errorf("SearchByJSON not supported under mocking")
 }
 

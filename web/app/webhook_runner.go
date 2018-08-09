@@ -82,9 +82,9 @@ func (w *WebhookRunner) es(scan *c.DependencyScan) {
 	"size":1
 }`, c.FullNameField, scan.Fullname, c.RefsField, strings.TrimSuffix(strings.TrimPrefix(u.Format("%#v", scan.Refs), `[]string{`), `}`), c.TimestampField, scan.Timestamp, c.TimestampField))
 	if err == nil {
-		if result.NumHits() == 1 {
+		if result.Hits.TotalHits == 1 {
 			var testAgainstEntr c.DependencyScan
-			if err = json.Unmarshal(*result.GetHit(0).Source, &testAgainstEntr); err == nil {
+			if err = json.Unmarshal(*result.Hits.Hits[0].Source, &testAgainstEntr); err == nil {
 				testAgainstEntry = &testAgainstEntr
 			}
 		}

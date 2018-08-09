@@ -247,11 +247,11 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 			c.String(400, "Unable to find the project entry: %s", err.Error())
 			return
 		}
-		if resp.NumHits() != 1 {
+		if resp.Hits.TotalHits != 1 {
 			c.String(400, "Could not find the project entry")
 			return
 		}
-		_, err = a.index.DeleteByIDWait("project_entry", resp.GetHit(0).ID)
+		_, err = a.index.DeleteByIDWait("project_entry", resp.Hits.Hits[0].Id)
 		if err != nil {
 			c.String(500, "Unable to delete project entry: %s", err.Error())
 			return

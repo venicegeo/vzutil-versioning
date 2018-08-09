@@ -99,3 +99,18 @@ type Agg struct {
 type AggResponse struct {
 	Aggs map[string]Agg `json:"aggregations"`
 }
+
+type NestedQuery map[string]interface{}
+
+func NewNestedQuery(path string) NestedQuery {
+	return map[string]interface{}{
+		"nested": map[string]interface{}{
+			"path":       path,
+			"inner_hits": map[string]interface{}{},
+		},
+	}
+}
+func (n *NestedQuery) SetInnerQuery(query interface{}) map[string]interface{} {
+	(*n)["nested"].(map[string]interface{})["query"] = query
+	return *n
+}

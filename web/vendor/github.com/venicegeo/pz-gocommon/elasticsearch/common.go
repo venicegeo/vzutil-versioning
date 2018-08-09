@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/venicegeo/pz-gocommon/elasticsearch/elastic-5-api"
 	"github.com/venicegeo/pz-gocommon/gocommon"
 )
 
@@ -79,16 +80,16 @@ type IIndex interface {
 	Create(settings string) error
 	Close() error
 	Delete() error
-	PostData(typ string, id string, obj interface{}) (*IndexResponse, error)
-	PutData(typ string, id string, obj interface{}) (*IndexResponse, error)
-	GetByID(typ string, id string) (*GetResult, error)
-	DeleteByID(typ string, id string) (*DeleteResponse, error)
-	DeleteByIDWait(typ string, id string) (*DeleteResponse, error)
-	FilterByMatchAll(typ string, format *piazza.JsonPagination) (*SearchResult, error)
-	GetAllElements(typ string) (*SearchResult, error)
-	FilterByTermQuery(typ string, name string, value interface{}, format *piazza.JsonPagination) (*SearchResult, error)
-	FilterByMatchQuery(typ string, name string, value interface{}, format *piazza.JsonPagination) (*SearchResult, error)
-	SearchByJSON(typ string, jsn string) (*SearchResult, error)
+	PostData(typ string, id string, obj interface{}) (*elastic.IndexResponse, error)
+	PutData(typ string, id string, obj interface{}) (*elastic.IndexResponse, error)
+	GetByID(typ string, id string) (*elastic.GetResult, error)
+	DeleteByID(typ string, id string) (*elastic.DeleteResponse, error)
+	DeleteByIDWait(typ string, id string) (*elastic.DeleteResponse, error)
+	FilterByMatchAll(typ string, format *piazza.JsonPagination) (*elastic.SearchResult, error)
+	GetAllElements(typ string) (*elastic.SearchResult, error)
+	FilterByTermQuery(typ string, name string, value interface{}, format *piazza.JsonPagination) (*elastic.SearchResult, error)
+	FilterByMatchQuery(typ string, name string, value interface{}, format *piazza.JsonPagination) (*elastic.SearchResult, error)
+	SearchByJSON(typ string, jsn string) (*elastic.SearchResult, error)
 	SetMapping(typename string, jsn piazza.JsonString) error
 	GetTypes() ([]string, error)
 	GetMapping(typ string) (interface{}, error)
