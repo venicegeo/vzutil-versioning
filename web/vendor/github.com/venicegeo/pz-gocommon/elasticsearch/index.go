@@ -235,7 +235,7 @@ func (esi *Index) Delete() error {
 }
 
 // PostData send JSON data to the index.
-func (esi *Index) PostData(typ string, id string, obj interface{}) (*IndexResponse, error) {
+func (esi *Index) PostData(typ string, id string, obj interface{}) (*elastic.IndexResponse, error) {
 	ok, err := esi.IndexExists()
 	if err != nil {
 		return nil, err
@@ -252,79 +252,71 @@ func (esi *Index) PostData(typ string, id string, obj interface{}) (*IndexRespon
 		return nil, err
 	}
 
-	indexResponse, err := esi.lib.Index().
+	return esi.lib.Index().
 		Index(esi.index).
 		Type(typ).
 		Id(id).
 		BodyJson(obj).
 		Do(context.Background())
-
-	if err != nil {
-		return nil, err
-	}
-	return NewIndexResponse(indexResponse), nil
 }
 
 //TODO
-func (esi *Index) PutData(typ string, id string, obj interface{}) (*IndexResponse, error) {
+func (esi *Index) PutData(typ string, id string, obj interface{}) (*elastic.IndexResponse, error) {
 	return esi.PostData(typ, id, obj)
 }
 
 // GetByID returns a document by ID within the specified index and type.
-func (esi *Index) GetByID(typ string, id string) (*GetResult, error) {
+func (esi *Index) GetByID(typ string, id string) (*elastic.GetResult, error) {
 	// TODO: the caller should enforce this instead (here and elsewhere)
 	ok, err := esi.ItemExists(typ, id)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return &GetResult{Found: false}, fmt.Errorf("Item %s in index %s and type %s does not exist", id, esi.index, typ)
+		return &elastic.GetResult{Found: false}, fmt.Errorf("Item %s in index %s and type %s does not exist", id, esi.index, typ)
 	}
 
-	getResult, err := esi.lib.Get().Index(esi.index).Type(typ).Id(id).Do(context.Background())
-	return NewGetResult(getResult), err
+	return esi.lib.Get().Index(esi.index).Type(typ).Id(id).Do(context.Background())
 }
 
 // DeleteByID deletes a document by ID within a specified index and type.
-func (esi *Index) DeleteByID(typ string, id string) (*DeleteResponse, error) {
+func (esi *Index) DeleteByID(typ string, id string) (*elastic.DeleteResponse, error) {
 	ok, err := esi.ItemExists(typ, id)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return &DeleteResponse{Found: false}, fmt.Errorf("Item %s in index %s and type %s does not exist", id, esi.index, typ)
+		return &elastic.DeleteResponse{Found: false}, fmt.Errorf("Item %s in index %s and type %s does not exist", id, esi.index, typ)
 	}
 
-	deleteResponse, err := esi.lib.Delete().
+	return esi.lib.Delete().
 		Index(esi.index).
 		Type(typ).
 		Id(id).
 		Do(context.Background())
-	return NewDeleteResponse(deleteResponse), err
 }
 
 // DeleteByID deletes a document by ID within a specified index and type and waits before returning.
-func (esi *Index) DeleteByIDWait(typ string, id string) (*DeleteResponse, error) {
+func (esi *Index) DeleteByIDWait(typ string, id string) (*elastic.DeleteResponse, error) {
 	ok, err := esi.ItemExists(typ, id)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return &DeleteResponse{Found: false}, fmt.Errorf("Item %s in index %s and type %s does not exist", id, esi.index, typ)
+		return &elastic.DeleteResponse{Found: false}, fmt.Errorf("Item %s in index %s and type %s does not exist", id, esi.index, typ)
 	}
 
-	deleteResponse, err := esi.lib.Delete().
+	return esi.lib.Delete().
 		Index(esi.index).
 		Type(typ).
 		Id(id).
 		Refresh("wait_for").
 		Do(context.Background())
-	return NewDeleteResponse(deleteResponse), err
 }
 
 // FilterByMatchAll returns all documents of a specified type, in the format
 // specified by the realFormat parameter.
-func (esi *Index) FilterByMatchAll(typ string, realFormat *piazza.JsonPagination) (*SearchResult, error) {
+func (esi *Index) FilterByMatchAll(typ string, realFormat *piazza.JsonPagination) (*elastic.SearchResult, error) {
 	// ok := typ != "" && esi.TypeExists(typ)
 	// if !ok {
 	// 	return nil, fmt.Errorf("Type %s in index %s does not exist", typ, esi.index)
@@ -344,16 +336,13 @@ func (esi *Index) FilterByMatchAll(typ string, realFormat *piazza.JsonPagination
 	if err != nil {
 		// if the mapping (or the index?) doesn't exist yet, squash the error
 		// (this is the case in some of the unit tests which ((try to)) assure the DB is empty)
-		resp := &SearchResult{totalHits: 0, hits: make([]*SearchResultHit, 0)}
-		return resp, nil
+		searchResult = &elastic.SearchResult{Hits: &elastic.SearchHits{0, nil, make([]*elastic.SearchHit, 0)}}
 	}
-
-	resp := NewSearchResult(searchResult)
-	return resp, nil
+	return searchResult, nil
 }
 
 // GetAllElements returns all documents of a specified type.
-func (esi *Index) GetAllElements(typ string) (*SearchResult, error) {
+func (esi *Index) GetAllElements(typ string) (*elastic.SearchResult, error) {
 	if typ == "" {
 		return nil, fmt.Errorf("elasticsearch.Index.GetAllElements: empty type")
 	}
@@ -367,23 +356,17 @@ func (esi *Index) GetAllElements(typ string) (*SearchResult, error) {
 	}
 
 	q := elastic.NewMatchAllQuery()
-	result, err := esi.lib.Search().
+	return esi.lib.Search().
 		Index(esi.index).
 		Type(typ).
 		Query(q).
 		Do(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	resp := NewSearchResult(result)
-	return resp, nil
 }
 
 // FilterByTermQuery creates an Elasticsearch term query and performs the query over the specified type.
 // For more information on term queries, see
 // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-term-query.html
-func (esi *Index) FilterByTermQuery(typ string, name string, value interface{}, realFormat *piazza.JsonPagination) (*SearchResult, error) {
+func (esi *Index) FilterByTermQuery(typ string, name string, value interface{}, realFormat *piazza.JsonPagination) (*elastic.SearchResult, error) {
 	if typ == "" {
 		return nil, fmt.Errorf("Can't filter on type \"\"")
 	}
@@ -392,7 +375,7 @@ func (esi *Index) FilterByTermQuery(typ string, name string, value interface{}, 
 		return nil, err
 	}
 	if !ok {
-		return &SearchResult{Found: false}, fmt.Errorf("Type %s in index %s does not exist", typ, esi.index)
+		return nil, fmt.Errorf("Type %s in index %s does not exist", typ, esi.index)
 	}
 
 	// Returns a query of the form {"term":{"name":"value"}}
@@ -411,15 +394,13 @@ func (esi *Index) FilterByTermQuery(typ string, name string, value interface{}, 
 		f = f.Sort(format.Key, format.Order)
 	}
 
-	searchResult, err := f.Do(context.Background())
-
-	return NewSearchResult(searchResult), err
+	return f.Do(context.Background())
 }
 
 // FilterByMatchQuery creates an Elasticsearch match query and performs the query over the specified type.
 // For more information on match queries, see
 // https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query.html
-func (esi *Index) FilterByMatchQuery(typ string, name string, value interface{}, realFormat *piazza.JsonPagination) (*SearchResult, error) {
+func (esi *Index) FilterByMatchQuery(typ string, name string, value interface{}, realFormat *piazza.JsonPagination) (*elastic.SearchResult, error) {
 	if typ == "" {
 		return nil, fmt.Errorf("Can't filter on type \"\"")
 	}
@@ -444,29 +425,22 @@ func (esi *Index) FilterByMatchQuery(typ string, name string, value interface{},
 		f = f.Sort(format.Key, format.Order)
 	}
 
-	searchResult, err := f.Do(context.Background())
-
-	return NewSearchResult(searchResult), err
+	return f.Do(context.Background())
 }
 
 // SearchByJSON performs a search over the index via raw JSON.
-func (esi *Index) SearchByJSON(typ string, jsn string) (*SearchResult, error) {
+func (esi *Index) SearchByJSON(typ string, jsn string) (*elastic.SearchResult, error) {
 	var obj interface{}
 	err := json.Unmarshal([]byte(jsn), &obj)
 	if err != nil {
 		return nil, err
 	}
 
-	searchResult, err := esi.lib.Search().
+	return esi.lib.Search().
 		Index(esi.index).
 		Type(typ).
 		Source(obj).
 		Do(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	return NewSearchResult(searchResult), nil
 }
 
 // SetMapping sets the _mapping field for a new type.

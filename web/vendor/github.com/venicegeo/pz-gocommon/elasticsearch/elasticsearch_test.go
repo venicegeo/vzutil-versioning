@@ -132,7 +132,7 @@ func (suite *EsTester) SetUpIndex() IIndex {
 		if err2 != nil {
 			return false, err2
 		}
-		if getResult != nil && len(*getResult.GetHits()) == len(objs) {
+		if getResult != nil && len(getResult.Hits.Hits) == len(objs) {
 			return true, nil
 		}
 		return false, nil
@@ -144,13 +144,13 @@ func (suite *EsTester) SetUpIndex() IIndex {
 	return esi
 }
 
-func searchPoller(f func() (*SearchResult, error), expectedCount int) GetData {
+func searchPoller(f func() (*elastic.SearchResult, error), expectedCount int) GetData {
 	pollingFn := GetData(func() (bool, error) {
 		getResult, err := f()
 		if err != nil {
 			return false, err
 		}
-		if getResult != nil && len(*getResult.GetHits()) == expectedCount {
+		if getResult != nil && len(getResult.Hits.Hits) == expectedCount {
 			return true, nil
 		}
 		return false, nil
@@ -469,17 +469,17 @@ func (suite *EsTester) Test10GetAll() {
 			SortBy:  "",
 		}
 
-		spf := func() (*SearchResult, error) { return esi.FilterByMatchAll("", realFormat) }
+		spf := func() (*elastic.SearchResult, error) { return esi.FilterByMatchAll("", realFormat) }
 
 		_, err := PollFunction(searchPoller(spf, 2))
 		assert.NoError(err)
 		getResult, err := esi.FilterByMatchAll("", realFormat)
 		assert.NoError(err)
 		assert.NotNil(getResult)
-		assert.Len(*getResult.GetHits(), 2)
-		src1 := getResult.GetHit(0).Source
+		assert.Len(getResult.Hits.Hits, 2)
+		src1 := getResult.Hits.Hits[0].Source
 		assert.NotNil(src1)
-		src2 := getResult.GetHit(1).Source
+		src2 := getResult.Hits.Hits[1].Source
 		assert.NotNil(src2)
 
 		var tmp1 T1
@@ -566,7 +566,7 @@ func (suite *EsTester) Test11Pagination2() {
 		indexResult, err := esi.PostData("Obj3", id, obj)
 		assert.NoError(err)
 		assert.NotNil(indexResult)
-		assert.EqualValues(id, indexResult.ID)
+		assert.EqualValues(id, indexResult.Id)
 	}
 
 	{
@@ -577,17 +577,17 @@ func (suite *EsTester) Test11Pagination2() {
 			SortBy:  "id3",
 		}
 
-		spf := func() (*SearchResult, error) { return esi.FilterByMatchAll("Obj3", realFormat) }
+		spf := func() (*elastic.SearchResult, error) { return esi.FilterByMatchAll("Obj3", realFormat) }
 
 		_, err := PollFunction(searchPoller(spf, 4))
 		assert.NoError(err)
 		getResult, err := esi.FilterByMatchAll("Obj3", realFormat)
 		assert.NoError(err)
-		assert.Len(*getResult.GetHits(), 4)
-		assert.Equal("id0_"+p, getResult.GetHit(0).ID)
-		assert.Equal("id1_"+p, getResult.GetHit(1).ID)
-		assert.Equal("id2_"+p, getResult.GetHit(2).ID)
-		assert.Equal("id3_"+p, getResult.GetHit(3).ID)
+		assert.Len(getResult.Hits.Hits, 4)
+		assert.Equal("id0_"+p, getResult.Hits.Hits[0].Id)
+		assert.Equal("id1_"+p, getResult.Hits.Hits[1].Id)
+		assert.Equal("id2_"+p, getResult.Hits.Hits[2].Id)
+		assert.Equal("id3_"+p, getResult.Hits.Hits[3].Id)
 	}
 
 	{
@@ -599,10 +599,10 @@ func (suite *EsTester) Test11Pagination2() {
 		}
 		getResult, err := esi.FilterByMatchAll("Obj3", realFormat)
 		assert.NoError(err)
-		assert.Len(*getResult.GetHits(), 3)
-		assert.Equal("id3_"+p, getResult.GetHit(0).ID)
-		assert.Equal("id4_"+p, getResult.GetHit(1).ID)
-		assert.Equal("id5_"+p, getResult.GetHit(2).ID)
+		assert.Len(getResult.Hits.Hits, 3)
+		assert.Equal("id3_"+p, getResult.Hits.Hits[0].Id)
+		assert.Equal("id4_"+p, getResult.Hits.Hits[1].Id)
+		assert.Equal("id5_"+p, getResult.Hits.Hits[2].Id)
 	}
 }
 
@@ -638,14 +638,13 @@ func (suite *EsTester) Test12TermMatch() {
 	searchResult, err := esi.FilterByTermQuery(mapping, "data", "lazy dog", nil)
 	assert.NoError(err)
 	assert.NotNil(searchResult)
-	assert.True(searchResult.Found)
-	array := searchResult.GetHits()
-	assert.Len(*array, 1)
+	array := searchResult.Hits.Hits
+	assert.Len(array, 1)
 
 	searchResult, err = esi.FilterByTermQuery(mapping, "data", "lazy sloth", nil)
 	assert.NoError(err)
 	assert.NotNil(searchResult)
-	assert.False(searchResult.Found)
+	assert.True(searchResult.Hits.TotalHits == 0)
 }
 
 func (suite *EsTester) Test13DirectAccess() {
@@ -667,26 +666,25 @@ func (suite *EsTester) Test14Coverage() {
 	t := suite.T()
 	assert := assert.New(t)
 
-	indexResponse := NewIndexResponse(&elastic.IndexResponse{
+	indexResponse := &elastic.IndexResponse{
 		Index:   "index",
 		Type:    "type",
 		Id:      "1",
 		Version: 1,
 		Created: true,
-	},
-	)
+	}
 	assert.NotNil(indexResponse)
 
-	getResult := NewGetResult(&elastic.GetResult{Id: "", Source: &json.RawMessage{}, Found: false})
+	getResult := &elastic.GetResult{Id: "", Source: &json.RawMessage{}, Found: false}
 	assert.NotNil(getResult)
 
-	deleteResponse := NewDeleteResponse(&elastic.DeleteResponse{Found: false, Id: ""})
+	deleteResponse := &elastic.DeleteResponse{Found: false, Id: ""}
 	assert.NotNil(deleteResponse)
 
-	searchResult := NewSearchResult(&elastic.SearchResult{Hits: &elastic.SearchHits{TotalHits: 1, Hits: []*elastic.SearchHit{&elastic.SearchHit{Id: "1", Source: &json.RawMessage{}}}}})
+	searchResult := &elastic.SearchResult{Hits: &elastic.SearchHits{TotalHits: 1, Hits: []*elastic.SearchHit{&elastic.SearchHit{Id: "1", Source: &json.RawMessage{}}}}}
 	assert.NotNil(searchResult)
 	assert.True(searchResult.TotalHits() == int64(1))
-	assert.True(searchResult.NumHits() == 1)
+	assert.True(len(searchResult.Hits.Hits) == 1)
 
 	assert.True(MappingElementTypeText.isValidMappingType())
 	assert.True(MappingElementTypeText.isValidScalarMappingType())

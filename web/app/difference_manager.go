@@ -131,10 +131,10 @@ func (d *DifferenceManager) AllDiffsInProject(proj string) (*[]Difference, error
 	if err != nil {
 		return nil, err
 	}
-	diffs := make([]Difference, len(hits))
-	for i, hit := range hits {
+	diffs := make([]Difference, hits.TotalHits)
+	for i, hit := range hits.Hits {
 		var diff Difference
-		if err = json.Unmarshal([]byte(hit.Dat), &diff); err != nil {
+		if err = json.Unmarshal(*hit.Source, &diff); err != nil {
 			return nil, err
 		}
 		diffs[i] = diff

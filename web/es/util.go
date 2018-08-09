@@ -15,19 +15,24 @@
 package es
 
 import (
+	"encoding/json"
+
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
+	"github.com/venicegeo/pz-gocommon/elasticsearch/elastic-5-api"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-type hit struct {
-	Id  string
-	Dat []byte
+func GetAll(index *elasticsearch.Index, typ, query string, vsort ...string) (*elastic.SearchHits, error) {
+	return GetAllSource(index, typ, query, true, vsort...)
 }
-
-func GetAll(index *elasticsearch.Index, typ, query string, vsort ...string) ([]*hit, error) {
+func GetAllSource(index *elasticsearch.Index, typ, query string, source interface{}, vsort ...string) (*elastic.SearchHits, error) {
+	s, err := json.Marshal(source)
+	if err != nil {
+		return nil, err
+	}
 	from := int64(0)
 	size := int64(20)
-	res := []*hit{}
+	res := &elastic.SearchHits{0, nil, []*elastic.SearchHit{}}
 	sort := "{}"
 	if len(vsort) > 0 {
 		sort = vsort[0]
@@ -36,24 +41,23 @@ func GetAll(index *elasticsearch.Index, typ, query string, vsort ...string) ([]*
 		str := u.Format(`{
 	"from":%d,
 	"size":%d,
+	"_source": %s,
 	"query":%s,
 	"sort":%s
-}`, from, size, query, sort)
+}`, from, size, string(s), query, sort)
 		result, err := index.SearchByJSON(typ, str)
 		if err != nil {
 			return nil, err
 		}
-		if !result.Found {
-			return nil, u.Error("The %s type was not found", typ)
+		if len(result.Hits.Hits) == 0 {
+			break
 		}
-		if result.NumHits() == 0 {
+		res.Hits = append(res.Hits, result.Hits.Hits...)
+		if int64(len(res.Hits)) < size {
 			break
 		}
 		from += size
-		hits := result.GetHits()
-		for _, h := range *hits {
-			res = append(res, &hit{h.ID, *h.Source})
-		}
 	}
+	res.TotalHits = int64(len(res.Hits))
 	return res, nil
 }

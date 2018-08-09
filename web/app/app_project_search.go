@@ -17,13 +17,11 @@ package app
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 	c "github.com/venicegeo/vzutil-versioning/common"
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/web/es"
-	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 func (a *Application) searchForDep(c *gin.Context) {
@@ -91,96 +89,69 @@ func (a *Application) searchForDepInProject(c *gin.Context) {
 	}
 }
 
-//TODO delete?
-/*
-func (a *Application) getDepsMatching(depName, depVersion string) ([]d.Dependency, error) {
-	rawDat, err := es.GetAll(a.index, "dependency", u.Format(`
-{
-	"bool":{
-	"must":[
-		{
-			"term":{
-				"%s":"%s"
-			}
-		},{
-			"wildcard":{
-				"%s":"%s*"
-			}
-		}
-	]
-	}
-}`, d.NameField, depName, d.VersionField, depVersion))
-	if err != nil {
-		return nil, err
-	}
-
-	containingDeps := make([]d.Dependency, len(rawDat), len(rawDat))
-	for i, b := range rawDat {
-		var dep d.Dependency
-		if err = json.Unmarshal(b.Dat, &dep); err != nil {
-			containingDeps[i] = d.Dependency{"", u.Format("\tError decoding %s\n", b.Id), ""}
-		} else {
-			containingDeps[i] = dep
-		}
-	}
-	return containingDeps, nil
-}
-*/
-
 func (a *Application) searchForDepWrk(depName, depVersion string, repos []string) (int, string) {
-	boool := es.NewBool()
+	buf := bytes.NewBufferString("Searching for:\n")
+	nested := es.NewNestedQuery(c.DependenciesField)
 	must := es.NewBoolQ(
 		es.NewTerm(c.DependenciesField+"."+d.NameField, depName),
 		es.NewWildcard(c.DependenciesField+"."+d.VersionField, depVersion+"*"))
-	should := es.NewBoolQ()
-	for _, repo := range repos {
-		should.Add(es.NewTerm(c.FullNameField, repo))
-	}
-	boool.SetMust(must).SetShould(should)
-	boolDat, err := json.Marshal(boool)
+
+	terms := es.NewTerms("full_name", repos...)
+
+	nested.SetInnerQuery(map[string]interface{}{"bool": es.NewBool().SetMust(must)})
+	query := map[string]interface{}{"bool": es.NewBool().SetMust(es.NewBoolQ(nested)).SetFilter(es.NewBoolQ(terms))}
+
+	queryDat, err := json.MarshalIndent(query, " ", "   ")
 	if err != nil {
-		return 400, "Unable to create bool query: " + err.Error()
+		return 500, "Unable to create bool query: " + err.Error()
 	}
-	fmt.Println(string(boolDat))
-	rawDat, err := es.GetAll(a.index, "repository_entry", u.Format(`{"bool":%s}`, string(boolDat)))
+	hits, err := es.GetAllSource(a.index, "repository_entry", string(queryDat), []string{c.FullNameField, c.RefsField})
 	if err != nil {
-		return 500, "Unable to query repos: " + err.Error()
+		return 500, "Failure executing bool query: " + err.Error()
 	}
+	deps := d.Dependencies{}
+	shas := map[string]map[string]map[string]struct{}{}
 
-	nested := es.NewNestedQuery(c.DependenciesField)
-	nested.SetInnerQuery(*boool)
-	tmp := map[string]interface{}{
-		"_source": false,
-		"query":   nested,
-	}
-	blah, _ := json.MarshalIndent(tmp, " ", "   ")
-	fmt.Println(string(blah))
-
-	test := map[string]map[string][]string{}
-	for _, b := range rawDat {
-		var entry c.DependencyScan
-		if err = json.Unmarshal(b.Dat, &entry); err != nil {
-			return 500, "Error getting entry: " + err.Error()
+	for _, hit := range hits.Hits {
+		var scan c.DependencyScan
+		if err = json.Unmarshal(*hit.Source, &scan); err != nil {
+			return 500, "Failure retrieving source: " + err.Error()
 		}
-
-		if _, ok := test[entry.Fullname]; !ok {
-			test[entry.Fullname] = map[string][]string{}
+		if _, ok := shas[scan.Fullname]; !ok {
+			shas[scan.Fullname] = map[string]map[string]struct{}{}
 		}
-		for _, refName := range entry.Refs {
-			if _, ok := test[entry.Fullname][refName]; !ok {
-				test[entry.Fullname][refName] = []string{}
+		for _, ref := range scan.Refs {
+			if _, ok := shas[scan.Fullname][ref]; !ok {
+				shas[scan.Fullname][ref] = map[string]struct{}{}
 			}
-			test[entry.Fullname][refName] = append(test[entry.Fullname][refName], entry.Sha)
+			shas[scan.Fullname][ref][hit.Id] = struct{}{}
+		}
+		for _, innerHit := range hit.InnerHits[c.DependenciesField].Hits.Hits {
+			dep := new(d.Dependency)
+			if err = json.Unmarshal(*innerHit.Source, dep); err != nil {
+				return 500, "Error retrieving dependencies: " + err.Error()
+			}
+			deps = append(deps, *dep)
 		}
 	}
-	buf := bytes.NewBufferString("")
-	for repoName, refs := range test {
-		buf.WriteString(repoName)
+	d.RemoveExactDuplicates(&deps)
+	for _, dep := range deps {
+		buf.WriteString("\t")
+		buf.WriteString(dep.String())
 		buf.WriteString("\n")
-		for refName, shas := range refs {
-			buf.WriteString(u.Format("\t%s\n", refName))
-			for _, sha := range shas {
-				buf.WriteString(u.Format("\t\t %s \n", sha))
+	}
+	buf.WriteString("\n\n\n")
+	for repo, refs := range shas {
+		buf.WriteString(repo)
+		buf.WriteString("\n")
+		for ref, shas := range refs {
+			buf.WriteString("\t")
+			buf.WriteString(ref)
+			buf.WriteString("\n")
+			for sha, _ := range shas {
+				buf.WriteString("\t\t")
+				buf.WriteString(sha)
+				buf.WriteString("\n")
 			}
 		}
 	}

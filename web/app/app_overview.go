@@ -79,12 +79,12 @@ func (a *Application) projectsOverview(c *gin.Context) {
 			c.String(500, "Error getting this project: %s", err.Error())
 			return
 		}
-		if resp.NumHits() != 1 {
+		if resp.Hits.TotalHits != 1 {
 			c.String(400, "This project does not appear to exist")
 			return
 		}
 		var proj es.ProjectEntry
-		if err = json.Unmarshal(*resp.GetHit(0).Source, &proj); err != nil {
+		if err = json.Unmarshal(*resp.Hits.Hits[0].Source, &proj); err != nil {
 			c.String(500, "Unable to unmarshal project: %s", err.Error())
 			return
 		}

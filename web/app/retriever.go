@@ -177,13 +177,13 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res c.DependencyS
 			addError(repoName, u.Format("Error during query: %s", err.Error()))
 			return
 		}
-		if resp.NumHits() != 1 {
+		if resp.Hits.TotalHits != 1 {
 			wg.Done()
 			return
 		}
 
 		var entry c.DependencyScan
-		if err = json.Unmarshal(*resp.GetHit(0).Source, &entry); err != nil {
+		if err = json.Unmarshal(*resp.Hits.Hits[0].Source, &entry); err != nil {
 			addError(repoName, "Couldnt get entry: "+err.Error())
 			return
 		}
@@ -199,7 +199,7 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res c.DependencyS
 	return
 }
 
-func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) {
+func (r *Retriever) ListShas(fullName string) (map[string][]string, int64, error) {
 	entryDat, err := es.GetAll(r.app.index, "repository_entry", u.Format(`{
 	"term":{
 		"%s":"%s"
@@ -211,9 +211,9 @@ func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) 
 
 	res := map[string][]string{}
 
-	for _, entryD := range entryDat {
+	for _, entryD := range entryDat.Hits {
 		var entry c.DependencyScan
-		if err := json.Unmarshal(entryD.Dat, &entry); err != nil {
+		if err := json.Unmarshal(*entryD.Source, &entry); err != nil {
 			return nil, 0, err
 		}
 		for _, refName := range entry.Refs {
@@ -223,7 +223,7 @@ func (r *Retriever) ListShas(fullName string) (map[string][]string, int, error) 
 			res[refName] = append(res[refName], entry.Sha)
 		}
 	}
-	return res, len(entryDat), nil
+	return res, entryDat.TotalHits, nil
 }
 
 func (r *Retriever) ListRefsRepo(fullName string) ([]string, error) {
@@ -345,10 +345,10 @@ func (r *Retriever) ListRepositoriesByProj(proj string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	res := make([]string, len(hits), len(hits))
-	for i, hitData := range hits {
+	res := make([]string, hits.TotalHits, hits.TotalHits)
+	for i, hitData := range hits.Hits {
 		t := new(es.ProjectEntry)
-		if err = json.Unmarshal(hitData.Dat, t); err != nil {
+		if err = json.Unmarshal(*hitData.Source, t); err != nil {
 			return nil, err
 		}
 		res[i] = t.Repo
@@ -361,10 +361,10 @@ func (r *Retriever) ListProjects() ([]*es.Project, error) {
 	if err != nil {
 		return nil, err
 	}
-	res := make([]*es.Project, len(hits), len(hits))
-	for i, hitData := range hits {
+	res := make([]*es.Project, hits.TotalHits, hits.TotalHits)
+	for i, hitData := range hits.Hits {
 		t := new(es.Project)
-		if err = json.Unmarshal(hitData.Dat, t); err != nil {
+		if err = json.Unmarshal(*hitData.Source, t); err != nil {
 			return nil, err
 		}
 		res[i] = t
