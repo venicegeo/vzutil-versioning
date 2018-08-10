@@ -36,6 +36,10 @@ func (w *CompleteRunner) RunAgainstRequest(request *SingleRunnerRequest) {
 	go func(request *SingleRunnerRequest) {
 		exists := make(chan bool, 1)
 		ret := make(chan *c.DependencyScan, 1)
+		defer func() {
+			close(exists)
+			close(ret)
+		}()
 		w.app.wrkr.AddTaskRequest(request, exists, ret)
 		e := <-exists
 		if e {
@@ -51,6 +55,7 @@ func (w *CompleteRunner) RunAgainstRequest(request *SingleRunnerRequest) {
 func (w *CompleteRunner) RunAgainstGit(git *s.GitWebhook) {
 	go func(git *s.GitWebhook) {
 		ret := make(chan *c.DependencyScan, 1)
+		defer close(ret)
 		w.app.wrkr.AddTaskGit(git, ret)
 		r := <-ret
 		if r != nil {

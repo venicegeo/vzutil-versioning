@@ -42,7 +42,7 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 		return
 	}
 	h := gin.H{"report": ""}
-	refs, err := a.rtrvr.ListRefsInProj(proj)
+	refs, err := a.rtrvr.ListRefsInProject(proj)
 	if err != nil {
 		h["refs"] = u.Format("Unable to retrieve this projects refs: %s", err.Error())
 	} else {

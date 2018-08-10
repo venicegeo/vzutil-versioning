@@ -34,7 +34,7 @@ func NewRetriever(app *Application) *Retriever {
 	return &Retriever{app}
 }
 
-func (r *Retriever) ScanBySha(sha string) (*c.DependencyScan, bool, error) {
+func (r *Retriever) ScanBySha(sha, projectRequesting string) (*c.DependencyScan, bool, error) {
 	var entry c.DependencyScan
 	var err error
 	//	var found bool
@@ -48,7 +48,7 @@ func (r *Retriever) ScanBySha(sha string) (*c.DependencyScan, bool, error) {
 	return &entry, true, json.Unmarshal(*result.Source, &entry)
 }
 func (r *Retriever) ScanByShaNameGen(fullName, sha, projectRequesting string) (*c.DependencyScan, error) {
-	scan, found, err := r.app.rtrvr.ScanBySha(sha)
+	scan, found, err := r.app.rtrvr.ScanBySha(sha, projectRequesting)
 	if err != nil || !found {
 		{
 			code, _, _, err := nt.HTTP(nt.HEAD, u.Format("https://github.com/%s/commit/%s", fullName, sha), nt.NewHeaderBuilder().GetHeader(), nil)
@@ -79,88 +79,25 @@ func (r *Retriever) ScanByShaNameGen(fullName, sha, projectRequesting string) (*
 	return scan, nil
 }
 
-//TODO delete?
-/*
-func (r *Retriever) depsFromEntry(entry *c.DependencyScan) (res []d.Dependency) {
-	mux := &sync.Mutex{}
-	done := make(chan bool, len(entry.Deps))
-	work := func(dep string) {
-		if resp, err := r.app.index.GetByID("dependency", dep); err != nil || !resp.Found {
-			name := u.Format("Cound not find [%s]", dep)
-			tmp := d.Dependency{name, "", ""}
-			mux.Lock()
-			res = append(res, tmp)
-			mux.Unlock()
-		} else {
-			var depen d.Dependency
-			if err = json.Unmarshal([]byte(*resp.Source), &depen); err != nil {
-				tmp := d.Dependency{u.Format("Error getting [%s]: [%s]", dep, err.Error()), "", ""}
-				mux.Lock()
-				res = append(res, tmp)
-				mux.Unlock()
-			} else {
-				mux.Lock()
-				res = append(res, depen)
-				mux.Unlock()
-			}
-		}
-		done <- true
-	}
-	for _, d := range entry.Deps {
-		go work(d)
-	}
-	for i := 0; i < len(entry.Deps); i++ {
-		<-done
-	}
-	sort.Sort(d.DependencySort(res))
-	return res
-}
-*/
-
 func (r *Retriever) ScansByRefInProject(proj, ref string) (c.DependencyScans, error) {
-	repoNames, err := r.ListRepositoriesByProj(proj)
+	repoNames, err := r.ListRepositoriesInProject(proj)
 	if err != nil {
 		return nil, err
 	}
-	return r.byRefWork(repoNames, ref)
-}
-
-func (r *Retriever) byRefWork(repoNames []string, ref string) (res c.DependencyScans, err error) {
-	res = c.DependencyScans{}
-	query := map[string]interface{}{}
-	query["query"] = map[string]interface{}{
-		"bool": map[string]interface{}{
-			"must": []map[string]interface{}{
-				map[string]interface{}{
-					"term": map[string]interface{}{
-						c.RefsField: "refs/" + ref,
-					},
-				},
-				map[string]interface{}{
-					"term": map[string]interface{}{
-						c.FullNameField: "%s",
-					},
-				},
-			},
-		},
-	}
+	res := c.DependencyScans{}
+	query := map[string]interface{}{"query": map[string]interface{}{}}
+	query["query"] = map[string]interface{}{"bool": es.NewBool().
+		SetMust(
+			es.NewBoolQ(
+				es.NewTerm(c.RefsField, "refs/"+ref),
+				es.NewTerm(c.FullNameField, "%s")))}
 	query["sort"] = map[string]interface{}{
 		c.TimestampField: map[string]interface{}{
 			"order": "desc",
 		},
 	}
 	query["size"] = 1
-	//	type Hit struct {
-	//		Id     string          `json:"_id"`
-	//		Source json.RawMessage `json:"_source"`
-	//	}
-	//	type Result struct {
-	//		Total int64 `json:"total"`
-	//		Hits  []Hit `json:"hits"`
-	//	}
-	//	type Wrapper struct {
-	//		R Result `json:"hits"`
-	//	}
+
 	dat, err := json.MarshalIndent(query, " ", "   ")
 	if err != nil {
 		return nil, err
@@ -200,15 +137,26 @@ func (r *Retriever) byRefWork(repoNames []string, ref string) (res c.DependencyS
 		go work(repoName)
 	}
 	wg.Wait()
-	return
+	return res, nil
 }
 
-func (r *Retriever) ListShas(fullName string) (map[string][]string, int64, error) {
+// Returns map of refs to shas of a repository in a project
+func (r *Retriever) ListShasByRefOfRepoInProject(fullName, projectRequesting string) (map[string][]string, int64, error) {
 	entryDat, err := es.GetAll(r.app.index, "repository_entry", u.Format(`{
-	"term":{
-		"%s":"%s"
+	"bool": {
+		"must": [
+			{
+				"term":{
+					"%s":"%s"
+				}
+			},{
+				"term":{
+					"%s":"%s"
+				}
+			}
+		]
 	}
-}`, c.FullNameField, fullName), u.Format(`{"%s":"desc"}`, c.TimestampField))
+}`, c.FullNameField, fullName, c.RequesterField, projectRequesting), u.Format(`{"%s":"desc"}`, c.TimestampField))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -230,13 +178,11 @@ func (r *Retriever) ListShas(fullName string) (map[string][]string, int64, error
 	return res, entryDat.TotalHits, nil
 }
 
-func (r *Retriever) ListRefsRepo(fullName string) ([]string, error) {
+// Lists the refs of a repo within a project
+func (r *Retriever) ListRefsOfRepoInProject(fullName, projectRequesting string) ([]string, error) {
 	in := es.NewAggQuery("refs", c.RefsField)
-	in["query"] = map[string]interface{}{
-		"term": map[string]interface{}{
-			c.FullNameField: fullName,
-		},
-	}
+	boool := es.NewBool().SetMust(es.NewBoolQ(es.NewTerm(c.FullNameField, fullName), es.NewTerm(c.RequesterField, projectRequesting)))
+	in["query"] = map[string]interface{}{"bool": boool}
 	var out es.AggResponse
 	if err := r.app.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", in, &out); err != nil {
 		return nil, err
@@ -250,8 +196,9 @@ func (r *Retriever) ListRefsRepo(fullName string) ([]string, error) {
 	return res, nil
 }
 
-func (r *Retriever) ListRefsInProj(proj string) ([]string, error) {
-	repos, err := r.ListRepositoriesByProj(proj)
+// Lists all known refs within a project
+func (r *Retriever) ListRefsInProject(projectRequesting string) ([]string, error) {
+	repos, err := r.ListRepositoriesInProject(projectRequesting)
 	if err != nil {
 		return nil, err
 	}
@@ -270,8 +217,9 @@ func (r *Retriever) ListRefsInProj(proj string) ([]string, error) {
 	return res, nil
 }
 
-func (r *Retriever) ListRefsInProjByRepo(proj string) (*map[string][]string, int, error) {
-	repos, err := r.ListRepositoriesByProj(proj)
+// Returns map of repository to all of its refs, within a project
+func (r *Retriever) ListRefsByRepositoryInProject(projectRequesting string) (*map[string][]string, int, error) {
+	repos, err := r.ListRepositoriesInProject(projectRequesting)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -320,6 +268,7 @@ func (r *Retriever) ListRefsInProjByRepo(proj string) (*map[string][]string, int
 	return &res, totalNumber, err
 }
 
+// Lists all known repositories, regardless of project
 func (r *Retriever) ListRepositories() ([]string, error) {
 	agg := es.NewAggQuery("repo", c.FullNameField)
 	var resp es.AggResponse
@@ -334,8 +283,9 @@ func (r *Retriever) ListRepositories() ([]string, error) {
 	return res, nil
 }
 
-func (r *Retriever) ListRepositoriesByProj(proj string) ([]string, error) {
-	exists, err := r.app.index.ItemExists("project", proj)
+// Lists all repositories within a project
+func (r *Retriever) ListRepositoriesInProject(projectRequesting string) ([]string, error) {
+	exists, err := r.app.index.ItemExists("project", projectRequesting)
 	if err != nil {
 		return nil, err
 	} else if !exists {
@@ -345,7 +295,7 @@ func (r *Retriever) ListRepositoriesByProj(proj string) ([]string, error) {
 	"term": {
 		"%s":"%s"
 	}
-}`, "project_name", proj))
+}`, "project_name", projectRequesting))
 	if err != nil {
 		return nil, err
 	}
@@ -360,6 +310,7 @@ func (r *Retriever) ListRepositoriesByProj(proj string) ([]string, error) {
 	return res, nil
 }
 
+// Lists all known projects
 func (r *Retriever) ListProjects() ([]*es.Project, error) {
 	hits, err := es.GetAll(r.app.index, "project", "{}")
 	if err != nil {

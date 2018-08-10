@@ -88,14 +88,14 @@ func (a *Application) generateBranchWrk(repoName, fullName, branch, proj string)
 			Ref:       ref,
 			Requester: proj,
 		}
-		log.Println(fullName, sha, ref)
+		log.Println(fullName, sha, ref, proj)
 		a.cmpltRnnr.RunAgainstRequest(&request)
 	}(repoName, fullName, branch, sha)
 	return sha, nil
 }
 
 func (a *Application) genTagsWrk(proj string) (string, error) {
-	repos, err := a.rtrvr.ListRepositoriesByProj(proj)
+	repos, err := a.rtrvr.ListRepositoriesInProject(proj)
 	if err != nil {
 		return "", err
 	}

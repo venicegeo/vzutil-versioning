@@ -69,7 +69,7 @@ func (a *Application) viewProject(c *gin.Context) {
 			return
 		}
 	} else if form.Sha != "" {
-		scan, found, err := a.rtrvr.ScanBySha(form.Sha)
+		scan, found, err := a.rtrvr.ScanBySha(form.Sha, proj)
 		if !found && err != nil {
 			c.String(400, "Unable to find this sha: %s", err.Error())
 			return
@@ -87,43 +87,15 @@ func (a *Application) viewProject(c *gin.Context) {
 		return
 	}
 	accord := s.NewHtmlAccordion()
-	repos, err := a.rtrvr.ListRepositoriesByProj(proj)
+	repos, err := a.rtrvr.ListRepositoriesInProject(proj)
 	if err != nil {
 		c.String(500, "Unable to retrieve repository list: %s", err.Error())
 		return
 	}
 	mux := sync.Mutex{}
 	errs := make(chan error, len(repos))
-	work := func(repoName string) {
-		refs, err := a.rtrvr.ListRefsRepo(repoName)
-		if err != nil {
-			errs <- err
-			return
-		}
-		tempAccord := s.NewHtmlAccordion()
-		shas, _, err := a.rtrvr.ListShas(repoName)
-		if err != nil {
-			errs <- err
-			return
-		}
-		for _, ref := range refs {
-			c := s.NewHtmlCollection()
-			correctShas := shas["refs/"+ref]
-			for i, sha := range correctShas {
-				c.Add(s.NewHtmlButton2("button_sha", sha))
-				if i < len(correctShas)-1 {
-					c.Add(s.NewHtmlBr())
-				}
-			}
-			tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
-		}
-		mux.Lock()
-		accord.AddItem(repoName, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlButton2("button_gen", "Generate Branch - "+repoName)).Post(), tempAccord.Sort()))
-		mux.Unlock()
-		errs <- nil
-	}
 	for _, repoName := range repos {
-		go work(repoName)
+		go a.generateAccordion(accord, repoName, proj, errs, mux)
 	}
 	err = nil
 	for i := 0; i < len(repos); i++ {
@@ -151,41 +123,35 @@ func (a *Application) viewProject(c *gin.Context) {
 	c.HTML(200, "project.html", h)
 }
 
-//TODO keep this around
-//func (a *Application) addReposToProject(c *gin.Context) {
-//	var form struct {
-//		Back   string   `form:"button_back"`
-//		Repos  []string `form:"repos[]"`
-//		Create string   `form:"button_submit"`
-//	}
-//	proj := c.Param("proj")
-//	if err := c.Bind(&form); err != nil {
-//		c.String(400, "Error binding form: %s", err.Error())
-//		return
-//	}
-//	if form.Back != "" {
-//		c.Redirect(303, "/project/"+proj)
-//		return
-//	}
-//	if form.Create != "" {
-//		a.addReposToProjWrk(proj, form.Repos)
-//		c.Redirect(303, "/project/"+proj)
-//		return
-//	}
-//	currentRepos, err := a.rtrvr.ListRepositoriesByProj(proj)
-//	if err != nil {
-//		c.String(400, "Error getting the projects repositories: %s", err.Error())
-//		return
-//	}
-//	buf := bytes.NewBufferString("")
-//	for _, repo := range currentRepos {
-//		buf.WriteString(repo)
-//		buf.WriteString("\n")
-//	}
-//	h := gin.H{}
-//	h["current"] = buf.String()
-//	c.HTML(200, "addrepo.html", h)
-//}
+func (a *Application) generateAccordion(accord *s.HtmlAccordion, repoName, proj string, errs chan error, mux sync.Mutex) {
+	refs, err := a.rtrvr.ListRefsOfRepoInProject(repoName, proj)
+	if err != nil {
+		errs <- err
+		return
+	}
+	tempAccord := s.NewHtmlAccordion()
+	shas, _, err := a.rtrvr.ListShasByRefOfRepoInProject(repoName, proj)
+	if err != nil {
+		errs <- err
+		return
+	}
+	for _, ref := range refs {
+		c := s.NewHtmlCollection()
+		correctShas := shas["refs/"+ref]
+		for i, sha := range correctShas {
+			c.Add(s.NewHtmlButton2("button_sha", sha))
+			if i < len(correctShas)-1 {
+				c.Add(s.NewHtmlBr())
+			}
+		}
+		tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
+	}
+	mux.Lock()
+	accord.AddItem(repoName, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlButton2("button_gen", "Generate Branch - "+repoName)).Post(), tempAccord.Sort()))
+	mux.Unlock()
+	errs <- nil
+}
+
 func (a *Application) addReposToProject(c *gin.Context) {
 	var form struct {
 		Back    string   `form:"button_back"`
@@ -256,6 +222,8 @@ func (a *Application) addReposToProject(c *gin.Context) {
 		} else {
 			if files, err := a.wrkr.snglRnnr.ScanWithSingle(repoName); err != nil {
 				setScan(err.Error())
+				showLower()
+				hideAlt()
 			} else {
 				disablePrimary()
 				showLower()
@@ -270,6 +238,8 @@ func (a *Application) addReposToProject(c *gin.Context) {
 		} else {
 			if files, err := a.wrkr.snglRnnr.ScanWithSingle(altRepoName); err != nil {
 				setScan(err.Error())
+				showLower()
+				hideAlt()
 			} else {
 				disablePrimary()
 				showLower()
@@ -332,6 +302,7 @@ func (a *Application) addReposToProject(c *gin.Context) {
 	c.HTML(200, "newaddrepo.html", h)
 }
 
+// Checks to see if a repo name is an actual repo on github
 func (a *Application) checkRepoIsReal(name ...string) bool {
 	var fullname string
 	switch len(name) {
@@ -357,34 +328,6 @@ func (a *Application) checkRepoIsReal(name ...string) bool {
 		return true
 	}
 }
-
-//TODO delete?
-//func (a *Application) addReposToProjWrk(name string, reposs []string) {
-//	realr := []string{}
-//	for _, r := range reposs {
-//		if strings.TrimSpace(r) == "" {
-//			continue
-//		}
-//		realr = append(realr, strings.TrimSpace(strings.ToLower(r)))
-//	}
-//	//TODO thread
-//	for _, fullName := range realr {
-//		checkRepoExist := func(fullName string) error {
-//			url := u.Format("https://github.com/%s", fullName)
-//			if code, _, _, e := nt.HTTP(nt.HEAD, url, nt.NewHeaderBuilder().GetHeader(), nil); e != nil {
-//				return e
-//			} else if code != 200 {
-//				return u.Error("Code on %s is no 200, but %d", fullName, code)
-//			} else {
-//				return nil
-//			}
-//		}
-//		if err := checkRepoExist(fullName); err != nil {
-//			continue
-//		}
-//		a.index.PostData("project_entry", "", es.ProjectEntry{name, fullName})
-//	}
-//}
 
 func (a *Application) removeReposFromProject(c *gin.Context) {
 	proj := c.Param("proj")
@@ -431,7 +374,7 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 		c.Redirect(303, "/removerepo/"+proj)
 		return
 	}
-	repos, err := a.rtrvr.ListRepositoriesByProj(proj)
+	repos, err := a.rtrvr.ListRepositoriesInProject(proj)
 	if err != nil {
 		c.String(500, "Unable to get the repos: %s", err)
 		return

@@ -29,6 +29,7 @@ const TimestampField = `timestamp`
 const DependenciesField = `dependencies`
 const IssuesField = `issues`
 const FilesField = `files`
+const RequesterField = `requester`
 
 const DependencyScanMapping string = `{
 	"dynamic":"strict",
