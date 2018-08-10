@@ -15,7 +15,6 @@
 package app
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 
@@ -189,12 +188,15 @@ func (a *Application) viewProject(c *gin.Context) {
 //}
 func (a *Application) addReposToProject(c *gin.Context) {
 	var form struct {
-		Back   string   `form:"button_back"`
-		Org    string   `form:"org"`
-		Repo   string   `form:"repo"`
-		Scan   string   `form:"button_scan"`
-		Files  []string `form:"files[]"`
-		Submit string   `form:"button_submit"`
+		Back    string   `form:"button_back"`
+		Org     string   `form:"org"`
+		Repo    string   `form:"repo"`
+		Scan    string   `form:"button_scan"`
+		Files   []string `form:"files[]"`
+		Submit  string   `form:"button_submit"`
+		AltOrg  string   `form:"altorg"`
+		AltRepo string   `form:"altrepo"`
+		AltScan string   `form:"button_altscan"`
 	}
 	proj := c.Param("proj")
 	if err := c.Bind(&form); err != nil {
@@ -206,27 +208,125 @@ func (a *Application) addReposToProject(c *gin.Context) {
 		return
 	}
 	h := gin.H{
-		"org":  form.Org,
-		"repo": form.Repo,
+		"org":         form.Org,
+		"repo":        form.Repo,
+		"altorg":      form.AltOrg,
+		"altrepo":     form.AltRepo,
+		"hidelower":   true,
+		"hidealtform": false,
 	}
-	if form.Scan != "" {
+
+	showLower := func() { h["hidelower"] = false }
+
+	disablePrimary := func() {
+		h["mainreadonly"] = "readonly"
+		h["maindisable"] = "disabled"
+	}
+
+	hideAlt := func() {
+		h["hidealtform"] = true
+	}
+
+	repoName := u.Format("%s/%s", form.Org, form.Repo)
+	var altRepoName string
+	if form.AltOrg == "" {
+		altRepoName = repoName
+	} else {
+		altRepoName = u.Format("%s/%s", form.AltOrg, form.AltRepo)
+	}
+
+	setScan := func(i interface{}) {
+		switch i.(type) {
+		case string:
+			h["scan"] = s.NewHtmlString(i.(string)).Template()
+		case []string:
+			check := s.NewHtmlCheckbox("files[]")
+			for _, file := range i.([]string) {
+				check.Add(file, file, true)
+			}
+			h["scan"] = s.NewHtmlCollection(check, s.NewHtmlButton2("button_submit", "Submit")).Template()
+		default:
+			panic("Youre doing this wrong")
+		}
+	}
+
+	primaryScan := func() {
 		if !a.checkRepoIsReal(form.Org, form.Repo) {
-			h["scan"] = s.NewHtmlBasic("fieldset", "This isnt a real repo").Template()
+			setScan("This isnt a real repo")
 		} else {
-			if files, err := a.wrkr.snglRnnr.ScanWithSingle(form.Org + "/" + form.Repo); err != nil {
-				h["scan"] = s.NewHtmlBasic("fieldset", err.Error()).Template()
+			if files, err := a.wrkr.snglRnnr.ScanWithSingle(repoName); err != nil {
+				setScan(err.Error())
 			} else {
-				check := s.NewHtmlCheckbox("files[]")
-				for _, file := range files {
-					check.Add(file, file, true)
-				}
-				h["scan"] = s.NewHtmlBasic("fieldset", s.NewHtmlCollection(check, s.NewHtmlButton2("button_submit", "Submit")).String()).Template()
-				h["disabled"] = "disabled"
+				disablePrimary()
+				showLower()
+				setScan(files)
 			}
 		}
 	}
-	if form.Submit != "" {
-		fmt.Println(form.Files)
+
+	secondaryScan := func() {
+		if !a.checkRepoIsReal(form.AltOrg, form.AltRepo) {
+			setScan("This isnt a real repo")
+		} else {
+			if files, err := a.wrkr.snglRnnr.ScanWithSingle(altRepoName); err != nil {
+				setScan(err.Error())
+			} else {
+				disablePrimary()
+				showLower()
+				hideAlt()
+				setScan(files)
+			}
+		}
+	}
+
+	submit := func() {
+		entry := es.ProjectEntry{
+			ProjectName:        proj,
+			RepoFullname:       repoName,
+			DependRepoFullname: altRepoName,
+			FilesToScan:        form.Files,
+		}
+		resp, err := a.index.SearchByJSON("project_entry", u.Format(`{
+	"query":{
+		"bool":{
+			"must":[
+				{
+					"term":{
+						"project_name":"%s"
+					}
+				},{
+					"term":{
+						"repo":"%s"
+					}
+				}
+			]
+		}
+	},
+	"size":1
+}`, entry.ProjectName, entry.RepoFullname))
+		if err != nil {
+			c.String(500, "Error checking database for existing repo: %s", err.Error())
+			return
+		}
+		if resp.Hits.TotalHits == 1 {
+			c.String(400, "This repo already exists under this project")
+			return
+		}
+		iresp, err := a.index.PostData("project_entry", "", entry)
+		if err != nil || !iresp.Created {
+			c.String(500, "Error adding entry to database: ", err)
+			return
+		}
+		c.Redirect(303, "/project/"+proj)
+	}
+
+	if form.Scan != "" {
+		primaryScan()
+	} else if form.Submit != "" {
+		submit()
+		return
+	} else if form.AltScan != "" {
+		secondaryScan()
 	}
 
 	c.HTML(200, "newaddrepo.html", h)
@@ -258,32 +358,33 @@ func (a *Application) checkRepoIsReal(name ...string) bool {
 	}
 }
 
-func (a *Application) addReposToProjWrk(name string, reposs []string) {
-	realr := []string{}
-	for _, r := range reposs {
-		if strings.TrimSpace(r) == "" {
-			continue
-		}
-		realr = append(realr, strings.TrimSpace(strings.ToLower(r)))
-	}
-	//TODO thread
-	for _, fullName := range realr {
-		checkRepoExist := func(fullName string) error {
-			url := u.Format("https://github.com/%s", fullName)
-			if code, _, _, e := nt.HTTP(nt.HEAD, url, nt.NewHeaderBuilder().GetHeader(), nil); e != nil {
-				return e
-			} else if code != 200 {
-				return u.Error("Code on %s is no 200, but %d", fullName, code)
-			} else {
-				return nil
-			}
-		}
-		if err := checkRepoExist(fullName); err != nil {
-			continue
-		}
-		a.index.PostData("project_entry", "", es.ProjectEntry{name, fullName})
-	}
-}
+//TODO delete?
+//func (a *Application) addReposToProjWrk(name string, reposs []string) {
+//	realr := []string{}
+//	for _, r := range reposs {
+//		if strings.TrimSpace(r) == "" {
+//			continue
+//		}
+//		realr = append(realr, strings.TrimSpace(strings.ToLower(r)))
+//	}
+//	//TODO thread
+//	for _, fullName := range realr {
+//		checkRepoExist := func(fullName string) error {
+//			url := u.Format("https://github.com/%s", fullName)
+//			if code, _, _, e := nt.HTTP(nt.HEAD, url, nt.NewHeaderBuilder().GetHeader(), nil); e != nil {
+//				return e
+//			} else if code != 200 {
+//				return u.Error("Code on %s is no 200, but %d", fullName, code)
+//			} else {
+//				return nil
+//			}
+//		}
+//		if err := checkRepoExist(fullName); err != nil {
+//			continue
+//		}
+//		a.index.PostData("project_entry", "", es.ProjectEntry{name, fullName})
+//	}
+//}
 
 func (a *Application) removeReposFromProject(c *gin.Context) {
 	proj := c.Param("proj")

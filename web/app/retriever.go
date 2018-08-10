@@ -22,7 +22,6 @@ import (
 
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	c "github.com/venicegeo/vzutil-versioning/common"
-	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -48,7 +47,7 @@ func (r *Retriever) ScanBySha(sha string) (*c.DependencyScan, bool, error) {
 	}
 	return &entry, true, json.Unmarshal(*result.Source, &entry)
 }
-func (r *Retriever) ScanByShaNameGen(fullName, sha string) (*c.DependencyScan, error) {
+func (r *Retriever) ScanByShaNameGen(fullName, sha, projectRequesting string) (*c.DependencyScan, error) {
 	scan, found, err := r.app.rtrvr.ScanBySha(sha)
 	if err != nil || !found {
 		{
@@ -62,7 +61,12 @@ func (r *Retriever) ScanByShaNameGen(fullName, sha string) (*c.DependencyScan, e
 		}
 		exists := make(chan bool, 1)
 		ret := make(chan *c.DependencyScan, 1)
-		r.app.wrkr.AddTask(&s.GitWebhook{AfterSha: sha, Repository: s.GitRepository{FullName: fullName}}, exists, ret)
+		r.app.wrkr.AddTaskRequest(&SingleRunnerRequest{
+			Fullname:  fullName,
+			Sha:       sha,
+			Ref:       "",
+			Requester: projectRequesting,
+		}, exists, ret)
 		if !<-exists {
 			scan = <-ret
 			if scan == nil {
@@ -341,7 +345,7 @@ func (r *Retriever) ListRepositoriesByProj(proj string) ([]string, error) {
 	"term": {
 		"%s":"%s"
 	}
-}`, c.NameField, proj))
+}`, "project_name", proj))
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +355,7 @@ func (r *Retriever) ListRepositoriesByProj(proj string) ([]string, error) {
 		if err = json.Unmarshal(*hitData.Source, t); err != nil {
 			return nil, err
 		}
-		res[i] = t.Repo
+		res[i] = t.RepoFullname
 	}
 	return res, nil
 }

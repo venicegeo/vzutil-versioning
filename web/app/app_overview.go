@@ -83,7 +83,7 @@ func (a *Application) projectsOverview(c *gin.Context) {
 			c.String(400, "This project does not appear to exist")
 			return
 		}
-		var proj es.ProjectEntry
+		var proj es.Project
 		if err = json.Unmarshal(*resp.Hits.Hits[0].Source, &proj); err != nil {
 			c.String(500, "Unable to unmarshal project: %s", err.Error())
 			return
@@ -134,7 +134,7 @@ func (a *Application) newProject(c *gin.Context) {
 			return
 		}
 
-		a.addReposToProjWrk(name, f.Repos)
+		//a.addReposToProjWrk(name, f.Repos)
 
 		c.Redirect(303, "/ui")
 	} else {
@@ -161,7 +161,7 @@ func (a *Application) reportSha(c *gin.Context) {
 	h := gin.H{"report": "Report will appear here"}
 	if form.Submit != "" {
 		fullName := u.Format("%s/%s", form.Org, form.Repo)
-		scan, err := a.rtrvr.ScanByShaNameGen(fullName, form.Sha)
+		scan, err := a.rtrvr.ScanByShaNameGen(fullName, form.Sha, "")
 		if err != nil {
 			h["report"] = u.Format("Unable to run against %s at %s:\n%s", fullName, form.Sha, err.Error())
 		} else {

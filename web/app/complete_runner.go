@@ -24,31 +24,42 @@ import (
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-type WebhookRunner struct {
+type CompleteRunner struct {
 	app *Application
 }
 
-func NewWebhookRunner(app *Application) *WebhookRunner {
-	return &WebhookRunner{app}
+func NewCompleteRunner(app *Application) *CompleteRunner {
+	return &CompleteRunner{app}
 }
 
-func (w *WebhookRunner) RunAgainstWeb(git *s.GitWebhook) {
-	go func(git *s.GitWebhook) {
+func (w *CompleteRunner) RunAgainstRequest(request *SingleRunnerRequest) {
+	go func(request *SingleRunnerRequest) {
 		exists := make(chan bool, 1)
 		ret := make(chan *c.DependencyScan, 1)
-		w.app.wrkr.AddTask(git, exists, ret)
+		w.app.wrkr.AddTaskRequest(request, exists, ret)
 		e := <-exists
 		if e {
 			return
 		}
 		r := <-ret
 		if r != nil {
-			w.es(r)
+			w.postScan(r)
+		}
+	}(request)
+}
+
+func (w *CompleteRunner) RunAgainstGit(git *s.GitWebhook) {
+	go func(git *s.GitWebhook) {
+		ret := make(chan *c.DependencyScan, 1)
+		w.app.wrkr.AddTaskGit(git, ret)
+		r := <-ret
+		if r != nil {
+			w.postScan(r)
 		}
 	}(git)
 }
 
-func (w *WebhookRunner) es(scan *c.DependencyScan) {
+func (w *CompleteRunner) postScan(scan *c.DependencyScan) {
 	log.Println("[ES-WORKER] Starting work on", scan.Sha)
 	var err error
 

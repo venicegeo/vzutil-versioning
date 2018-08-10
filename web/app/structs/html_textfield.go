@@ -16,37 +16,27 @@ package structs
 
 import (
 	"html/template"
-	"strings"
 
 	f "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-type HtmlButton struct {
-	name    string
-	value   string
-	class   string
-	special string
+type HtmlTextField struct {
+	name, value, special string
 }
 
-func NewHtmlButton(value string) *HtmlButton {
-	return &HtmlButton{"button_" + strings.ToLower(value), value, "", ""}
-}
-func NewHtmlButton2(name, value string) *HtmlButton {
-	return &HtmlButton{name, value, "", ""}
-}
-func NewHtmlButton3(name, value, class string) *HtmlButton {
-	return &HtmlButton{name, value, class, ""}
+func NewHtmlTextField(name, value string) *HtmlTextField {
+	return &HtmlTextField{name, value, ""}
 }
 
-func (h *HtmlButton) Special(special string) *HtmlButton {
+func (h *HtmlTextField) Special(special string) *HtmlTextField {
 	h.special = special
 	return h
 }
 
-func (h *HtmlButton) Template() template.HTML {
+func (h *HtmlTextField) Template() template.HTML {
 	return template.HTML(h.String())
 }
 
-func (h *HtmlButton) String() string {
-	return f.Format(`<input type="submit" name="%s" value="%s" class="%s" %s>`, h.name, h.value, h.class, h.special)
+func (h *HtmlTextField) String() string {
+	return f.Format(`<input type="text" name="%s" value="%s" %s>`, h.name, h.value, h.special)
 }

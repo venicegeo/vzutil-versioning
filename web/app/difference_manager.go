@@ -161,7 +161,7 @@ func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Differ
 	var oldDeps, newDeps []depend.Dependency
 	errs := make(chan error, 2)
 	go func() {
-		oldDepsScan, err := d.app.rtrvr.ScanByShaNameGen(fullName, oldSha)
+		oldDepsScan, err := d.app.rtrvr.ScanByShaNameGen(fullName, oldSha, "")
 		if err != nil {
 			errs <- u.Error("Could not get old sha: %s", err.Error())
 			return
@@ -170,7 +170,7 @@ func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Differ
 		errs <- nil
 	}()
 	go func() {
-		newDepsScan, err := d.app.rtrvr.ScanByShaNameGen(fullName, newSha)
+		newDepsScan, err := d.app.rtrvr.ScanByShaNameGen(fullName, newSha, "")
 		if err != nil {
 			errs <- u.Error("Could not get new sha: %s", err.Error())
 			return

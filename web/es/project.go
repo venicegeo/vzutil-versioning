@@ -20,6 +20,25 @@ type Project struct {
 }
 
 type ProjectEntry struct {
-	Name string `json:"name"`
-	Repo string `json:"repo"`
+	ProjectName        string   `json:"project_name"`
+	RepoFullname       string   `json:"repo"`
+	DependRepoFullname string   `json:"depend_repo"`
+	FilesToScan        []string `json:"files"`
 }
+
+const ProjectEntryMapping = `{
+	"dynamic":"strict",
+	"properties":{
+		"project_name":{"type":"keyword"},
+		"repo":{"type":"keyword"},
+		"depend_repo":{"type":"keyword"},
+		"files":{"type":"keyword"}
+	}
+}`
+const ProjectMapping = `{
+	"dynamic":"strict",
+	"properties":{
+		"name":{"type":"keyword"},
+		"displayname":{"type":"keyword"}
+	}
+}`

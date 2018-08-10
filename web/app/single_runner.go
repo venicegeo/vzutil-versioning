@@ -23,20 +23,24 @@ import (
 
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	c "github.com/venicegeo/vzutil-versioning/common"
-	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 type SingleRunner struct {
 	app            *Application
-	isSha          *regexp.Regexp
 	findCommitTime *regexp.Regexp
+}
+
+type SingleRunnerRequest struct {
+	Fullname  string
+	Sha       string
+	Ref       string
+	Requester string
 }
 
 func NewSingleRunner(app *Application) *SingleRunner {
 	return &SingleRunner{
 		app,
-		regexp.MustCompile(`^[a-f0-9]{40}$`),
 		regexp.MustCompile(`\s*committed\n\s*<relative-time datetime="([^"]+)"`),
 	}
 }
@@ -52,31 +56,30 @@ func (sr *SingleRunner) ScanWithSingle(fullName string) ([]string, error) {
 	if err = json.Unmarshal(dat, &output); err != nil {
 		return nil, err
 	}
+	for i, f := range output.Files {
+		output.Files[i] = u.Format("%s/%s", fullName, f)
+	}
 	return output.Files, nil
 }
 
-func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan string, git *s.GitWebhook) *c.DependencyScan {
-	explicitSha := sr.isSha.MatchString(git.AfterSha)
-	if !explicitSha {
-		panic("FIX THIS")
-	}
-	sr.sendStringTo(printLocation, "%sStarting work on %s", printHeader, git.AfterSha)
+func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan string, request *SingleRunnerRequest) *c.DependencyScan {
+	sr.sendStringTo(printLocation, "%sStarting work on %s", printHeader, request.Sha)
 
-	dat, err := exec.Command(sr.app.singleLocation, "--all", git.Repository.FullName, git.AfterSha).Output()
+	dat, err := exec.Command(sr.app.singleLocation, "--all", request.Fullname, request.Sha).Output()
 	if err != nil {
-		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, git.AfterSha, err.Error())
+		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, request.Sha, err.Error())
 		return nil
 	}
 	var singleRet c.DependencyScan
 	if err = json.Unmarshal(dat, &singleRet); err != nil {
-		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, git.AfterSha, err.Error())
+		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, request.Sha, err.Error())
 		return nil
 	}
-	if singleRet.Sha != git.AfterSha {
-		sr.sendStringTo(printLocation, "%sGeneration failed to run against %s, it ran against sha %s", printHeader, git.AfterSha, singleRet.Sha)
+	if singleRet.Sha != request.Sha {
+		sr.sendStringTo(printLocation, "%sGeneration failed to run against %s, it ran against sha %s", printHeader, request.Sha, singleRet.Sha)
 		return nil
 	}
-	code, body, _, err := nt.HTTP(nt.GET, "https://github.com/"+singleRet.Fullname+"/commit/"+git.AfterSha, nt.NewHeaderBuilder().GetHeader(), nil)
+	code, body, _, err := nt.HTTP(nt.GET, "https://github.com/"+singleRet.Fullname+"/commit/"+request.Sha, nt.NewHeaderBuilder().GetHeader(), nil)
 	if err != nil || code != 200 {
 		sr.sendStringTo(printLocation, "%sUnable to find timestamp for %s [%d: %s]", printHeader, singleRet.Fullname, code, err.Error())
 		return nil

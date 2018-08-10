@@ -26,6 +26,7 @@ import (
 	c "github.com/venicegeo/vzutil-versioning/common"
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
+	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -37,11 +38,11 @@ type Application struct {
 
 	server *u.Server
 
-	wrkr     *Worker
-	rtrvr    *Retriever
-	diffMan  *DifferenceManager
-	wbhkRnnr *WebhookRunner
-	cmprRnnr *CompareRunner
+	wrkr      *Worker
+	rtrvr     *Retriever
+	diffMan   *DifferenceManager
+	cmpltRnnr *CompleteRunner
+	cmprRnnr  *CompareRunner
 
 	killChan chan bool
 
@@ -92,22 +93,10 @@ func (a *Application) Start() chan error {
 				"time":{"type":"keyword"}
 			}
 		},
-		"project_entry": {
-			"dynamic":"strict",
-			"properties":{
-				"name":{"type":"keyword"},
-				"repo":{"type":"keyword"}
-			}
-		},
-		"project":{
-			"dynamic":"strict",
-			"properties":{
-				"name":{"type":"keyword"},
-				"displayname":{"type":"keyword"}
-			}
-		}
+		"project_entry": %s,
+		"project": %s
 	}
-}`, c.DependencyScanMapping, d.DependencyMapping, d.DependencyMapping))
+}`, c.DependencyScanMapping, d.DependencyMapping, d.DependencyMapping, es.ProjectEntryMapping, es.ProjectMapping))
 	if err != nil {
 		log.Fatal(err.Error())
 	} else {
@@ -119,7 +108,7 @@ func (a *Application) Start() chan error {
 	a.diffMan = NewDifferenceManager(a)
 	a.wrkr = NewWorker(a, 2)
 	a.rtrvr = NewRetriever(a)
-	a.wbhkRnnr = NewWebhookRunner(a)
+	a.cmpltRnnr = NewCompleteRunner(a)
 	a.cmprRnnr = NewCompareRunner(a)
 
 	a.wrkr.Start()

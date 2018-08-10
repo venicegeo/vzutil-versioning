@@ -40,19 +40,21 @@ const DependencyScanMapping string = `{
 		"timestamp":{"type":"keyword"},
 		"dependencies":` + d.DependencyMapping + `,
 		"issues":{"type":"keyword"},
-		"files":{"type":"keyword"}
+		"files":{"type":"keyword"},
+		"requester":{"type":"keyword"}
 	}
 }`
 
 type DependencyScan struct {
-	Fullname  string         `json:"full_name"`
-	Name      string         `json:"name"`
-	Sha       string         `json:"sha"`
-	Refs      []string       `json:"refs"`
-	Deps      []d.Dependency `json:"dependencies"`
-	Issues    []string       `json:"issues"`
-	Files     []string       `json:"files"`
-	Timestamp time.Time      `json:"timestamp"`
+	Fullname      string         `json:"full_name"`
+	Name          string         `json:"name"`
+	Sha           string         `json:"sha"`
+	Refs          []string       `json:"refs"`
+	Deps          []d.Dependency `json:"dependencies"`
+	Issues        []string       `json:"issues"`
+	Files         []string       `json:"files"`
+	Timestamp     time.Time      `json:"timestamp"`
+	RequesterName string         `json:"requester"`
 }
 
 type DependencyScans map[string]DependencyScan

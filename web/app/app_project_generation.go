@@ -39,7 +39,7 @@ func (a *Application) webhookPath(c *gin.Context) {
 	git.Timestamp = time.Now().UnixNano()
 	log.Println("[RECIEVED WEBHOOK]", git.Repository.FullName, git.AfterSha, git.Ref)
 
-	a.wbhkRnnr.RunAgainstWeb(&git)
+	a.cmpltRnnr.RunAgainstGit(&git)
 }
 
 func (a *Application) generateBranch(c *gin.Context) {
@@ -60,7 +60,7 @@ func (a *Application) generateBranch(c *gin.Context) {
 		return
 	}
 	if form.Gen != "" {
-		_, err := a.generateBranchWrk(prepo, u.Format("%s/%s", porg, prepo), branch)
+		_, err := a.generateBranchWrk(prepo, u.Format("%s/%s", porg, prepo), branch, pproj)
 		if err != nil {
 			c.String(400, "Could not generate this sha: %s", err.Error())
 			return
@@ -74,7 +74,7 @@ func (a *Application) generateBranch(c *gin.Context) {
 	c.HTML(200, "genbranch.html", h)
 }
 
-func (a *Application) generateBranchWrk(repoName, fullName, branch string) (string, error) {
+func (a *Application) generateBranchWrk(repoName, fullName, branch, proj string) (string, error) {
 	sha, err := h.GetBranchSha(repoName, fullName, branch)
 	if err != nil {
 		return "", err
@@ -82,17 +82,14 @@ func (a *Application) generateBranchWrk(repoName, fullName, branch string) (stri
 
 	go func(name, fullName, branch, sha string) {
 		ref := "refs/heads/" + branch
-		git := s.GitWebhook{
-			Ref:      ref,
-			AfterSha: sha,
-			Repository: s.GitRepository{
-				Name:     name,
-				FullName: fullName,
-			},
-			Timestamp: time.Now().UnixNano(),
+		request := SingleRunnerRequest{
+			Fullname:  fullName,
+			Sha:       sha,
+			Ref:       ref,
+			Requester: proj,
 		}
 		log.Println(fullName, sha, ref)
-		a.wbhkRnnr.RunAgainstWeb(&git)
+		a.cmpltRnnr.RunAgainstRequest(&request)
 	}(repoName, fullName, branch, sha)
 	return sha, nil
 }
@@ -112,17 +109,24 @@ func (a *Application) genTagsWrk(proj string) (string, error) {
 			}
 			go func(dat map[string]string, name string, repo string) {
 				for sha, ref := range dat {
-					git := s.GitWebhook{
-						Ref:      ref,
-						AfterSha: sha,
-						Repository: s.GitRepository{
-							Name:     name,
-							FullName: repo,
-						},
-						Timestamp: time.Now().UnixNano(),
+					//					git := s.GitWebhook{
+					//						Ref:      ref,
+					//						AfterSha: sha,
+					//						Repository: s.GitRepository{
+					//							Name:     name,
+					//							FullName: repo,
+					//						},
+					//						Timestamp: time.Now().UnixNano(),
+					//						Requester: proj,
+					//					}
+					request := SingleRunnerRequest{
+						Fullname:  repo,
+						Sha:       sha,
+						Ref:       ref,
+						Requester: proj,
 					}
 					log.Println(repo, sha, ref)
-					a.wbhkRnnr.RunAgainstWeb(&git)
+					a.cmpltRnnr.RunAgainstRequest(&request)
 				}
 			}(dat, name, repo)
 		}

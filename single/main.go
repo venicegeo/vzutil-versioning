@@ -42,6 +42,7 @@ var includeTest bool
 var files stringarr
 var full_name string
 var name string
+var requester string
 
 var cleanup func()
 
@@ -54,6 +55,7 @@ func main() {
 	flag.BoolVar(&scan, "scan", false, "Scan for dependency files")
 	flag.BoolVar(&all, "all", false, "Run against all found dependency files")
 	flag.BoolVar(&includeTest, "testing", false, "Include testing dependencies")
+	flag.StringVar(&requester, "requester", "", "Optional requester tag")
 	flag.Var(&files, "f", "Add file to scan")
 	flag.Parse()
 	info := flag.Args()
@@ -113,7 +115,7 @@ func main() {
 		}
 		sort.Sort(deps)
 		sort.Strings(sissues)
-		if dat, err := util.GetJson(com.DependencyScan{full_name, name, sha, refs, deps, sissues, files, timestamp}); err != nil {
+		if dat, err := util.GetJson(com.DependencyScan{full_name, name, sha, refs, deps, sissues, files, timestamp, requester}); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		} else {
@@ -249,18 +251,7 @@ func cloneAndCheckout(full_name, checkout, name string) (string, string, []strin
 			refs = append(refs, k)
 		}
 	}
-	//TODO delete?
-	//	matches := regexp.MustCompile(fmt.Sprintf(`%s (.+)`, sha)).FindAllStringSubmatch(cmdRet.Stdout, -1)
-	//	refsM := map[string]struct{}{}
-	//	for _, m := range matches {
-	//		if !strings.HasSuffix(m[1], "/HEAD") {
-	//			refsM[strings.Replace(m[1], "remotes/origin", "heads", -1)] = struct{}{}
-	//		}
-	//	}
-	//	refs := make([]string, 0, len(refsM))
-	//	for k := range refsM {
-	//		refs = append(refs, k)
-	//	}
+
 	return strings.TrimSuffix(rest, "/"), sha, refs, nil
 }
 

@@ -29,18 +29,22 @@ type Worker struct {
 
 	snglRnnr        *SingleRunner
 	numWorkers      int
-	checkExistQueue chan *workS
-	cloneQueue      chan *workS
+	checkExistQueue chan *existsWork
+	cloneQueue      chan *scanWork
 }
 
-type workS struct {
-	gitInfo   *s.GitWebhook
+type existsWork struct {
+	request   *SingleRunnerRequest
 	exists    chan bool
+	singleRet chan *c.DependencyScan
+}
+type scanWork struct {
+	request   *SingleRunnerRequest
 	singleRet chan *c.DependencyScan
 }
 
 func NewWorker(app *Application, numWorkers int) *Worker {
-	wrkr := Worker{app, NewSingleRunner(app), numWorkers, make(chan *workS, 1000), make(chan *workS, 1000)}
+	wrkr := Worker{app, NewSingleRunner(app), numWorkers, make(chan *existsWork, 1000), make(chan *scanWork, 1000)}
 	return &wrkr
 }
 
@@ -55,41 +59,44 @@ func (w *Worker) startCheckExist() {
 	work := func(worker int) {
 		for {
 			work := <-w.checkExistQueue
-			log.Printf("[CHECK-WORKER (%d)] Starting work on %s\n", worker, work.gitInfo.AfterSha)
+			log.Printf("[CHECK-WORKER (%d)] Starting work on %s\n", worker, work.request.Sha)
 
-			item, err := w.app.index.GetByID("repository_entry", work.gitInfo.AfterSha)
+			item, err := w.app.index.GetByID("repository_entry", work.request.Sha)
 			if err != nil {
 				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s. Continuing\n", worker, err.Error())
 			}
 			if item.Found {
 				var repEntry c.DependencyScan
 				if err = json.Unmarshal(*item.Source, &repEntry); err != nil {
-					log.Printf("[CHECK-WORKER (%d)] Unable to unmarshal sha: %s\nReason: %s\n", worker, work.gitInfo.AfterSha, err.Error())
+					log.Printf("[CHECK-WORKER (%d)] Unable to unmarshal sha: %s\nReason: %s\n", worker, work.request.Sha, err.Error())
 					work.exists <- false
 					work.singleRet <- nil
 					continue
 				}
 				work.exists <- true
-				go func() {
+				go func(work *existsWork) {
 					log.Printf("[CHECK-WORKER (%d)] This sha already exists\n", worker)
 					refFound := false
+					if work.request.Ref == "" {
+						return
+					}
 					for _, name := range repEntry.Refs {
-						if name == work.gitInfo.Ref {
+						if name == work.request.Ref {
 							refFound = true
 							break
 						}
 					}
 					if !refFound {
-						log.Printf("[CHECK-WORKER (%d)] Adding ref [%s] to sha [%s]\n", worker, work.gitInfo.Ref, work.gitInfo.AfterSha)
-						repEntry.Refs = append(repEntry.Refs, work.gitInfo.Ref)
-						w.app.index.PostData("repository_entry", work.gitInfo.AfterSha, repEntry)
+						log.Printf("[CHECK-WORKER (%d)] Adding ref [%s] to sha [%s]\n", worker, work.request.Ref, work.request.Sha)
+						repEntry.Refs = append(repEntry.Refs, work.request.Ref)
+						w.app.index.PostData("repository_entry", work.request.Sha, repEntry)
 					}
-				}()
+				}(work)
 				continue
 			}
 			work.exists <- false
-			log.Printf("[CHECK-WORKER (%d)] Adding %s to clone queue\n", worker, work.gitInfo.AfterSha)
-			w.cloneQueue <- work
+			log.Printf("[CHECK-WORKER (%d)] Adding %s to clone queue\n", worker, work.request.Sha)
+			w.cloneQueue <- &scanWork{work.request, work.singleRet}
 		}
 	}
 	for i := 1; i <= w.numWorkers; i++ {
@@ -113,7 +120,8 @@ func (w *Worker) startClone() {
 				}
 			}()
 			work := <-w.cloneQueue
-			singleRet := w.snglRnnr.RunAgainstSingle(u.Format("[CLONE-WORKER (%d)] ", worker), toPrint, work.gitInfo)
+
+			singleRet := w.snglRnnr.RunAgainstSingle(u.Format("[CLONE-WORKER (%d)] ", worker), toPrint, work.request)
 			done <- true
 			work.singleRet <- singleRet
 		}
@@ -123,6 +131,9 @@ func (w *Worker) startClone() {
 	}
 }
 
-func (w *Worker) AddTask(git *s.GitWebhook, exists chan bool, singleRet chan *c.DependencyScan) {
-	w.checkExistQueue <- &workS{git, exists, singleRet}
+func (w *Worker) AddTaskGit(git *s.GitWebhook, singleRet chan *c.DependencyScan) {
+	w.cloneQueue <- &scanWork{&SingleRunnerRequest{git.Repository.FullName, git.AfterSha, git.Ref, ""}, singleRet}
+}
+func (w *Worker) AddTaskRequest(request *SingleRunnerRequest, exists chan bool, singleRet chan *c.DependencyScan) {
+	w.checkExistQueue <- &existsWork{request, exists, singleRet}
 }
