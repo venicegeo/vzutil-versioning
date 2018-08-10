@@ -41,6 +41,20 @@ func NewSingleRunner(app *Application) *SingleRunner {
 	}
 }
 
+func (sr *SingleRunner) ScanWithSingle(fullName string) ([]string, error) {
+	dat, err := exec.Command(sr.app.singleLocation, "--scan", fullName, "master").Output()
+	if err != nil {
+		return nil, err
+	}
+	var output struct {
+		Files []string `json:"files"`
+	}
+	if err = json.Unmarshal(dat, &output); err != nil {
+		return nil, err
+	}
+	return output.Files, nil
+}
+
 func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan string, git *s.GitWebhook) *c.DependencyScan {
 	explicitSha := sr.isSha.MatchString(git.AfterSha)
 	if !explicitSha {

@@ -15,7 +15,7 @@
 package app
 
 import (
-	"bytes"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -152,11 +152,49 @@ func (a *Application) viewProject(c *gin.Context) {
 	c.HTML(200, "project.html", h)
 }
 
+//TODO keep this around
+//func (a *Application) addReposToProject(c *gin.Context) {
+//	var form struct {
+//		Back   string   `form:"button_back"`
+//		Repos  []string `form:"repos[]"`
+//		Create string   `form:"button_submit"`
+//	}
+//	proj := c.Param("proj")
+//	if err := c.Bind(&form); err != nil {
+//		c.String(400, "Error binding form: %s", err.Error())
+//		return
+//	}
+//	if form.Back != "" {
+//		c.Redirect(303, "/project/"+proj)
+//		return
+//	}
+//	if form.Create != "" {
+//		a.addReposToProjWrk(proj, form.Repos)
+//		c.Redirect(303, "/project/"+proj)
+//		return
+//	}
+//	currentRepos, err := a.rtrvr.ListRepositoriesByProj(proj)
+//	if err != nil {
+//		c.String(400, "Error getting the projects repositories: %s", err.Error())
+//		return
+//	}
+//	buf := bytes.NewBufferString("")
+//	for _, repo := range currentRepos {
+//		buf.WriteString(repo)
+//		buf.WriteString("\n")
+//	}
+//	h := gin.H{}
+//	h["current"] = buf.String()
+//	c.HTML(200, "addrepo.html", h)
+//}
 func (a *Application) addReposToProject(c *gin.Context) {
 	var form struct {
 		Back   string   `form:"button_back"`
-		Repos  []string `form:"repos[]"`
-		Create string   `form:"button_submit"`
+		Org    string   `form:"org"`
+		Repo   string   `form:"repo"`
+		Scan   string   `form:"button_scan"`
+		Files  []string `form:"files[]"`
+		Submit string   `form:"button_submit"`
 	}
 	proj := c.Param("proj")
 	if err := c.Bind(&form); err != nil {
@@ -167,24 +205,57 @@ func (a *Application) addReposToProject(c *gin.Context) {
 		c.Redirect(303, "/project/"+proj)
 		return
 	}
-	if form.Create != "" {
-		a.addReposToProjWrk(proj, form.Repos)
-		c.Redirect(303, "/project/"+proj)
-		return
+	h := gin.H{
+		"org":  form.Org,
+		"repo": form.Repo,
 	}
-	currentRepos, err := a.rtrvr.ListRepositoriesByProj(proj)
-	if err != nil {
-		c.String(400, "Error getting the projects repositories: %s", err.Error())
-		return
+	if form.Scan != "" {
+		if !a.checkRepoIsReal(form.Org, form.Repo) {
+			h["scan"] = s.NewHtmlBasic("fieldset", "This isnt a real repo").Template()
+		} else {
+			if files, err := a.wrkr.snglRnnr.ScanWithSingle(form.Org + "/" + form.Repo); err != nil {
+				h["scan"] = s.NewHtmlBasic("fieldset", err.Error()).Template()
+			} else {
+				check := s.NewHtmlCheckbox("files[]")
+				for _, file := range files {
+					check.Add(file, file, true)
+				}
+				h["scan"] = s.NewHtmlBasic("fieldset", s.NewHtmlCollection(check, s.NewHtmlButton2("button_submit", "Submit")).String()).Template()
+				h["disabled"] = "disabled"
+			}
+		}
 	}
-	buf := bytes.NewBufferString("")
-	for _, repo := range currentRepos {
-		buf.WriteString(repo)
-		buf.WriteString("\n")
+	if form.Submit != "" {
+		fmt.Println(form.Files)
 	}
-	h := gin.H{}
-	h["current"] = buf.String()
-	c.HTML(200, "addrepo.html", h)
+
+	c.HTML(200, "newaddrepo.html", h)
+}
+
+func (a *Application) checkRepoIsReal(name ...string) bool {
+	var fullname string
+	switch len(name) {
+	case 1:
+		fullname = strings.TrimSpace(name[0])
+		if fullname == "" || fullname == "/" {
+			return false
+		}
+	case 2:
+		org := strings.TrimSpace(name[0])
+		repo := strings.TrimSpace(name[1])
+		if org == "" || repo == "" {
+			return false
+		}
+		fullname = u.Format("%s/%s", name[0], name[1])
+	default:
+		panic("Youre doing this wrong")
+	}
+	url := u.Format("https://github.com/%s", fullname)
+	if code, _, _, e := nt.HTTP(nt.HEAD, url, nt.NewHeaderBuilder().GetHeader(), nil); e != nil || code != 200 {
+		return false
+	} else {
+		return true
+	}
 }
 
 func (a *Application) addReposToProjWrk(name string, reposs []string) {
