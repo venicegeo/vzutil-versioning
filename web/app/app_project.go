@@ -69,7 +69,7 @@ func (a *Application) viewProject(c *gin.Context) {
 			return
 		}
 	} else if form.Sha != "" {
-		scan, found, err := a.rtrvr.ScanBySha(form.Sha)
+		scan, found, err := a.rtrvr.ScanBySha(form.Sha, proj)
 		if !found && err != nil {
 			c.String(400, "Unable to find this sha: %s", err.Error())
 			return

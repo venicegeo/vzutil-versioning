@@ -150,7 +150,7 @@ func (a *Application) searchForDepWrk(depName, depVersion string, repos []string
 			buf.WriteString("\n")
 			for sha, _ := range shas {
 				buf.WriteString("\t\t")
-				buf.WriteString(sha)
+				buf.WriteString(sha[:40])
 				buf.WriteString("\n")
 			}
 		}

@@ -36,10 +36,20 @@ func (a *Application) webhookPath(c *gin.Context) {
 
 	c.String(200, "Thanks!")
 
-	git.Timestamp = time.Now().UnixNano()
-	log.Println("[RECIEVED WEBHOOK]", git.Repository.FullName, git.AfterSha, git.Ref)
-
-	a.cmpltRnnr.RunAgainstGit(&git)
+	go func() {
+		git.Timestamp = time.Now().UnixNano()
+		log.Println("[RECIEVED WEBHOOK]", git.Repository.FullName, git.AfterSha, git.Ref)
+		if projects, err := a.rtrvr.GetAllProjectsUsingRepository(git.Repository.FullName); err != nil {
+			log.Println("FAILED TO FIND PROJECTS USING REPOSITORY FOR WEBHOOK", git.AfterSha)
+		} else {
+			for _, p := range projects {
+				go func(p string) {
+					//TODO
+					a.cmpltRnnr.RunAgainstGit(&git, p, []string{})
+				}(p)
+			}
+		}
+	}()
 }
 
 func (a *Application) generateBranch(c *gin.Context) {
