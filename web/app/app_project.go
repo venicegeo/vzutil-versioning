@@ -87,15 +87,20 @@ func (a *Application) viewProject(c *gin.Context) {
 		return
 	}
 	accord := s.NewHtmlAccordion()
-	repos, err := a.rtrvr.ListRepositoriesInProject(proj)
+	project, err := a.rtrvr.GetProject(proj)
+	if err != nil {
+		c.String(400, "Error getting this project: %s", err.Error())
+		return
+	}
+	repos, err := project.GetAllRepositories()
 	if err != nil {
 		c.String(500, "Unable to retrieve repository list: %s", err.Error())
 		return
 	}
 	mux := sync.Mutex{}
 	errs := make(chan error, len(repos))
-	for _, repoName := range repos {
-		go a.generateAccordion(accord, repoName, proj, errs, mux)
+	for _, repo := range repos {
+		go a.generateAccordion(accord, repo.RepoFullname, proj, repo, errs, mux)
 	}
 	err = nil
 	for i := 0; i < len(repos); i++ {
@@ -123,8 +128,8 @@ func (a *Application) viewProject(c *gin.Context) {
 	c.HTML(200, "project.html", h)
 }
 
-func (a *Application) generateAccordion(accord *s.HtmlAccordion, repoName, proj string, errs chan error, mux sync.Mutex) {
-	refs, err := a.rtrvr.ListRefsOfRepoInProject(repoName, proj)
+func (a *Application) generateAccordion(accord *s.HtmlAccordion, repoName, proj string, repo *Repository, errs chan error, mux sync.Mutex) {
+	refs, err := repo.GetAllRefs()
 	if err != nil {
 		errs <- err
 		return
@@ -374,7 +379,12 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 		c.Redirect(303, "/removerepo/"+proj)
 		return
 	}
-	repos, err := a.rtrvr.ListRepositoriesInProject(proj)
+	project, err := a.rtrvr.GetProject(proj)
+	if err != nil {
+		c.String(500, "Unable to get the project: %s", err)
+		return
+	}
+	repos, err := project.GetAllRepositories()
 	if err != nil {
 		c.String(500, "Unable to get the repos: %s", err)
 		return
@@ -382,7 +392,7 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 	h := gin.H{}
 	buttons := s.NewHtmlCollection()
 	for _, repo := range repos {
-		buttons.Add(s.NewHtmlButton2("button_submit", repo))
+		buttons.Add(s.NewHtmlButton2("button_submit", repo.RepoFullname))
 		buttons.Add(s.NewHtmlBr())
 	}
 	h["repos"] = buttons.Template()

@@ -95,30 +95,24 @@ func (a *Application) generateBranchWrk(repoName, fullName, branch, proj string)
 }
 
 func (a *Application) genTagsWrk(proj string) (string, error) {
-	repos, err := a.rtrvr.ListRepositoriesInProject(proj)
+	project, err := a.rtrvr.GetProject(proj)
 	if err != nil {
 		return "", err
 	}
-	go func(repos []string) {
+	repos, err := project.GetAllRepositories()
+	if err != nil {
+		return "", err
+	}
+	go func(repos []*Repository, proj string) {
 		for _, repo := range repos {
-			name := strings.SplitN(repo, "/", 2)[1]
-			dat, err := h.NewTagsRunner(name, repo).Run()
+			name := strings.SplitN(repo.RepoFullname, "/", 2)[1]
+			dat, err := h.NewTagsRunner(name, repo.RepoFullname).Run()
 			if err != nil {
-				log.Println("[TAG UPDATER] Was unable to run tags against " + repo + ": [" + err.Error() + "]")
+				log.Println("[TAG UPDATER] Was unable to run tags against " + repo.RepoFullname + ": [" + err.Error() + "]")
 				continue
 			}
 			go func(dat map[string]string, name string, repo string) {
 				for sha, ref := range dat {
-					//					git := s.GitWebhook{
-					//						Ref:      ref,
-					//						AfterSha: sha,
-					//						Repository: s.GitRepository{
-					//							Name:     name,
-					//							FullName: repo,
-					//						},
-					//						Timestamp: time.Now().UnixNano(),
-					//						Requester: proj,
-					//					}
 					request := SingleRunnerRequest{
 						Fullname:  repo,
 						Sha:       sha,
@@ -128,14 +122,14 @@ func (a *Application) genTagsWrk(proj string) (string, error) {
 					log.Println(repo, sha, ref)
 					a.cmpltRnnr.RunAgainstRequest(&request)
 				}
-			}(dat, name, repo)
+			}(dat, name, repo.DependRepoFullname)
 		}
-	}(repos)
+	}(repos, proj)
 
 	buf := bytes.NewBufferString("Trying to run against:\n")
 	for _, repo := range repos {
 		buf.WriteString("\n")
-		buf.WriteString(repo)
+		buf.WriteString(repo.RepoFullname)
 	}
 	return buf.String(), nil
 }

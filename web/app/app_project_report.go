@@ -42,23 +42,26 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 		return
 	}
 	h := gin.H{"report": ""}
-	refs, err := a.rtrvr.ListRefsInProject(proj)
-	if err != nil {
+	if project, err := a.rtrvr.GetProject(proj); err != nil {
 		h["refs"] = u.Format("Unable to retrieve this projects refs: %s", err.Error())
 	} else {
-		buttons := s.NewHtmlCollection()
-		for _, ref := range refs {
-			buttons.Add(s.NewHtmlButton2("button_submit", ref))
-			buttons.Add(s.NewHtmlBr())
-		}
-		h["refs"] = buttons.Template()
-	}
-	if form.Ref != "" {
-		scans, err := a.rtrvr.ScansByRefInProject(proj, form.Ref)
-		if err != nil {
-			h["report"] = u.Format("Unable to generate report: %s", err.Error())
+		if refs, err := project.GetAllRefs(); err != nil {
+			h["refs"] = u.Format("Unable to retrieve this projects refs: %s", err.Error())
 		} else {
-			h["report"] = a.reportAtRefWrk(form.Ref, scans, form.ReportType)
+			buttons := s.NewHtmlCollection()
+			for _, ref := range refs {
+				buttons.Add(s.NewHtmlButton2("button_submit", ref))
+				buttons.Add(s.NewHtmlBr())
+			}
+			h["refs"] = buttons.Template()
+		}
+		if form.Ref != "" {
+			scans, err := a.rtrvr.ScansByRefInProject(proj, form.Ref)
+			if err != nil {
+				h["report"] = u.Format("Unable to generate report: %s", err.Error())
+			} else {
+				h["report"] = a.reportAtRefWrk(form.Ref, scans, form.ReportType)
+			}
 		}
 	}
 	c.HTML(200, "reportref.html", h)

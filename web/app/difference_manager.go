@@ -113,14 +113,18 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 }
 
 func (d *DifferenceManager) AllDiffsInProject(proj string) (*[]Difference, error) {
-	repos, err := d.app.rtrvr.ListRepositoriesInProject(proj)
+	project, err := d.app.rtrvr.GetProject(proj)
+	if err != nil {
+		return nil, err
+	}
+	repos, err := project.GetAllRepositories()
 	if err != nil {
 		return nil, err
 	}
 	boool := es.NewBool()
 	bq := es.NewBoolQ()
-	for _, repoName := range repos {
-		bq.Add(es.NewTerm("full_name", repoName))
+	for _, repo := range repos {
+		bq.Add(es.NewTerm("full_name", repo.RepoFullname))
 	}
 	boool.SetShould(bq)
 	dat, err := json.Marshal(boool)

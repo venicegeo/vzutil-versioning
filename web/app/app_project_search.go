@@ -76,12 +76,21 @@ func (a *Application) searchForDepInProject(c *gin.Context) {
 	if form.Back != "" {
 		c.Redirect(303, "/project/"+proj)
 	} else if form.ButtonSearch != "" {
-		repos, err := a.rtrvr.ListRepositoriesInProject(proj)
+		project, err := a.rtrvr.GetProject(proj)
 		if err != nil {
-			c.String(400, "Unable to retrieve the projects repositories: %s", err.Error())
+			c.String(400, "Could not get this project: %s", err.Error())
 			return
 		}
-		code, dat := a.searchForDepWrk(form.DepName, form.DepVersion, repos)
+		repos, err := project.GetAllRepositories()
+		if err != nil {
+			c.String(500, "Unable to retrieve the projects repositories: %s", err.Error())
+			return
+		}
+		reposStr := make([]string, len(repos), len(repos))
+		for i, repo := range repos {
+			reposStr[i] = repo.RepoFullname
+		}
+		code, dat := a.searchForDepWrk(form.DepName, form.DepVersion, reposStr)
 		h["data"] = dat
 		c.HTML(code, "depsearch.html", h)
 	} else {

@@ -46,12 +46,12 @@ func (a *Application) projectsOverview(c *gin.Context) {
 		makeButton := func(name string) *s.HtmlButton {
 			return s.NewHtmlButton3("button_project", name, "button")
 		}
-		projs, err := a.rtrvr.ListProjects()
+		projs, err := a.rtrvr.GetAllProjects()
 		if err != nil {
 			c.String(500, "Error collecting projects: %s", err.Error())
 			return
 		}
-		projs = append(projs, &es.Project{DisplayName: "Add New"})
+		projs = append(projs, &Project{a.index, &es.Project{DisplayName: "Add New"}})
 		row := -1
 		for i, proj := range projs {
 			if i%3 == 0 {
