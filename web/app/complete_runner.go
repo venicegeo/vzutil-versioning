@@ -52,11 +52,11 @@ func (w *CompleteRunner) RunAgainstRequest(request *SingleRunnerRequest) {
 	}(request)
 }
 
-func (w *CompleteRunner) RunAgainstGit(git *s.GitWebhook) {
+func (w *CompleteRunner) RunAgainstGit(git *s.GitWebhook, requester string, files []string) {
 	go func(git *s.GitWebhook) {
 		ret := make(chan *c.DependencyScan, 1)
 		defer close(ret)
-		w.app.wrkr.AddTaskGit(git, ret)
+		w.app.wrkr.AddTaskGit(git, requester, files, ret)
 		r := <-ret
 		if r != nil {
 			w.postScan(r)
@@ -65,7 +65,7 @@ func (w *CompleteRunner) RunAgainstGit(git *s.GitWebhook) {
 }
 
 func (w *CompleteRunner) postScan(scan *c.DependencyScan) {
-	log.Println("[ES-WORKER] Starting work on", scan.Sha)
+	log.Println("[ES-WORKER] Starting work on", scan.Sha, "for", scan.RequesterName)
 	var err error
 
 	var testAgainstEntry *c.DependencyScan
@@ -106,12 +106,12 @@ func (w *CompleteRunner) postScan(scan *c.DependencyScan) {
 		}
 	}
 
-	resp, err := w.app.index.PostData("repository_entry", scan.Sha, scan)
+	resp, err := w.app.index.PostData("repository_entry", scan.Sha+"-"+scan.RequesterName, scan)
 	if err != nil {
 		log.Printf("[ES-WORKER] Unable to create entry %s: %s\n", scan.Sha, err.Error())
 		return
 	} else if !resp.Created {
-		log.Printf("[ES-WORKER] Unable to create entry %s\n", scan.Sha)
+		log.Printf("[ES-WORKER] Unable to create entry %s. No error\n", scan.Sha)
 		return
 	}
 

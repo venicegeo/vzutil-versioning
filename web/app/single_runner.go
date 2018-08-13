@@ -36,6 +36,7 @@ type SingleRunnerRequest struct {
 	Sha       string
 	Ref       string
 	Requester string
+	Files     []string
 }
 
 func NewSingleRunner(app *Application) *SingleRunner {
@@ -65,7 +66,7 @@ func (sr *SingleRunner) ScanWithSingle(fullName string) ([]string, error) {
 func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan string, request *SingleRunnerRequest) *c.DependencyScan {
 	sr.sendStringTo(printLocation, "%sStarting work on %s", printHeader, request.Sha)
 
-	dat, err := exec.Command(sr.app.singleLocation, "--all", "-requester", request.Requester, request.Fullname, request.Sha).Output()
+	dat, err := exec.Command(sr.app.singleLocation, "--all", "--requester", request.Requester, request.Fullname, request.Sha).Output()
 	if err != nil {
 		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, request.Sha, err.Error())
 		return nil

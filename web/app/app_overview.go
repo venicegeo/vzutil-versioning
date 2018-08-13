@@ -94,11 +94,9 @@ func (a *Application) projectsOverview(c *gin.Context) {
 
 func (a *Application) newProject(c *gin.Context) {
 	type form struct {
-		Back        string   `form:"button_back"`
-		ProjectName string   `form:"projectname"`
-		Repos       []string `form:"repos[]"`
-		Checkouts   []string `form:"checkout[]"`
-		Create      string   `form:"button_submit"`
+		Back        string `form:"button_back"`
+		ProjectName string `form:"projectname"`
+		Create      string `form:"button_submit"`
 	}
 	var f form
 	if err := c.Bind(&f); err != nil {
@@ -133,8 +131,6 @@ func (a *Application) newProject(c *gin.Context) {
 			c.String(500, "Project could not be created for unknown reason")
 			return
 		}
-
-		//a.addReposToProjWrk(name, f.Repos)
 
 		c.Redirect(303, "/ui")
 	} else {

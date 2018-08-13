@@ -131,9 +131,10 @@ func (w *Worker) startClone() {
 	}
 }
 
-func (w *Worker) AddTaskGit(git *s.GitWebhook, singleRet chan *c.DependencyScan) {
-	w.cloneQueue <- &scanWork{&SingleRunnerRequest{git.Repository.FullName, git.AfterSha, git.Ref, ""}, singleRet}
-}
 func (w *Worker) AddTaskRequest(request *SingleRunnerRequest, exists chan bool, singleRet chan *c.DependencyScan) {
 	w.checkExistQueue <- &existsWork{request, exists, singleRet}
+}
+
+func (w *Worker) AddTaskGit(git *s.GitWebhook, requester string, files []string, singleRet chan *c.DependencyScan) {
+	w.cloneQueue <- &scanWork{&SingleRunnerRequest{git.Repository.FullName, git.AfterSha, git.Ref, requester, files}, singleRet}
 }
