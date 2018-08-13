@@ -76,7 +76,7 @@ func (a *Application) searchForDepInProject(c *gin.Context) {
 	if form.Back != "" {
 		c.Redirect(303, "/project/"+proj)
 	} else if form.ButtonSearch != "" {
-		repos, err := a.rtrvr.ListRepositoriesByProj(proj)
+		repos, err := a.rtrvr.ListRepositoriesInProject(proj)
 		if err != nil {
 			c.String(400, "Unable to retrieve the projects repositories: %s", err.Error())
 			return

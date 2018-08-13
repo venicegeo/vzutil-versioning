@@ -113,7 +113,7 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 }
 
 func (d *DifferenceManager) AllDiffsInProject(proj string) (*[]Difference, error) {
-	repos, err := d.app.rtrvr.ListRepositoriesByProj(proj)
+	repos, err := d.app.rtrvr.ListRepositoriesInProject(proj)
 	if err != nil {
 		return nil, err
 	}
