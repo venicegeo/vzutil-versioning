@@ -52,7 +52,9 @@ const Scan_ProjectField = "project"
 const Scan_RefsField = "refs"
 const Scan_ShaField = "sha"
 const Scan_TimestampField = "timestamp"
-const Scan_DependenciesField = "scan." + c.DependenciesField
+const Scan_SubDependenciesField = "scan." + c.DependenciesField
+const Scan_SubFullNameField = "scan." + c.FullNameField
+const Scan_SubFilesField = "scan." + c.FilesField
 
 const RepositoryDependencyScanMapping string = `{
 	"dynamic":"strict",
@@ -113,9 +115,8 @@ func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan 
 	}
 
 	dat, err := exec.Command(sr.app.singleLocation, args...).CombinedOutput()
-	fmt.Println(string(dat), err)
 	if err != nil {
-		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, request.sha, err.Error())
+		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]\n%s", printHeader, request.sha, err.Error(), string(dat))
 		return nil
 	}
 	res := &RepositoryDependencyScan{

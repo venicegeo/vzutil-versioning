@@ -19,7 +19,6 @@ import (
 	"sort"
 
 	"github.com/gin-gonic/gin"
-	c "github.com/venicegeo/vzutil-versioning/common"
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/common/table"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
@@ -42,7 +41,8 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 		return
 	}
 	h := gin.H{"report": ""}
-	if project, err := a.rtrvr.GetProject(proj); err != nil {
+	project, err := a.rtrvr.GetProject(proj)
+	if err != nil {
 		h["refs"] = u.Format("Unable to retrieve this projects refs: %s", err.Error())
 	} else {
 		if refs, err := project.GetAllRefs(); err != nil {
@@ -56,8 +56,7 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 			h["refs"] = buttons.Template()
 		}
 		if form.Ref != "" {
-			scans, err := a.rtrvr.ScansByRefInProject(proj, form.Ref)
-			if err != nil {
+			if scans, err := project.ScansByRefInProject(form.Ref); err != nil {
 				h["report"] = u.Format("Unable to generate report: %s", err.Error())
 			} else {
 				h["report"] = a.reportAtRefWrk(form.Ref, scans, form.ReportType)
@@ -67,14 +66,14 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 	c.HTML(200, "reportref.html", h)
 }
 
-func (a *Application) reportAtRefWrk(ref string, deps c.DependencyScans, typ string) string {
+func (a *Application) reportAtRefWrk(ref string, deps map[string]*RepositoryDependencyScan, typ string) string {
 	buf := bytes.NewBufferString("")
 	switch typ {
 	case "seperate":
 		for name, depss := range deps {
-			buf.WriteString(u.Format("%s at %s\n%s", name, ref, depss.Sha))
-			t := table.NewTable(3, len(depss.Deps))
-			for _, dep := range depss.Deps {
+			buf.WriteString(u.Format("%s at %s in %s\n%s\nFrom %s %s", name, ref, depss.Project, depss.Sha, depss.Scan.Fullname, depss.Scan.Sha))
+			t := table.NewTable(3, len(depss.Scan.Deps))
+			for _, dep := range depss.Scan.Deps {
 				t.Fill(dep.Name, dep.Version, dep.Language.String())
 			}
 			buf.WriteString(u.Format("\n%s\n\n", t.NoRowBorders().SpaceColumn(1).Format().String()))
@@ -82,8 +81,10 @@ func (a *Application) reportAtRefWrk(ref string, deps c.DependencyScans, typ str
 	case "grouped":
 		buf.WriteString(u.Format("All repos at %s\n", ref))
 		noDups := map[string]d.Dependency{}
-		for _, depss := range deps {
-			for _, dep := range depss.Deps {
+		for name, depss := range deps {
+			buf.WriteString(name)
+			buf.WriteString("\n")
+			for _, dep := range depss.Scan.Deps {
 				noDups[dep.String()] = dep
 			}
 		}
