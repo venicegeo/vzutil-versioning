@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
-	c "github.com/venicegeo/vzutil-versioning/common"
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 )
@@ -100,12 +99,12 @@ func (a *Application) searchForDepInProject(c *gin.Context) {
 
 func (a *Application) searchForDepWrk(depName, depVersion string, repos []string) (int, string) {
 	buf := bytes.NewBufferString("Searching for:\n")
-	nested := es.NewNestedQuery(c.DependenciesField)
+	nested := es.NewNestedQuery(Scan_SubDependenciesField)
 	must := es.NewBoolQ(
-		es.NewTerm(c.DependenciesField+"."+d.NameField, depName),
-		es.NewWildcard(c.DependenciesField+"."+d.VersionField, depVersion+"*"))
+		es.NewTerm(Scan_SubDependenciesField+"."+d.NameField, depName),
+		es.NewWildcard(Scan_SubDependenciesField+"."+d.VersionField, depVersion+"*"))
 
-	terms := es.NewTerms("full_name", repos...)
+	terms := es.NewTerms(Scan_FullnameField, repos...)
 
 	nested.SetInnerQuery(map[string]interface{}{"bool": es.NewBool().SetMust(must)})
 	query := map[string]interface{}{"bool": es.NewBool().SetMust(es.NewBoolQ(nested)).SetFilter(es.NewBoolQ(terms))}
@@ -114,7 +113,7 @@ func (a *Application) searchForDepWrk(depName, depVersion string, repos []string
 	if err != nil {
 		return 500, "Unable to create bool query: " + err.Error()
 	}
-	hits, err := es.GetAllSource(a.index, "repository_entry", string(queryDat), []string{c.FullNameField, c.RefsField})
+	hits, err := es.GetAllSource(a.index, "repository_entry", string(queryDat), []string{Scan_FullnameField, Scan_RefsField})
 	if err != nil {
 		return 500, "Failure executing bool query: " + err.Error()
 	}
@@ -122,20 +121,20 @@ func (a *Application) searchForDepWrk(depName, depVersion string, repos []string
 	shas := map[string]map[string]map[string]struct{}{}
 
 	for _, hit := range hits.Hits {
-		var scan c.DependencyScan
+		var scan RepositoryDependencyScan
 		if err = json.Unmarshal(*hit.Source, &scan); err != nil {
 			return 500, "Failure retrieving source: " + err.Error()
 		}
-		if _, ok := shas[scan.Fullname]; !ok {
-			shas[scan.Fullname] = map[string]map[string]struct{}{}
+		if _, ok := shas[scan.RepoFullname]; !ok {
+			shas[scan.RepoFullname] = map[string]map[string]struct{}{}
 		}
 		for _, ref := range scan.Refs {
-			if _, ok := shas[scan.Fullname][ref]; !ok {
-				shas[scan.Fullname][ref] = map[string]struct{}{}
+			if _, ok := shas[scan.RepoFullname][ref]; !ok {
+				shas[scan.RepoFullname][ref] = map[string]struct{}{}
 			}
-			shas[scan.Fullname][ref][hit.Id] = struct{}{}
+			shas[scan.RepoFullname][ref][hit.Id] = struct{}{}
 		}
-		for _, innerHit := range hit.InnerHits[c.DependenciesField].Hits.Hits {
+		for _, innerHit := range hit.InnerHits[Scan_SubDependenciesField].Hits.Hits {
 			dep := new(d.Dependency)
 			if err = json.Unmarshal(*innerHit.Source, dep); err != nil {
 				return 500, "Error retrieving dependencies: " + err.Error()

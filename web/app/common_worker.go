@@ -60,7 +60,7 @@ func (w *Worker) startCheckExist() {
 			work := <-w.checkExistQueue
 			log.Printf("[CHECK-WORKER (%d)] Starting work on %s\n", worker, work.request.sha)
 
-			item, err := w.app.index.GetByID("repository_entry", work.request.sha)
+			item, err := w.app.index.GetByID("repository_entry", work.request.sha+"-"+work.request.repository.ProjectName)
 			if err != nil {
 				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s. Continuing\n", worker, err.Error())
 			}
