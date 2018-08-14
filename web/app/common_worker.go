@@ -20,7 +20,6 @@ import (
 	"regexp"
 
 	c "github.com/venicegeo/vzutil-versioning/common"
-	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -36,11 +35,11 @@ type Worker struct {
 type existsWork struct {
 	request   *SingleRunnerRequest
 	exists    chan bool
-	singleRet chan *c.DependencyScan
+	singleRet chan *RepositoryDependencyScan
 }
 type scanWork struct {
 	request   *SingleRunnerRequest
-	singleRet chan *c.DependencyScan
+	singleRet chan *RepositoryDependencyScan
 }
 
 func NewWorker(app *Application, numWorkers int) *Worker {
@@ -59,16 +58,16 @@ func (w *Worker) startCheckExist() {
 	work := func(worker int) {
 		for {
 			work := <-w.checkExistQueue
-			log.Printf("[CHECK-WORKER (%d)] Starting work on %s\n", worker, work.request.Sha)
+			log.Printf("[CHECK-WORKER (%d)] Starting work on %s\n", worker, work.request.sha)
 
-			item, err := w.app.index.GetByID("repository_entry", work.request.Sha)
+			item, err := w.app.index.GetByID("repository_entry", work.request.sha)
 			if err != nil {
 				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s. Continuing\n", worker, err.Error())
 			}
 			if item.Found {
 				var repEntry c.DependencyScan
 				if err = json.Unmarshal(*item.Source, &repEntry); err != nil {
-					log.Printf("[CHECK-WORKER (%d)] Unable to unmarshal sha: %s\nReason: %s\n", worker, work.request.Sha, err.Error())
+					log.Printf("[CHECK-WORKER (%d)] Unable to unmarshal sha: %s\nReason: %s\n", worker, work.request.sha, err.Error())
 					work.exists <- false
 					work.singleRet <- nil
 					continue
@@ -77,25 +76,25 @@ func (w *Worker) startCheckExist() {
 				go func(work *existsWork) {
 					log.Printf("[CHECK-WORKER (%d)] This sha already exists\n", worker)
 					refFound := false
-					if work.request.Ref == "" {
+					if work.request.ref == "" {
 						return
 					}
 					for _, name := range repEntry.Refs {
-						if name == work.request.Ref {
+						if name == work.request.ref {
 							refFound = true
 							break
 						}
 					}
 					if !refFound {
-						log.Printf("[CHECK-WORKER (%d)] Adding ref [%s] to sha [%s]\n", worker, work.request.Ref, work.request.Sha)
-						repEntry.Refs = append(repEntry.Refs, work.request.Ref)
-						w.app.index.PostData("repository_entry", work.request.Sha, repEntry)
+						log.Printf("[CHECK-WORKER (%d)] Adding ref [%s] to sha [%s]\n", worker, work.request.ref, work.request.sha)
+						repEntry.Refs = append(repEntry.Refs, work.request.ref)
+						w.app.index.PostData("repository_entry", work.request.sha, repEntry)
 					}
 				}(work)
 				continue
 			}
 			work.exists <- false
-			log.Printf("[CHECK-WORKER (%d)] Adding %s to clone queue\n", worker, work.request.Sha)
+			log.Printf("[CHECK-WORKER (%d)] Adding %s to clone queue\n", worker, work.request.sha)
 			w.cloneQueue <- &scanWork{work.request, work.singleRet}
 		}
 	}
@@ -131,10 +130,10 @@ func (w *Worker) startClone() {
 	}
 }
 
-func (w *Worker) AddTaskRequest(request *SingleRunnerRequest, exists chan bool, singleRet chan *c.DependencyScan) {
-	w.checkExistQueue <- &existsWork{request, exists, singleRet}
-}
-
-func (w *Worker) AddTaskGit(git *s.GitWebhook, requester string, files []string, singleRet chan *c.DependencyScan) {
-	w.cloneQueue <- &scanWork{&SingleRunnerRequest{git.Repository.FullName, git.AfterSha, git.Ref, requester, files}, singleRet}
+func (w *Worker) AddTask(request *SingleRunnerRequest, exists chan bool, singleRet chan *RepositoryDependencyScan) {
+	if exists != nil {
+		w.checkExistQueue <- &existsWork{request, exists, singleRet}
+	} else {
+		w.cloneQueue <- &scanWork{request, singleRet}
+	}
 }

@@ -49,7 +49,7 @@ func ResolveEnvironmentYml(location string, test bool) (d.Dependencies, i.Issues
 		if parts[1] != "=" {
 			issues = append(issues, i.NewWeakVersion(parts[0], parts[2], parts[1]))
 		}
-		deps[c] = d.NewDependency(parts[0], strings.Split(parts[2], "=")[0], lan.Python)
+		deps[c] = d.NewDependency(parts[0], strings.Split(parts[2], "=")[0], lan.Conda)
 	}
 	return deps, issues, nil
 }

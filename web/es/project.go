@@ -20,19 +20,39 @@ type Project struct {
 }
 
 type ProjectEntry struct {
-	ProjectName        string   `json:"project_name"`
-	RepoFullname       string   `json:"repo"`
-	DependRepoFullname string   `json:"depend_repo"`
-	FilesToScan        []string `json:"files"`
+	ProjectName    string                     `json:"project_name"`
+	RepoFullname   string                     `json:"repo"`
+	DependencyInfo ProjectEntryDependencyInfo `json:"depend_info"`
 }
+
+type ProjectEntryDependencyInfo struct {
+	RepoFullname string       `json:"repo"`
+	CheckoutType CheckoutType `json:"checkout_type"`
+	CustomField  string       `json:"custom"`
+	FilesToScan  []string     `json:"files"`
+}
+
+type CheckoutType string
+
+const IncomingSha CheckoutType = "IncomingSha"
+const SameRef CheckoutType = "SameRef"
+const CustomRef CheckoutType = "CustomRef"
+const ExactSha CheckoutType = "ExactSha"
 
 const ProjectEntryMapping = `{
 	"dynamic":"strict",
 	"properties":{
 		"project_name":{"type":"keyword"},
 		"repo":{"type":"keyword"},
-		"depend_repo":{"type":"keyword"},
-		"files":{"type":"keyword"}
+		"depend_info":{
+			"dynamic":"strict",
+			"properties":{
+				"repo":{"type":"keyword"},
+				"checkout_type":{"type":"keyword"},
+				"custom":{"type":"keyword"},
+				"files":{"type":"keyword"}
+			}
+		}
 	}
 }`
 const ProjectMapping = `{

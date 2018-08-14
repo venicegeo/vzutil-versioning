@@ -45,24 +45,24 @@ func NewRetriever(app *Application) *Retriever {
 	return &Retriever{app}
 }
 
-func (r *Retriever) ScanBySha(sha, projectRequesting string) (*c.DependencyScan, bool, error) {
-	var entry c.DependencyScan
+func (p *Project) ScanBySha(sha string) (*RepositoryDependencyScan, bool, error) {
+	var entry = new(RepositoryDependencyScan)
 	var err error
 	//	var found bool
 
-	result, err := r.app.index.GetByID("repository_entry", sha+"-"+projectRequesting)
+	result, err := p.index.GetByID("repository_entry", sha+"-"+p.Name)
 	if result == nil {
 		return nil, false, err
 	} else if !result.Found {
 		return nil, false, nil
 	}
-	return &entry, true, json.Unmarshal(*result.Source, &entry)
+	return entry, true, json.Unmarshal(*result.Source, entry)
 }
-func (r *Retriever) ScanByShaNameGen(fullName, sha, projectRequesting string) (*c.DependencyScan, error) {
-	scan, found, err := r.app.rtrvr.ScanBySha(sha, projectRequesting)
+func (r *Retriever) ScanByShaNameGen(repo *Repository, sha string) (*RepositoryDependencyScan, error) {
+	scan, found, err := repo.project.ScanBySha(sha)
 	if err != nil || !found {
 		{
-			code, _, _, err := nt.HTTP(nt.HEAD, u.Format("https://github.com/%s/commit/%s", fullName, sha), nt.NewHeaderBuilder().GetHeader(), nil)
+			code, _, _, err := nt.HTTP(nt.HEAD, u.Format("https://github.com/%s/commit/%s", repo.RepoFullname, sha), nt.NewHeaderBuilder().GetHeader(), nil)
 			if err != nil {
 				return nil, u.Error("Could not verify this sha: %s", err.Error())
 			}
@@ -71,12 +71,11 @@ func (r *Retriever) ScanByShaNameGen(fullName, sha, projectRequesting string) (*
 			}
 		}
 		exists := make(chan bool, 1)
-		ret := make(chan *c.DependencyScan, 1)
-		r.app.wrkr.AddTaskRequest(&SingleRunnerRequest{
-			Fullname:  fullName,
-			Sha:       sha,
-			Ref:       "",
-			Requester: projectRequesting,
+		ret := make(chan *RepositoryDependencyScan, 1)
+		r.app.wrkr.AddTask(&SingleRunnerRequest{
+			repository: repo,
+			sha:        sha,
+			ref:        "",
 		}, exists, ret)
 		if !<-exists {
 			scan = <-ret
@@ -171,7 +170,7 @@ func (r *Retriever) ListShasByRefOfRepoInProject(fullName, projectRequesting str
 			}
 		]
 	}
-}`, c.FullNameField, fullName, c.RequesterField, projectRequesting), u.Format(`{"%s":"desc"}`, c.TimestampField))
+}`, Scan_FullnameField, fullName, Scan_ProjectField, projectRequesting), u.Format(`{"%s":"desc"}`, Scan_TimestampField))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -213,7 +212,7 @@ func (r *Retriever) ListShasByRefOfRepoInProject(fullName, projectRequesting str
 
 func (r *Repository) GetAllRefs() ([]string, error) {
 	in := es.NewAggQuery("refs", c.RefsField)
-	boool := es.NewBool().SetMust(es.NewBoolQ(es.NewTerm(c.FullNameField, r.RepoFullname), es.NewTerm(c.RequesterField, r.project.Name)))
+	boool := es.NewBool().SetMust(es.NewBoolQ(es.NewTerm(Scan_FullnameField, r.RepoFullname), es.NewTerm(Scan_ProjectField, r.project.Name)))
 	in["query"] = map[string]interface{}{"bool": boool}
 	var out es.AggResponse
 	if err := r.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", in, &out); err != nil {

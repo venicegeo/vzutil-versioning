@@ -23,7 +23,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
-	c "github.com/venicegeo/vzutil-versioning/common"
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
@@ -38,11 +37,11 @@ type Application struct {
 
 	server *u.Server
 
-	wrkr      *Worker
-	rtrvr     *Retriever
-	diffMan   *DifferenceManager
-	cmpltRnnr *CompleteRunner
-	cmprRnnr  *CompareRunner
+	wrkr     *Worker
+	rtrvr    *Retriever
+	diffMan  *DifferenceManager
+	ff       *FireAndForget
+	cmprRnnr *CompareRunner
 
 	killChan chan bool
 
@@ -96,7 +95,7 @@ func (a *Application) Start() chan error {
 		"project_entry": %s,
 		"project": %s
 	}
-}`, c.DependencyScanMapping, d.DependencyMapping, d.DependencyMapping, es.ProjectEntryMapping, es.ProjectMapping))
+}`, RepositoryDependencyScanMapping, d.DependencyMapping, d.DependencyMapping, es.ProjectEntryMapping, es.ProjectMapping))
 	if err != nil {
 		log.Fatal(err.Error())
 	} else {
@@ -108,7 +107,7 @@ func (a *Application) Start() chan error {
 	a.diffMan = NewDifferenceManager(a)
 	a.wrkr = NewWorker(a, 2)
 	a.rtrvr = NewRetriever(a)
-	a.cmpltRnnr = NewCompleteRunner(a)
+	a.ff = NewFireAndForget(a)
 	a.cmprRnnr = NewCompareRunner(a)
 
 	a.wrkr.Start()

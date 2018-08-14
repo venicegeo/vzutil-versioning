@@ -11,25 +11,19 @@ td {
 <form method="post">
 	<input type="submit" name="button_back" value="Back">
 <fieldset>
-	<table>
-		<tr><td>
-			<table id="primtable">
-				<tr>
-					<td>Org</td>
-					<td><input type="text" name="org" value="{{ .org }}" {{ .mainreadonly }}></td>
-					<td></td>
-					<td><input type="radio" name="primtype[]" id="radio_this" onclick="radioThisClick()">This</td>
-				</tr>
-				<tr>
-					<td>Repo</td>
-					<td><input type="text" name="repo" value="{{ .repo }}" {{ .mainreadonly }}></td>
-					<td><input type="submit" name="button_scan" value="Scan"></td>		
-					<td><input type="radio" name="primtype[]" id="radio_other" onclick="radioOtherClick()">Other</td>
-				</tr>
-			</table>
-		</td><td>
-			
-		</td></tr>
+	<table id="primtable">
+		<tr>
+			<td>Org</td>
+			<td><input type="text" name="org" value="{{ .org }}" id="org"></td>
+			<td></td>
+			<td><input type="radio" name="primtype" value="radio_this" id="radio_this" onclick="set_display()" {{ .radio_this_checked}}>This</td>
+		</tr>
+		<tr>
+			<td>Repo</td>
+			<td><input type="text" name="repo" value="{{ .repo }}" id="repo"></td>
+			<td><input type="submit" name="button_scan" value="Scan"></td>		
+			<td><input type="radio" name="primtype" value="radio_other" id="radio_other" onclick="set_display()" {{ .radio_other_checked }}>Other</td>
+		</tr>
 	</table>
 </fieldset>
 <div id="sectable">
@@ -37,22 +31,22 @@ td {
 	<table id="sectable">
 		<tr>
 			<td>Org</td>
-			<td><input type="text" name="altorg" value="{{ .altorg }}" {{ .altreadonly }}></td>
+			<td><input type="text" name="altorg" value="{{ .altorg }}" id="altorg"></td>
 			<td></td>
-			<td><input type="radio" name="sectype_same" id="radio_same" onclick="set_display()" checked>Same Ref</td>
+			<td><input type="radio" name="sectype" value="radio_same" id="radio_same" onclick="set_display()" {{ .radio_same_checked }}>Same Ref</td>
 		</tr>
 		<tr>
 			<td>Repo</td>
-			<td><input type="text" name="altrepo" value="{{ .altrepo }}" {{ .altreadonly }}></td>
-			<td><input type="submit" name="button_altscan" value="Scan" {{ .altdisable }}></td>		
-			<td><input type="radio" name="sectype_ref" id="radio_ref" onclick="set_display()">Custom Ref</td>
-			<td><input type="text" name="text_ref" id="text_ref" value=""></td>
+			<td><input type="text" name="altrepo" value="{{ .altrepo }}" id="altrepo"></td>
+			<td><input type="submit" name="button_scan" value="Scan" {{ .altdisable }}></td>		
+			<td><input type="radio" name="sectype" value="radio_ref" id="radio_ref" onclick="set_display()" {{ .radio_ref_checked}}>Custom Ref</td>
+			<td><input type="text" name="text_ref" id="text_ref" value="{{ .text_ref }}"></td>
 		</tr>
 			<td></td>
 			<td></td>
 			<td></td>
-			<td><input type="radio" name="sectype_sha" id="radio_sha" onclick="set_display()">Exact Sha</td>
-			<td><input type="text" name="text_sha" id="text_sha" value=""></td>
+			<td><input type="radio" name="sectype" value="radio_sha" id="radio_sha" onclick="set_display()" {{ .radio_sha_checked}}>Exact Sha</td>
+			<td><input type="text" name="text_sha" id="text_sha" value="{{ .text_sha }}"></td>
 		<tr>
 		</tr>
 	</table>
@@ -66,7 +60,10 @@ td {
 </form>
 
 <script>
-var sectable = document.getElementById("sectable")
+if({{ .hidescan }})
+	document.getElementById('scan').style.display = "none"
+else
+	document.getElementById('scan').style.display = "block"
 
 function show_hide_column(id, col_no, do_show) {
     var tbl = document.getElementById(id);
@@ -81,23 +78,17 @@ function show_hide_column(id, col_no, do_show) {
     }
 }
 
-function radioThisClick() {
-	var radio_this = document.getElementById('radio_this')
-	show_hide_column("primtable",2,true)
-	set_display()
-}
-function radioOtherClick() {
-	var radio_other = document.getElementById('radio_other')
-	show_hide_column("primtable",2,false)
-	set_display()
-}
 function set_display() {
+	var sectable = document.getElementById("sectable")
+
 	var radio_this = document.getElementById('radio_this')
-	if (radio_this.checked)
+	if (radio_this.checked) {
+		show_hide_column("primtable",2,true)
 		sectable.style.display = "none"
-	else
+	} else {
+		show_hide_column("primtable",2,false)
 		sectable.style.display = "block"
-	
+	}	
 	var radio_same = document.getElementById('radio_same')
 	var radio_ref = document.getElementById('radio_ref')
 	var text_ref = document.getElementById('text_ref')
@@ -111,6 +102,16 @@ function set_display() {
 	} else {
 		text_ref.style.display = "none"
 		text_sha.style.display = "block"
+	}
+
+	if(document.getElementById('scan').style.display == "block") {
+		document.getElementById('org').readOnly=true
+		document.getElementById('repo').readOnly=true
+		show_hide_column("primtable",2,false)
+		show_hide_column("primtable",3,false)
+		document.getElementById('altorg').readOnly=true
+		document.getElementById('altrepo').readOnly=true
+		show_hide_column("sectable",2,false)
 	}
 }
 

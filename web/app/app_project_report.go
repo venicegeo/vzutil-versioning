@@ -102,16 +102,17 @@ func (a *Application) reportAtRefWrk(ref string, deps c.DependencyScans, typ str
 	return buf.String()
 }
 
-func (a *Application) reportAtShaWrk(scan *c.DependencyScan) string {
+func (a *Application) reportAtShaWrk(scan *RepositoryDependencyScan) string {
 	buf := bytes.NewBufferString("")
-	buf.WriteString(u.Format("%s at %s\n", scan.Name, scan.Sha))
+	buf.WriteString(u.Format("%s at %s in %s\n", scan.RepoFullname, scan.Sha, scan.Project))
+	buf.WriteString(u.Format("Dependencies from %s at %s\n", scan.Scan.Fullname, scan.Scan.Sha))
 	buf.WriteString("Files scanned:\n")
-	for _, f := range scan.Files {
+	for _, f := range scan.Scan.Files {
 		buf.WriteString(f)
 		buf.WriteString("\n")
 	}
-	t := table.NewTable(3, len(scan.Deps))
-	for _, dep := range scan.Deps {
+	t := table.NewTable(3, len(scan.Scan.Deps))
+	for _, dep := range scan.Scan.Deps {
 		t.Fill(dep.Name, dep.Version, dep.Language.String())
 	}
 	buf.WriteString(t.NoRowBorders().SpaceColumn(1).Format().String())

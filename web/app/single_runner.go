@@ -23,6 +23,7 @@ import (
 
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	c "github.com/venicegeo/vzutil-versioning/common"
+	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -32,12 +33,38 @@ type SingleRunner struct {
 }
 
 type SingleRunnerRequest struct {
-	Fullname  string
-	Sha       string
-	Ref       string
-	Requester string
-	Files     []string
+	repository *Repository
+	sha        string
+	ref        string
 }
+
+type RepositoryDependencyScan struct {
+	RepoFullname string            `json:"repo"`
+	Project      string            `json:"project"`
+	Refs         []string          `json:"refs"`
+	Sha          string            `json:"sha"`
+	Timestamp    time.Time         `json:"timestamp"`
+	Scan         *c.DependencyScan `json:"scan"`
+}
+
+const Scan_FullnameField = "repo"
+const Scan_ProjectField = "project"
+const Scan_RefsField = "refs"
+const Scan_ShaField = "sha"
+const Scan_TimestampField = "timestamp"
+const Scan_DependenciesField = "scan." + c.DependenciesField
+
+const RepositoryDependencyScanMapping string = `{
+	"dynamic":"strict",
+	"properties":{
+		"repo":{"type":"keyword"},
+		"project":{"type":"keyword"},
+		"refs":{"type":"keyword"},
+		"sha":{"type":"keyword"},
+		"timestamp":{"type":"keyword"},
+		"scan":` + c.DependencyScanMapping + `
+	}
+}`
 
 func NewSingleRunner(app *Application) *SingleRunner {
 	return &SingleRunner{
@@ -63,47 +90,67 @@ func (sr *SingleRunner) ScanWithSingle(fullName string) ([]string, error) {
 	return output.Files, nil
 }
 
-func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan string, request *SingleRunnerRequest) *c.DependencyScan {
-	sr.sendStringTo(printLocation, "%sStarting work on %s", printHeader, request.Sha)
+func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan string, request *SingleRunnerRequest) *RepositoryDependencyScan {
+	sr.sendStringTo(printLocation, "%sStarting work on %s", printHeader, request.sha)
 
-	args := make([]string, len(request.Files)*2, len(request.Files)*2)
+	args := make([]string, len(request.repository.DependencyInfo.FilesToScan)*2, len(request.repository.DependencyInfo.FilesToScan)*2)
 	i := 0
-	for _, f := range request.Files {
+	for _, f := range request.repository.DependencyInfo.FilesToScan {
 		args[i] = "--f"
-		args[i+1] = strings.TrimPrefix(f, request.Fullname)[1:]
+		args[i+1] = strings.TrimPrefix(f, request.repository.DependencyInfo.RepoFullname)[1:]
 		i += 2
 	}
-	args = append(args, "--requester", request.Requester, request.Fullname, request.Sha)
+	args = append(args, request.repository.DependencyInfo.RepoFullname)
+	switch request.repository.DependencyInfo.CheckoutType {
+	case es.IncomingSha:
+		args = append(args, request.sha)
+	case es.ExactSha:
+		args = append(args, request.repository.DependencyInfo.CustomField)
+	case es.CustomRef:
+		args = append(args, request.repository.DependencyInfo.CustomField)
+	case es.SameRef:
+		args = append(args, request.ref)
+	}
 
-	dat, err := exec.Command(sr.app.singleLocation, args...).Output()
+	dat, err := exec.Command(sr.app.singleLocation, args...).CombinedOutput()
+	fmt.Println(string(dat), err)
 	if err != nil {
-		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, request.Sha, err.Error())
+		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, request.sha, err.Error())
 		return nil
 	}
-	var singleRet c.DependencyScan
-	if err = json.Unmarshal(dat, &singleRet); err != nil {
-		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, request.Sha, err.Error())
+	res := &RepositoryDependencyScan{
+		RepoFullname: request.repository.RepoFullname,
+		Project:      request.repository.ProjectName,
+		Refs:         []string{request.ref},
+		Sha:          request.sha,
+	}
+	var singleRet = new(c.DependencyScan)
+	if err = json.Unmarshal(dat, singleRet); err != nil {
+		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, request.sha, err.Error())
 		return nil
 	}
-	if singleRet.Sha != request.Sha {
-		sr.sendStringTo(printLocation, "%sGeneration failed to run against %s, it ran against sha %s", printHeader, request.Sha, singleRet.Sha)
-		return nil
+	//	if singleRet.Sha != request.sha {
+	//		sr.sendStringTo(printLocation, "%sGeneration failed to run against %s, it ran against sha %s", printHeader, request.sha, singleRet.Sha)
+	//		return nil
+	//	}
+	{ //Find timestamp of commit
+		code, body, _, err := nt.HTTP(nt.GET, "https://github.com/"+request.repository.RepoFullname+"/commit/"+request.sha, nt.NewHeaderBuilder().GetHeader(), nil)
+		if err != nil || code != 200 {
+			sr.sendStringTo(printLocation, "%sUnable to find timestamp for %s [%d: %s]", printHeader, request.repository.RepoFullname, code, err.Error())
+			return nil
+		}
+		matches := sr.findCommitTime.FindStringSubmatch(strings.TrimSpace(string(body)))
+		if len(matches) == 1 {
+			sr.sendStringTo(printLocation, "%sCould not scrub commit timestamp", printHeader)
+			return nil
+		}
+		if res.Timestamp, err = time.Parse(time.RFC3339, matches[1]); err != nil {
+			sr.sendStringTo(printLocation, "%sError parsing timestamp for %s [%s]", printHeader, request.repository.RepoFullname, err.Error())
+			return nil
+		}
 	}
-	code, body, _, err := nt.HTTP(nt.GET, "https://github.com/"+singleRet.Fullname+"/commit/"+request.Sha, nt.NewHeaderBuilder().GetHeader(), nil)
-	if err != nil || code != 200 {
-		sr.sendStringTo(printLocation, "%sUnable to find timestamp for %s [%d: %s]", printHeader, singleRet.Fullname, code, err.Error())
-		return nil
-	}
-	matches := sr.findCommitTime.FindStringSubmatch(strings.TrimSpace(string(body)))
-	if len(matches) == 1 {
-		sr.sendStringTo(printLocation, "%sCould not scrub commit timestamp", printHeader)
-		return nil
-	}
-	if singleRet.Timestamp, err = time.Parse(time.RFC3339, matches[1]); err != nil {
-		sr.sendStringTo(printLocation, "%sError parsing timestamp for %s [%s]", printHeader, singleRet.Fullname, err.Error())
-		return nil
-	}
-	return &singleRet
+	res.Scan = singleRet
+	return res
 }
 func (sr *SingleRunner) sendStringTo(location chan string, format string, args ...interface{}) {
 	if location != nil {

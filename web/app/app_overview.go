@@ -157,11 +157,16 @@ func (a *Application) reportSha(c *gin.Context) {
 	h := gin.H{"report": "Report will appear here"}
 	if form.Submit != "" {
 		fullName := u.Format("%s/%s", form.Org, form.Repo)
-		scan, err := a.rtrvr.ScanByShaNameGen(fullName, form.Sha, "")
-		if err != nil {
+		//TODO wont work
+		if repo, _, err := a.rtrvr.GetRepository(fullName, ""); err != nil {
 			h["report"] = u.Format("Unable to run against %s at %s:\n%s", fullName, form.Sha, err.Error())
 		} else {
-			h["report"] = a.reportAtShaWrk(scan)
+			scan, err := a.rtrvr.ScanByShaNameGen(repo, form.Sha)
+			if err != nil {
+				h["report"] = u.Format("Unable to run against %s at %s:\n%s", fullName, form.Sha, err.Error())
+			} else {
+				h["report"] = a.reportAtShaWrk(scan)
+			}
 		}
 	}
 	c.HTML(200, "reportsha.html", h)

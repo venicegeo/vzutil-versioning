@@ -19,7 +19,6 @@ import (
 	"sort"
 	"time"
 
-	c "github.com/venicegeo/vzutil-versioning/common"
 	depend "github.com/venicegeo/vzutil-versioning/common/dependency"
 	t "github.com/venicegeo/vzutil-versioning/common/table"
 	"github.com/venicegeo/vzutil-versioning/web/es"
@@ -164,23 +163,26 @@ func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Differ
 
 	var oldDeps, newDeps []depend.Dependency
 	errs := make(chan error, 2)
+	errs <- nil
+	errs <- nil
 	go func() {
-		oldDepsScan, err := d.app.rtrvr.ScanByShaNameGen(fullName, oldSha, "")
-		if err != nil {
-			errs <- u.Error("Could not get old sha: %s", err.Error())
-			return
-		}
-		oldDeps = oldDepsScan.Deps
-		errs <- nil
+		//TODO fix the difference manager pls
+		//		oldDepsScan, err := d.app.rtrvr.ScanByShaGen(fullName, oldSha, "")
+		//		if err != nil {
+		//			errs <- u.Error("Could not get old sha: %s", err.Error())
+		//			return
+		//		}
+		//		oldDeps = oldDepsScan.Deps
+		//		errs <- nil
 	}()
 	go func() {
-		newDepsScan, err := d.app.rtrvr.ScanByShaNameGen(fullName, newSha, "")
-		if err != nil {
-			errs <- u.Error("Could not get new sha: %s", err.Error())
-			return
-		}
-		newDeps = newDepsScan.Deps
-		errs <- nil
+		//		newDepsScan, err := d.app.rtrvr.ScanByShaNameGen(fullName, newSha, "")
+		//		if err != nil {
+		//			errs <- u.Error("Could not get new sha: %s", err.Error())
+		//			return
+		//		}
+		//		newDeps = newDepsScan.Deps
+		//		errs <- nil
 	}()
 	for i := 0; i < 2; i++ {
 		if err := <-errs; err != nil {
@@ -200,9 +202,9 @@ func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Differ
 	return d.diffCompareWrk(fullName, "Custom", oldDeps, newDeps, oldSha, newSha, t)
 }
 
-func (d *DifferenceManager) webhookCompare(oldEntry, newEntry *c.DependencyScan) (*Difference, error) {
+func (d *DifferenceManager) webhookCompare(oldEntry, newEntry *RepositoryDependencyScan) (*Difference, error) {
 	//TODO refs
-	return d.diffCompareWrk(newEntry.Fullname, newEntry.Refs[0], oldEntry.Deps, newEntry.Deps, oldEntry.Sha, newEntry.Sha, newEntry.Timestamp)
+	return d.diffCompareWrk(newEntry.RepoFullname, newEntry.Refs[0], oldEntry.Scan.Deps, newEntry.Scan.Deps, oldEntry.Sha, newEntry.Sha, newEntry.Timestamp)
 }
 
 func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldDeps, newDeps depend.Dependencies, oldSha, newSha string, t time.Time) (*Difference, error) {

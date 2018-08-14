@@ -15,7 +15,6 @@
 package app
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 
@@ -28,6 +27,12 @@ import (
 
 func (a *Application) viewProject(c *gin.Context) {
 	proj := c.Param("proj")
+	project, err := a.rtrvr.GetProject(proj)
+	if err != nil {
+		c.String(400, "Error getting this project: %s", err.Error())
+		return
+	}
+
 	var form struct {
 		Back   string `form:"button_back"`
 		Util   string `form:"button_util"`
@@ -70,7 +75,7 @@ func (a *Application) viewProject(c *gin.Context) {
 			return
 		}
 	} else if form.Sha != "" {
-		scan, found, err := a.rtrvr.ScanBySha(form.Sha, proj)
+		scan, found, err := project.ScanBySha(form.Sha)
 		if !found && err != nil {
 			c.String(400, "Unable to find this sha: %s", err.Error())
 			return
@@ -88,11 +93,6 @@ func (a *Application) viewProject(c *gin.Context) {
 		return
 	}
 	accord := s.NewHtmlAccordion()
-	project, err := a.rtrvr.GetProject(proj)
-	if err != nil {
-		c.String(400, "Error getting this project: %s", err.Error())
-		return
-	}
 	repos, err := project.GetAllRepositories()
 	if err != nil {
 		c.String(500, "Unable to retrieve repository list: %s", err.Error())
@@ -159,28 +159,18 @@ func (a *Application) generateAccordion(accord *s.HtmlAccordion, repoName, proj 
 }
 
 func (a *Application) addReposToProject(c *gin.Context) {
-	type RadioButton struct {
-		Name       string
-		Value      string
-		IsDisabled bool
-		IsChecked  bool
-		Onclick    string
-		Text       string
-	}
 	var form struct {
 		Back string `form:"button_back"`
 
-		Org         string   `form:"org"`
-		Repo        string   `form:"repo"`
-		PrimaryType []string `form:"primtype[]"`
+		Org         string `form:"org"`
+		Repo        string `form:"repo"`
+		PrimaryType string `form:"primtype"`
 
-		AltOrg            string `form:"altorg"`
-		AltRepo           string `form:"altrepo"`
-		SecondaryTypeSame string `form:"sectype_same"`
-		SecondaryTypeRef  string `form:"sectype_ref"`
-		SecondaryTypeSha  string `form:"sectype_sha"`
-		TextRef           string `form:"text_ref"`
-		TextSha           string `form:"text_sha"`
+		AltOrg        string `form:"altorg"`
+		AltRepo       string `form:"altrepo"`
+		SecondaryType string `form:"sectype"`
+		TextRef       string `form:"text_ref"`
+		TextSha       string `form:"text_sha"`
 
 		Scan string `form:"button_scan"`
 
@@ -192,24 +182,56 @@ func (a *Application) addReposToProject(c *gin.Context) {
 		c.String(400, "Error binding form: %s", err.Error())
 		return
 	}
-	fmt.Printf("%+v\n", form)
 	if form.Back != "" {
 		c.Redirect(303, "/project/"+proj)
 		return
 	}
 	h := gin.H{
-		"org":         form.Org,
-		"repo":        form.Repo,
-		"altorg":      form.AltOrg,
-		"altrepo":     form.AltRepo,
-		"hidelower":   true,
-		"hidealtform": false,
+		"org":      form.Org,
+		"repo":     form.Repo,
+		"altorg":   form.AltOrg,
+		"altrepo":  form.AltRepo,
+		"text_ref": form.TextRef,
+		"text_sha": form.TextSha,
+		"hidescan": true,
 	}
-
-	showLower := func() { h["hidelower"] = false }
-
-	disablePrimary := func() { h["mainreadonly"] = "readonly" }
-
+	depinfo := es.ProjectEntryDependencyInfo{FilesToScan: form.Files}
+	isThis := false
+	switch form.PrimaryType {
+	case "radio_other":
+		h["radio_other_checked"] = "checked"
+	case "radio_this":
+		fallthrough
+	default:
+		isThis = true
+		depinfo.RepoFullname = form.Org + "/" + form.Repo
+		depinfo.CheckoutType = es.IncomingSha
+		h["radio_this_checked"] = "checked"
+	}
+	switch form.SecondaryType {
+	case "radio_ref":
+		h["radio_ref_checked"] = "checked"
+		if !isThis {
+			depinfo.CheckoutType = es.CustomRef
+			depinfo.CustomField = form.TextRef
+		}
+	case "radio_sha":
+		h["radio_sha_checked"] = "checked"
+		if !isThis {
+			depinfo.CheckoutType = es.ExactSha
+			depinfo.CustomField = form.TextSha
+		}
+	case "radio_same":
+		fallthrough
+	default:
+		h["radio_same_checked"] = "checked"
+		if !isThis {
+			depinfo.CheckoutType = es.SameRef
+		}
+	}
+	if !isThis {
+		depinfo.RepoFullname = form.AltOrg + "/" + form.AltRepo
+	}
 	repoName := u.Format("%s/%s", form.Org, form.Repo)
 	var altRepoName string
 	if form.AltOrg == "" {
@@ -219,6 +241,7 @@ func (a *Application) addReposToProject(c *gin.Context) {
 	}
 
 	setScan := func(i interface{}) {
+		h["hidescan"] = false
 		switch i.(type) {
 		case string:
 			h["scan"] = s.NewHtmlString(i.(string)).Template()
@@ -239,36 +262,29 @@ func (a *Application) addReposToProject(c *gin.Context) {
 		} else {
 			if files, err := a.wrkr.snglRnnr.ScanWithSingle(repoName); err != nil {
 				setScan(err.Error())
-				showLower()
 			} else {
-				disablePrimary()
-				showLower()
 				setScan(files)
 			}
 		}
 	}
 
-	//	secondaryScan := func() {
-	//		if !a.checkRepoIsReal(form.AltOrg, form.AltRepo) {
-	//			setScan("This isnt a real repo")
-	//		} else {
-	//			if files, err := a.wrkr.snglRnnr.ScanWithSingle(altRepoName); err != nil {
-	//				setScan(err.Error())
-	//				showLower()
-	//			} else {
-	//				disablePrimary()
-	//				showLower()
-	//				setScan(files)
-	//			}
-	//		}
-	//	}
+	secondaryScan := func() {
+		if !a.checkRepoIsReal(form.AltOrg, form.AltRepo) {
+			setScan("This isnt a real repo")
+		} else {
+			if files, err := a.wrkr.snglRnnr.ScanWithSingle(altRepoName); err != nil {
+				setScan(err.Error())
+			} else {
+				setScan(files)
+			}
+		}
+	}
 
 	submit := func() {
 		entry := es.ProjectEntry{
-			ProjectName:        proj,
-			RepoFullname:       repoName,
-			DependRepoFullname: altRepoName,
-			FilesToScan:        form.Files,
+			ProjectName:    proj,
+			RepoFullname:   repoName,
+			DependencyInfo: depinfo,
 		}
 		resp, err := a.index.SearchByJSON("project_entry", u.Format(`{
 	"query":{
@@ -304,16 +320,16 @@ func (a *Application) addReposToProject(c *gin.Context) {
 		c.Redirect(303, "/project/"+proj)
 	}
 
-	if form.Scan != "" {
+	if form.Scan != "" && form.PrimaryType == "radio_this" {
 		primaryScan()
+	} else if form.Scan != "" && form.PrimaryType == "radio_other" {
+		secondaryScan()
 	} else if form.Submit != "" {
 		submit()
 		return
 	}
 
-	h["Test"] = "test"
-
-	c.HTML(200, "addrepo.tmpl", h)
+	c.HTML(200, "addrepo.html", h)
 }
 
 // Checks to see if a repo name is an actual repo on github

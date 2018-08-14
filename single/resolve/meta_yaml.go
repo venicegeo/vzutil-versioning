@@ -34,35 +34,17 @@ func ResolveMetaYaml(location string, test bool) (d.Dependencies, i.Issues, erro
 	if err := yaml.Unmarshal(dat, &recipe); err != nil {
 		return nil, nil, err
 	}
-	comb := make([][]string, 0, len(recipe.Requirements.Build)+len(recipe.Requirements.Run))
+	deps := make(d.Dependencies, 0, len(recipe.Requirements.Build)+len(recipe.Requirements.Run))
+	issues := i.Issues{}
 	for _, s := range append(recipe.Requirements.Build, recipe.Requirements.Run...) {
 		parts := strings.Split(s, " ")
 		if len(parts) == 1 {
 			parts = append(parts, "")
+			issues = append(issues, i.NewMissingVersion(parts[0]))
 		}
-		comb = append(comb, parts)
+		deps = append(deps, d.NewDependency(parts[0], strings.Join(strings.Split(parts[1], " "), "="), lan.Conda))
 	}
-	unique := [][2]string{}
-	duplicate := false
-	for _, p := range comb {
-		for _, c := range unique {
-			if p[0] == c[0] && c[1] == c[1] {
-				duplicate = true
-				break
-			}
-		}
-		if !duplicate {
-			unique = append(unique, [2]string{p[0], p[1]})
-		}
-	}
-	deps := make(d.Dependencies, len(unique), len(unique))
-	issues := i.Issues{}
-	for c, u := range unique {
-		deps[c] = d.NewDependency(u[0], u[1], lan.Python)
-		if u[1] == "" {
-			issues = append(issues, i.NewMissingVersion(u[0]))
-		}
-	}
+	d.RemoveExactDuplicates(&deps)
 	return deps, issues, nil
 }
 

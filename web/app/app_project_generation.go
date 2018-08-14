@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	h "github.com/venicegeo/vzutil-versioning/web/app/helpers"
@@ -27,8 +26,8 @@ import (
 )
 
 func (a *Application) webhookPath(c *gin.Context) {
-	git := s.GitWebhook{}
-	if err := c.BindJSON(&git); err != nil {
+	var git = new(s.GitWebhook)
+	if err := c.BindJSON(git); err != nil {
 		log.Println("Unable to bind json:", err.Error())
 		c.Status(400)
 		return
@@ -36,23 +35,7 @@ func (a *Application) webhookPath(c *gin.Context) {
 
 	c.String(200, "Thanks!")
 
-	go func() {
-		git.Timestamp = time.Now().UnixNano()
-		log.Println("[RECIEVED WEBHOOK]", git.Repository.FullName, git.AfterSha, git.Ref)
-		if projects, err := a.rtrvr.GetAllProjectNamesUsingRepository(git.Repository.FullName); err != nil {
-			log.Println("FAILED TO FIND PROJECTS USING REPOSITORY FOR WEBHOOK", git.AfterSha)
-		} else {
-			for _, p := range projects {
-				go func(p string) {
-					if repo, _, err := a.rtrvr.GetRepository(git.Repository.FullName, p); err != nil {
-						log.Println("FAILED TO GET THE REPO INSTANCE UNDER", p)
-					} else {
-						a.cmpltRnnr.RunAgainstGit(&git, p, repo.FilesToScan)
-					}
-				}(p)
-			}
-		}
-	}()
+	a.ff.FireGit(git)
 }
 
 func (a *Application) generateBranch(c *gin.Context) {
@@ -92,18 +75,25 @@ func (a *Application) generateBranchWrk(repoName, fullName, branch, proj string)
 	if err != nil {
 		return "", err
 	}
+	project, err := a.rtrvr.GetProject(proj)
+	if err != nil {
+		return "", err
+	}
+	repository, err := project.GetRepository(fullName)
+	if err != nil {
+		return "", err
+	}
 
-	go func(name, fullName, branch, sha string) {
+	go func(repository *Repository, branch, sha string) {
 		ref := "refs/heads/" + branch
 		request := SingleRunnerRequest{
-			Fullname:  fullName,
-			Sha:       sha,
-			Ref:       ref,
-			Requester: proj,
+			repository: repository,
+			sha:        sha,
+			ref:        ref,
 		}
-		log.Println(fullName, sha, ref, proj)
-		a.cmpltRnnr.RunAgainstRequest(&request)
-	}(repoName, fullName, branch, sha)
+		log.Println(repository.RepoFullname, sha, ref, proj)
+		a.ff.FireRequest(&request)
+	}(repository, branch, sha)
 	return sha, nil
 }
 
@@ -124,18 +114,17 @@ func (a *Application) genTagsWrk(proj string) (string, error) {
 				log.Println("[TAG UPDATER] Was unable to run tags against " + repo.RepoFullname + ": [" + err.Error() + "]")
 				continue
 			}
-			go func(dat map[string]string, name string, repo string) {
+			go func(dat map[string]string, repo *Repository) {
 				for sha, ref := range dat {
 					request := SingleRunnerRequest{
-						Fullname:  repo,
-						Sha:       sha,
-						Ref:       ref,
-						Requester: proj,
+						repository: repo,
+						sha:        sha,
+						ref:        ref,
 					}
 					log.Println(repo, sha, ref)
-					a.cmpltRnnr.RunAgainstRequest(&request)
+					a.ff.FireRequest(&request)
 				}
-			}(dat, name, repo.DependRepoFullname)
+			}(dat, repo)
 		}
 	}(repos, proj)
 
