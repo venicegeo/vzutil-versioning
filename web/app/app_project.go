@@ -15,6 +15,7 @@
 package app
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
@@ -158,22 +159,40 @@ func (a *Application) generateAccordion(accord *s.HtmlAccordion, repoName, proj 
 }
 
 func (a *Application) addReposToProject(c *gin.Context) {
+	type RadioButton struct {
+		Name       string
+		Value      string
+		IsDisabled bool
+		IsChecked  bool
+		Onclick    string
+		Text       string
+	}
 	var form struct {
-		Back    string   `form:"button_back"`
-		Org     string   `form:"org"`
-		Repo    string   `form:"repo"`
-		Scan    string   `form:"button_scan"`
-		Files   []string `form:"files[]"`
-		Submit  string   `form:"button_submit"`
-		AltOrg  string   `form:"altorg"`
-		AltRepo string   `form:"altrepo"`
-		AltScan string   `form:"button_altscan"`
+		Back string `form:"button_back"`
+
+		Org         string   `form:"org"`
+		Repo        string   `form:"repo"`
+		PrimaryType []string `form:"primtype[]"`
+
+		AltOrg            string `form:"altorg"`
+		AltRepo           string `form:"altrepo"`
+		SecondaryTypeSame string `form:"sectype_same"`
+		SecondaryTypeRef  string `form:"sectype_ref"`
+		SecondaryTypeSha  string `form:"sectype_sha"`
+		TextRef           string `form:"text_ref"`
+		TextSha           string `form:"text_sha"`
+
+		Scan string `form:"button_scan"`
+
+		Files  []string `form:"files[]"`
+		Submit string   `form:"button_submit"`
 	}
 	proj := c.Param("proj")
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Error binding form: %s", err.Error())
 		return
 	}
+	fmt.Printf("%+v\n", form)
 	if form.Back != "" {
 		c.Redirect(303, "/project/"+proj)
 		return
@@ -189,14 +208,7 @@ func (a *Application) addReposToProject(c *gin.Context) {
 
 	showLower := func() { h["hidelower"] = false }
 
-	disablePrimary := func() {
-		h["mainreadonly"] = "readonly"
-		h["maindisable"] = "disabled"
-	}
-
-	hideAlt := func() {
-		h["hidealtform"] = true
-	}
+	disablePrimary := func() { h["mainreadonly"] = "readonly" }
 
 	repoName := u.Format("%s/%s", form.Org, form.Repo)
 	var altRepoName string
@@ -228,7 +240,6 @@ func (a *Application) addReposToProject(c *gin.Context) {
 			if files, err := a.wrkr.snglRnnr.ScanWithSingle(repoName); err != nil {
 				setScan(err.Error())
 				showLower()
-				hideAlt()
 			} else {
 				disablePrimary()
 				showLower()
@@ -237,22 +248,20 @@ func (a *Application) addReposToProject(c *gin.Context) {
 		}
 	}
 
-	secondaryScan := func() {
-		if !a.checkRepoIsReal(form.AltOrg, form.AltRepo) {
-			setScan("This isnt a real repo")
-		} else {
-			if files, err := a.wrkr.snglRnnr.ScanWithSingle(altRepoName); err != nil {
-				setScan(err.Error())
-				showLower()
-				hideAlt()
-			} else {
-				disablePrimary()
-				showLower()
-				hideAlt()
-				setScan(files)
-			}
-		}
-	}
+	//	secondaryScan := func() {
+	//		if !a.checkRepoIsReal(form.AltOrg, form.AltRepo) {
+	//			setScan("This isnt a real repo")
+	//		} else {
+	//			if files, err := a.wrkr.snglRnnr.ScanWithSingle(altRepoName); err != nil {
+	//				setScan(err.Error())
+	//				showLower()
+	//			} else {
+	//				disablePrimary()
+	//				showLower()
+	//				setScan(files)
+	//			}
+	//		}
+	//	}
 
 	submit := func() {
 		entry := es.ProjectEntry{
@@ -300,11 +309,11 @@ func (a *Application) addReposToProject(c *gin.Context) {
 	} else if form.Submit != "" {
 		submit()
 		return
-	} else if form.AltScan != "" {
-		secondaryScan()
 	}
 
-	c.HTML(200, "newaddrepo.html", h)
+	h["Test"] = "test"
+
+	c.HTML(200, "addrepo.tmpl", h)
 }
 
 // Checks to see if a repo name is an actual repo on github

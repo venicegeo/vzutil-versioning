@@ -66,7 +66,16 @@ func (sr *SingleRunner) ScanWithSingle(fullName string) ([]string, error) {
 func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan string, request *SingleRunnerRequest) *c.DependencyScan {
 	sr.sendStringTo(printLocation, "%sStarting work on %s", printHeader, request.Sha)
 
-	dat, err := exec.Command(sr.app.singleLocation, "--all", "--requester", request.Requester, request.Fullname, request.Sha).Output()
+	args := make([]string, len(request.Files)*2, len(request.Files)*2)
+	i := 0
+	for _, f := range request.Files {
+		args[i] = "--f"
+		args[i+1] = strings.TrimPrefix(f, request.Fullname)[1:]
+		i += 2
+	}
+	args = append(args, "--requester", request.Requester, request.Fullname, request.Sha)
+
+	dat, err := exec.Command(sr.app.singleLocation, args...).Output()
 	if err != nil {
 		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, request.Sha, err.Error())
 		return nil

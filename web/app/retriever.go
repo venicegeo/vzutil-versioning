@@ -357,6 +357,42 @@ func (p *Project) GetAllRepositories() ([]*Repository, error) {
 	return res, nil
 }
 
+func (p *Project) GetRepository(repository string) (*Repository, error) {
+	resp, err := p.index.SearchByJSON("project_entry", u.Format(`{
+	"query": {
+		"bool": {
+			"must": [
+				{
+					"term": { "project_name": "%s" }
+				},{
+					"term": { "repo": "%s" }
+				}
+			]
+		}
+	}
+}`, p.Name, repository))
+	if err != nil {
+		return nil, err
+	}
+	if resp.TotalHits() != 1 {
+		return nil, u.Error("Total hits not 1 but %d", resp.TotalHits())
+	}
+	res := new(Repository)
+	if err = json.Unmarshal(*resp.Hits.Hits[0].Source, res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (r *Retriever) GetRepository(repository, project string) (*Repository, *Project, error) {
+	proj, err := r.GetProject(project)
+	if err != nil {
+		return nil, nil, err
+	}
+	repo, err := proj.GetRepository(repository)
+	return repo, proj, err
+}
+
 func (r *Retriever) GetProject(name string) (*Project, error) {
 	resp, err := r.app.index.GetByID("project", name)
 	if err != nil {
@@ -385,10 +421,9 @@ func (r *Retriever) GetAllProjects() ([]*Project, error) {
 		res[i] = &Project{r.app.index, t}
 	}
 	return res, nil
-
 }
 
-func (r *Retriever) GetAllProjectsUsingRepository(repo string) ([]string, error) {
+func (r *Retriever) GetAllProjectNamesUsingRepository(repo string) ([]string, error) {
 	agg := es.NewAggQuery("projects", "project_name")
 	agg["query"] = es.NewTerm("repo", repo)
 	var out es.AggResponse
