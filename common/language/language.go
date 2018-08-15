@@ -29,17 +29,19 @@ var LangToFile = map[Language][]string{
 	Java:       []string{"pom.xml"},
 	JavaScript: []string{"package.json"},
 	Go:         []string{"glide.yaml"},
-	Python:     []string{"requirements.txt", "environment.yml"},
+	Python:     []string{"requirements.txt"},
+	Conda:      []string{"environment.yml", "meta.yaml"},
 }
 var FileToLang = map[string]Language{
 	"pom.xml":          Java,
 	"package.json":     JavaScript,
 	"glide.yaml":       Go,
 	"requirements.txt": Python,
-	"environment.yml":  Python,
+	"environment.yml":  Conda,
+	"meta.yaml":        Conda,
 }
 
-const Java, JavaScript, Go, Python, Unknown Language = "java", "javascript", "go", "python", "unknown"
+const Java, JavaScript, Go, Python, Conda, Unknown Language = "java", "javascript", "go", "python", "conda", "unknown"
 
 func GetLanguage(lang string) Language {
 	lang = strings.ToLower(strings.TrimSuffix(lang, "stack"))
@@ -52,6 +54,8 @@ func GetLanguage(lang string) Language {
 		return Go
 	case string(Python):
 		return Python
+	case string(Conda):
+		return Conda
 	default:
 		return Unknown
 	}

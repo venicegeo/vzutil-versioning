@@ -46,12 +46,12 @@ func (a *Application) projectsOverview(c *gin.Context) {
 		makeButton := func(name string) *s.HtmlButton {
 			return s.NewHtmlButton3("button_project", name, "button")
 		}
-		projs, err := a.rtrvr.ListProjects()
+		projs, err := a.rtrvr.GetAllProjects()
 		if err != nil {
 			c.String(500, "Error collecting projects: %s", err.Error())
 			return
 		}
-		projs = append(projs, &es.Project{DisplayName: "Add New"})
+		projs = append(projs, &Project{a.index, &es.Project{DisplayName: "Add New"}})
 		row := -1
 		for i, proj := range projs {
 			if i%3 == 0 {
@@ -83,7 +83,7 @@ func (a *Application) projectsOverview(c *gin.Context) {
 			c.String(400, "This project does not appear to exist")
 			return
 		}
-		var proj es.ProjectEntry
+		var proj es.Project
 		if err = json.Unmarshal(*resp.Hits.Hits[0].Source, &proj); err != nil {
 			c.String(500, "Unable to unmarshal project: %s", err.Error())
 			return
@@ -94,11 +94,9 @@ func (a *Application) projectsOverview(c *gin.Context) {
 
 func (a *Application) newProject(c *gin.Context) {
 	type form struct {
-		Back        string   `form:"button_back"`
-		ProjectName string   `form:"projectname"`
-		Repos       []string `form:"repos[]"`
-		Checkouts   []string `form:"checkout[]"`
-		Create      string   `form:"button_submit"`
+		Back        string `form:"button_back"`
+		ProjectName string `form:"projectname"`
+		Create      string `form:"button_submit"`
 	}
 	var f form
 	if err := c.Bind(&f); err != nil {
@@ -134,8 +132,6 @@ func (a *Application) newProject(c *gin.Context) {
 			return
 		}
 
-		a.addReposToProjWrk(name, f.Repos)
-
 		c.Redirect(303, "/ui")
 	} else {
 		c.HTML(200, "newproj.html", nil)
@@ -161,11 +157,16 @@ func (a *Application) reportSha(c *gin.Context) {
 	h := gin.H{"report": "Report will appear here"}
 	if form.Submit != "" {
 		fullName := u.Format("%s/%s", form.Org, form.Repo)
-		scan, err := a.rtrvr.ScanByShaNameGen(fullName, form.Sha)
-		if err != nil {
+		//TODO wont work
+		if repo, _, err := a.rtrvr.GetRepository(fullName, ""); err != nil {
 			h["report"] = u.Format("Unable to run against %s at %s:\n%s", fullName, form.Sha, err.Error())
 		} else {
-			h["report"] = a.reportAtShaWrk(scan)
+			scan, err := a.rtrvr.ScanByShaNameGen(repo, form.Sha)
+			if err != nil {
+				h["report"] = u.Format("Unable to run against %s at %s:\n%s", fullName, form.Sha, err.Error())
+			} else {
+				h["report"] = a.reportAtShaWrk(scan)
+			}
 		}
 	}
 	c.HTML(200, "reportsha.html", h)

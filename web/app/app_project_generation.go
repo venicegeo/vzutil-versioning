@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	h "github.com/venicegeo/vzutil-versioning/web/app/helpers"
@@ -27,8 +26,8 @@ import (
 )
 
 func (a *Application) webhookPath(c *gin.Context) {
-	git := s.GitWebhook{}
-	if err := c.BindJSON(&git); err != nil {
+	var git = new(s.GitWebhook)
+	if err := c.BindJSON(git); err != nil {
 		log.Println("Unable to bind json:", err.Error())
 		c.Status(400)
 		return
@@ -36,10 +35,7 @@ func (a *Application) webhookPath(c *gin.Context) {
 
 	c.String(200, "Thanks!")
 
-	git.Timestamp = time.Now().UnixNano()
-	log.Println("[RECIEVED WEBHOOK]", git.Repository.FullName, git.AfterSha, git.Ref)
-
-	a.wbhkRnnr.RunAgainstWeb(&git)
+	a.ff.FireGit(git)
 }
 
 func (a *Application) generateBranch(c *gin.Context) {
@@ -60,7 +56,7 @@ func (a *Application) generateBranch(c *gin.Context) {
 		return
 	}
 	if form.Gen != "" {
-		_, err := a.generateBranchWrk(prepo, u.Format("%s/%s", porg, prepo), branch)
+		_, err := a.generateBranchWrk(prepo, u.Format("%s/%s", porg, prepo), branch, pproj)
 		if err != nil {
 			c.String(400, "Could not generate this sha: %s", err.Error())
 			return
@@ -74,64 +70,68 @@ func (a *Application) generateBranch(c *gin.Context) {
 	c.HTML(200, "genbranch.html", h)
 }
 
-func (a *Application) generateBranchWrk(repoName, fullName, branch string) (string, error) {
+func (a *Application) generateBranchWrk(repoName, fullName, branch, proj string) (string, error) {
 	sha, err := h.GetBranchSha(repoName, fullName, branch)
 	if err != nil {
 		return "", err
 	}
+	project, err := a.rtrvr.GetProject(proj)
+	if err != nil {
+		return "", err
+	}
+	repository, err := project.GetRepository(fullName)
+	if err != nil {
+		return "", err
+	}
 
-	go func(name, fullName, branch, sha string) {
+	go func(repository *Repository, branch, sha string) {
 		ref := "refs/heads/" + branch
-		git := s.GitWebhook{
-			Ref:      ref,
-			AfterSha: sha,
-			Repository: s.GitRepository{
-				Name:     name,
-				FullName: fullName,
-			},
-			Timestamp: time.Now().UnixNano(),
+		request := SingleRunnerRequest{
+			repository: repository,
+			sha:        sha,
+			ref:        ref,
 		}
-		log.Println(fullName, sha, ref)
-		a.wbhkRnnr.RunAgainstWeb(&git)
-	}(repoName, fullName, branch, sha)
+		log.Println(repository.RepoFullname, sha, ref, proj)
+		a.ff.FireRequest(&request)
+	}(repository, branch, sha)
 	return sha, nil
 }
 
 func (a *Application) genTagsWrk(proj string) (string, error) {
-	repos, err := a.rtrvr.ListRepositoriesByProj(proj)
+	project, err := a.rtrvr.GetProject(proj)
 	if err != nil {
 		return "", err
 	}
-	go func(repos []string) {
+	repos, err := project.GetAllRepositories()
+	if err != nil {
+		return "", err
+	}
+	go func(repos []*Repository, proj string) {
 		for _, repo := range repos {
-			name := strings.SplitN(repo, "/", 2)[1]
-			dat, err := h.NewTagsRunner(name, repo).Run()
+			name := strings.SplitN(repo.RepoFullname, "/", 2)[1]
+			dat, err := h.NewTagsRunner(name, repo.RepoFullname).Run()
 			if err != nil {
-				log.Println("[TAG UPDATER] Was unable to run tags against " + repo + ": [" + err.Error() + "]")
+				log.Println("[TAG UPDATER] Was unable to run tags against " + repo.RepoFullname + ": [" + err.Error() + "]")
 				continue
 			}
-			go func(dat map[string]string, name string, repo string) {
+			go func(dat map[string]string, repo *Repository) {
 				for sha, ref := range dat {
-					git := s.GitWebhook{
-						Ref:      ref,
-						AfterSha: sha,
-						Repository: s.GitRepository{
-							Name:     name,
-							FullName: repo,
-						},
-						Timestamp: time.Now().UnixNano(),
+					request := SingleRunnerRequest{
+						repository: repo,
+						sha:        sha,
+						ref:        ref,
 					}
 					log.Println(repo, sha, ref)
-					a.wbhkRnnr.RunAgainstWeb(&git)
+					a.ff.FireRequest(&request)
 				}
-			}(dat, name, repo)
+			}(dat, repo)
 		}
-	}(repos)
+	}(repos, proj)
 
 	buf := bytes.NewBufferString("Trying to run against:\n")
 	for _, repo := range repos {
 		buf.WriteString("\n")
-		buf.WriteString(repo)
+		buf.WriteString(repo.RepoFullname)
 	}
 	return buf.String(), nil
 }

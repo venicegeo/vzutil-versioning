@@ -64,6 +64,9 @@ func main() {
 	} else if all && len(files) != 0 {
 		fmt.Println("Cannot scan all and certain files")
 		os.Exit(1)
+	} else if len(files) == 0 && !(scan || all) {
+		fmt.Println("Must give a run paramater")
+		os.Exit(1)
 	} else if len(info) != 2 {
 		fmt.Println("The program arguments were incorrect. Usage: single [options] [org/repo] [sha]")
 		os.Exit(1)
@@ -220,6 +223,11 @@ func cloneAndCheckout(full_name, checkout, name string) (string, string, []strin
 	if cmdRet = util.RunCommand("git", "clone", "https://github.com/"+full_name, t); cmdRet.IsError() {
 		return t, "", nil, cmdRet.Error()
 	}
+
+	util.RunCommand("bash", "-c", fmt.Sprintf(`git -C %s branch -r | grep -v '\->' | while read remote; do git -C %s branch --track "${remote#origin/}" "$remote"; done`, t, t))
+	util.RunCommand("git", "-C", t, "fetch", "--all")
+	util.RunCommand("git", "-C", t, "pull", "--all")
+
 	if cmdRet = util.RunCommand("git", "-C", t, "checkout", checkout); cmdRet.IsError() {
 		return t, "", nil, cmdRet.Error()
 	}
@@ -249,18 +257,7 @@ func cloneAndCheckout(full_name, checkout, name string) (string, string, []strin
 			refs = append(refs, k)
 		}
 	}
-	//TODO delete?
-	//	matches := regexp.MustCompile(fmt.Sprintf(`%s (.+)`, sha)).FindAllStringSubmatch(cmdRet.Stdout, -1)
-	//	refsM := map[string]struct{}{}
-	//	for _, m := range matches {
-	//		if !strings.HasSuffix(m[1], "/HEAD") {
-	//			refsM[strings.Replace(m[1], "remotes/origin", "heads", -1)] = struct{}{}
-	//		}
-	//	}
-	//	refs := make([]string, 0, len(refsM))
-	//	for k := range refsM {
-	//		refs = append(refs, k)
-	//	}
+
 	return strings.TrimSuffix(rest, "/"), sha, refs, nil
 }
 

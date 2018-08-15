@@ -20,6 +20,45 @@ type Project struct {
 }
 
 type ProjectEntry struct {
-	Name string `json:"name"`
-	Repo string `json:"repo"`
+	ProjectName    string                     `json:"project_name"`
+	RepoFullname   string                     `json:"repo"`
+	DependencyInfo ProjectEntryDependencyInfo `json:"depend_info"`
 }
+
+type ProjectEntryDependencyInfo struct {
+	RepoFullname string       `json:"repo"`
+	CheckoutType CheckoutType `json:"checkout_type"`
+	CustomField  string       `json:"custom"`
+	FilesToScan  []string     `json:"files"`
+}
+
+type CheckoutType string
+
+const IncomingSha CheckoutType = "IncomingSha"
+const SameRef CheckoutType = "SameRef"
+const CustomRef CheckoutType = "CustomRef"
+const ExactSha CheckoutType = "ExactSha"
+
+const ProjectEntryMapping = `{
+	"dynamic":"strict",
+	"properties":{
+		"project_name":{"type":"keyword"},
+		"repo":{"type":"keyword"},
+		"depend_info":{
+			"dynamic":"strict",
+			"properties":{
+				"repo":{"type":"keyword"},
+				"checkout_type":{"type":"keyword"},
+				"custom":{"type":"keyword"},
+				"files":{"type":"keyword"}
+			}
+		}
+	}
+}`
+const ProjectMapping = `{
+	"dynamic":"strict",
+	"properties":{
+		"name":{"type":"keyword"},
+		"displayname":{"type":"keyword"}
+	}
+}`

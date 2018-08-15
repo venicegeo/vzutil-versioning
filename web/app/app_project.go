@@ -15,7 +15,6 @@
 package app
 
 import (
-	"bytes"
 	"strings"
 	"sync"
 
@@ -28,6 +27,12 @@ import (
 
 func (a *Application) viewProject(c *gin.Context) {
 	proj := c.Param("proj")
+	project, err := a.rtrvr.GetProject(proj)
+	if err != nil {
+		c.String(400, "Error getting this project: %s", err.Error())
+		return
+	}
+
 	var form struct {
 		Back   string `form:"button_back"`
 		Util   string `form:"button_util"`
@@ -70,7 +75,7 @@ func (a *Application) viewProject(c *gin.Context) {
 			return
 		}
 	} else if form.Sha != "" {
-		scan, found, err := a.rtrvr.ScanBySha(form.Sha)
+		scan, found, err := project.ScanBySha(form.Sha)
 		if !found && err != nil {
 			c.String(400, "Unable to find this sha: %s", err.Error())
 			return
@@ -88,43 +93,15 @@ func (a *Application) viewProject(c *gin.Context) {
 		return
 	}
 	accord := s.NewHtmlAccordion()
-	repos, err := a.rtrvr.ListRepositoriesByProj(proj)
+	repos, err := project.GetAllRepositories()
 	if err != nil {
 		c.String(500, "Unable to retrieve repository list: %s", err.Error())
 		return
 	}
 	mux := sync.Mutex{}
 	errs := make(chan error, len(repos))
-	work := func(repoName string) {
-		refs, err := a.rtrvr.ListRefsRepo(repoName)
-		if err != nil {
-			errs <- err
-			return
-		}
-		tempAccord := s.NewHtmlAccordion()
-		shas, _, err := a.rtrvr.ListShas(repoName)
-		if err != nil {
-			errs <- err
-			return
-		}
-		for _, ref := range refs {
-			c := s.NewHtmlCollection()
-			correctShas := shas["refs/"+ref]
-			for i, sha := range correctShas {
-				c.Add(s.NewHtmlButton2("button_sha", sha))
-				if i < len(correctShas)-1 {
-					c.Add(s.NewHtmlBr())
-				}
-			}
-			tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
-		}
-		mux.Lock()
-		accord.AddItem(repoName, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlButton2("button_gen", "Generate Branch - "+repoName)).Post(), tempAccord.Sort()))
-		mux.Unlock()
-		errs <- nil
-	}
-	for _, repoName := range repos {
-		go work(repoName)
+	for _, repo := range repos {
+		go a.generateAccordion(accord, repo, errs, mux)
 	}
 	err = nil
 	for i := 0; i < len(repos); i++ {
@@ -152,11 +129,53 @@ func (a *Application) viewProject(c *gin.Context) {
 	c.HTML(200, "project.html", h)
 }
 
+func (a *Application) generateAccordion(accord *s.HtmlAccordion, repo *Repository, errs chan error, mux sync.Mutex) {
+	refs, err := repo.GetAllRefs()
+	if err != nil {
+		errs <- err
+		return
+	}
+	tempAccord := s.NewHtmlAccordion()
+	shas, _, err := repo.MapRefToShas()
+	if err != nil {
+		errs <- err
+		return
+	}
+	for _, ref := range refs {
+		c := s.NewHtmlCollection()
+		correctShas := shas["refs/"+ref]
+		for i, sha := range correctShas {
+			c.Add(s.NewHtmlButton2("button_sha", sha))
+			if i < len(correctShas)-1 {
+				c.Add(s.NewHtmlBr())
+			}
+		}
+		tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
+	}
+	mux.Lock()
+	accord.AddItem(repo.RepoFullname, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlButton2("button_gen", "Generate Branch - "+repo.RepoFullname)).Post(), tempAccord.Sort()))
+	mux.Unlock()
+	errs <- nil
+}
+
 func (a *Application) addReposToProject(c *gin.Context) {
 	var form struct {
-		Back   string   `form:"button_back"`
-		Repos  []string `form:"repos[]"`
-		Create string   `form:"button_submit"`
+		Back string `form:"button_back"`
+
+		Org         string `form:"org"`
+		Repo        string `form:"repo"`
+		PrimaryType string `form:"primtype"`
+
+		AltOrg        string `form:"altorg"`
+		AltRepo       string `form:"altrepo"`
+		SecondaryType string `form:"sectype"`
+		TextRef       string `form:"text_ref"`
+		TextSha       string `form:"text_sha"`
+
+		Scan string `form:"button_scan"`
+
+		Files  []string `form:"files[]"`
+		Submit string   `form:"button_submit"`
 	}
 	proj := c.Param("proj")
 	if err := c.Bind(&form); err != nil {
@@ -167,50 +186,176 @@ func (a *Application) addReposToProject(c *gin.Context) {
 		c.Redirect(303, "/project/"+proj)
 		return
 	}
-	if form.Create != "" {
-		a.addReposToProjWrk(proj, form.Repos)
+	h := gin.H{
+		"org":      form.Org,
+		"repo":     form.Repo,
+		"altorg":   form.AltOrg,
+		"altrepo":  form.AltRepo,
+		"text_ref": form.TextRef,
+		"text_sha": form.TextSha,
+		"hidescan": true,
+	}
+	depinfo := es.ProjectEntryDependencyInfo{FilesToScan: form.Files}
+	isThis := false
+	switch form.PrimaryType {
+	case "radio_other":
+		h["radio_other_checked"] = "checked"
+	case "radio_this":
+		fallthrough
+	default:
+		isThis = true
+		depinfo.RepoFullname = form.Org + "/" + form.Repo
+		depinfo.CheckoutType = es.IncomingSha
+		h["radio_this_checked"] = "checked"
+	}
+	switch form.SecondaryType {
+	case "radio_ref":
+		h["radio_ref_checked"] = "checked"
+		if !isThis {
+			depinfo.CheckoutType = es.CustomRef
+			depinfo.CustomField = form.TextRef
+		}
+	case "radio_sha":
+		h["radio_sha_checked"] = "checked"
+		if !isThis {
+			depinfo.CheckoutType = es.ExactSha
+			depinfo.CustomField = form.TextSha
+		}
+	case "radio_same":
+		fallthrough
+	default:
+		h["radio_same_checked"] = "checked"
+		if !isThis {
+			depinfo.CheckoutType = es.SameRef
+		}
+	}
+	if !isThis {
+		depinfo.RepoFullname = form.AltOrg + "/" + form.AltRepo
+	}
+	repoName := u.Format("%s/%s", form.Org, form.Repo)
+	var altRepoName string
+	if form.AltOrg == "" {
+		altRepoName = repoName
+	} else {
+		altRepoName = u.Format("%s/%s", form.AltOrg, form.AltRepo)
+	}
+
+	setScan := func(i interface{}) {
+		h["hidescan"] = false
+		switch i.(type) {
+		case string:
+			h["scan"] = s.NewHtmlString(i.(string)).Template()
+		case []string:
+			check := s.NewHtmlCheckbox("files[]")
+			for _, file := range i.([]string) {
+				check.Add(file, file, true)
+			}
+			h["scan"] = s.NewHtmlCollection(check, s.NewHtmlButton2("button_submit", "Submit")).Template()
+		default:
+			panic("Youre doing this wrong")
+		}
+	}
+
+	primaryScan := func() {
+		if !a.checkRepoIsReal(form.Org, form.Repo) {
+			setScan("This isnt a real repo")
+		} else {
+			if files, err := a.wrkr.snglRnnr.ScanWithSingle(repoName); err != nil {
+				setScan(err.Error())
+			} else {
+				setScan(files)
+			}
+		}
+	}
+
+	secondaryScan := func() {
+		if !a.checkRepoIsReal(form.AltOrg, form.AltRepo) {
+			setScan("This isnt a real repo")
+		} else {
+			if files, err := a.wrkr.snglRnnr.ScanWithSingle(altRepoName); err != nil {
+				setScan(err.Error())
+			} else {
+				setScan(files)
+			}
+		}
+	}
+
+	submit := func() {
+		entry := es.ProjectEntry{
+			ProjectName:    proj,
+			RepoFullname:   repoName,
+			DependencyInfo: depinfo,
+		}
+		resp, err := a.index.SearchByJSON("project_entry", u.Format(`{
+	"query":{
+		"bool":{
+			"must":[
+				{
+					"term":{
+						"project_name":"%s"
+					}
+				},{
+					"term":{
+						"repo":"%s"
+					}
+				}
+			]
+		}
+	},
+	"size":1
+}`, entry.ProjectName, entry.RepoFullname))
+		if err != nil {
+			c.String(500, "Error checking database for existing repo: %s", err.Error())
+			return
+		}
+		if resp.Hits.TotalHits == 1 {
+			c.String(400, "This repo already exists under this project")
+			return
+		}
+		iresp, err := a.index.PostData("project_entry", "", entry)
+		if err != nil || !iresp.Created {
+			c.String(500, "Error adding entry to database: ", err)
+			return
+		}
 		c.Redirect(303, "/project/"+proj)
+	}
+
+	if form.Scan != "" && form.PrimaryType == "radio_this" {
+		primaryScan()
+	} else if form.Scan != "" && form.PrimaryType == "radio_other" {
+		secondaryScan()
+	} else if form.Submit != "" {
+		submit()
 		return
 	}
-	currentRepos, err := a.rtrvr.ListRepositoriesByProj(proj)
-	if err != nil {
-		c.String(400, "Error getting the projects repositories: %s", err.Error())
-		return
-	}
-	buf := bytes.NewBufferString("")
-	for _, repo := range currentRepos {
-		buf.WriteString(repo)
-		buf.WriteString("\n")
-	}
-	h := gin.H{}
-	h["current"] = buf.String()
+
 	c.HTML(200, "addrepo.html", h)
 }
 
-func (a *Application) addReposToProjWrk(name string, reposs []string) {
-	realr := []string{}
-	for _, r := range reposs {
-		if strings.TrimSpace(r) == "" {
-			continue
+// Checks to see if a repo name is an actual repo on github
+func (a *Application) checkRepoIsReal(name ...string) bool {
+	var fullname string
+	switch len(name) {
+	case 1:
+		fullname = strings.TrimSpace(name[0])
+		if fullname == "" || fullname == "/" {
+			return false
 		}
-		realr = append(realr, strings.TrimSpace(strings.ToLower(r)))
+	case 2:
+		org := strings.TrimSpace(name[0])
+		repo := strings.TrimSpace(name[1])
+		if org == "" || repo == "" {
+			return false
+		}
+		fullname = u.Format("%s/%s", name[0], name[1])
+	default:
+		panic("Youre doing this wrong")
 	}
-	//TODO thread
-	for _, fullName := range realr {
-		checkRepoExist := func(fullName string) error {
-			url := u.Format("https://github.com/%s", fullName)
-			if code, _, _, e := nt.HTTP(nt.HEAD, url, nt.NewHeaderBuilder().GetHeader(), nil); e != nil {
-				return e
-			} else if code != 200 {
-				return u.Error("Code on %s is no 200, but %d", fullName, code)
-			} else {
-				return nil
-			}
-		}
-		if err := checkRepoExist(fullName); err != nil {
-			continue
-		}
-		a.index.PostData("project_entry", "", es.ProjectEntry{name, fullName})
+	url := u.Format("https://github.com/%s", fullname)
+	if code, _, _, e := nt.HTTP(nt.HEAD, url, nt.NewHeaderBuilder().GetHeader(), nil); e != nil || code != 200 {
+		return false
+	} else {
+		return true
 	}
 }
 
@@ -259,7 +404,12 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 		c.Redirect(303, "/removerepo/"+proj)
 		return
 	}
-	repos, err := a.rtrvr.ListRepositoriesByProj(proj)
+	project, err := a.rtrvr.GetProject(proj)
+	if err != nil {
+		c.String(500, "Unable to get the project: %s", err)
+		return
+	}
+	repos, err := project.GetAllRepositories()
 	if err != nil {
 		c.String(500, "Unable to get the repos: %s", err)
 		return
@@ -267,7 +417,7 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 	h := gin.H{}
 	buttons := s.NewHtmlCollection()
 	for _, repo := range repos {
-		buttons.Add(s.NewHtmlButton2("button_submit", repo))
+		buttons.Add(s.NewHtmlButton2("button_submit", repo.RepoFullname))
 		buttons.Add(s.NewHtmlBr())
 	}
 	h["repos"] = buttons.Template()

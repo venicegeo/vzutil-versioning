@@ -96,6 +96,15 @@ type Bucket struct {
 type Agg struct {
 	Buckets []Bucket `json:"buckets"`
 }
+
+func (a Agg) GetKeys() []string {
+	res := make([]string, len(a.Buckets), len(a.Buckets))
+	for i, b := range a.Buckets {
+		res[i] = b.Key
+	}
+	return res
+}
+
 type AggResponse struct {
 	Aggs map[string]Agg `json:"aggregations"`
 }
