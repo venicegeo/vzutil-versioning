@@ -16,7 +16,6 @@ limitations under the License.
 package resolve
 
 import (
-	"io/ioutil"
 	"regexp"
 	"strings"
 
@@ -29,8 +28,8 @@ import (
 var requirements_gitRE = regexp.MustCompile(`^git(?:(?:\+https)|(?:\+ssh)|(?:\+git))*:\/\/(?:git\.)*github\.com\/.+\/([^@.]+)()(?:(?:.git)?@([^#]+))?`)
 var requirements_elseRE = regexp.MustCompile(`^([^>=<]+)((?:(?:<=)|(?:>=))|(?:==))?(.+)?$`)
 
-func ResolveRequirementsTxt(location string, test bool) (d.Dependencies, i.Issues, error) {
-	dat, err := ioutil.ReadFile(location)
+func (r *Resolver) ResolveRequirementsTxt(location string, test bool) (d.Dependencies, i.Issues, error) {
+	dat, err := r.readFile(location)
 	if err != nil {
 		return nil, nil, err
 	}

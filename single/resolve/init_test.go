@@ -16,24 +16,15 @@ limitations under the License.
 package resolve
 
 import (
-	"regexp"
-
-	"github.com/venicegeo/vzutil-versioning/single/util"
+	"os"
+	"testing"
 )
 
-type MvnDependency struct {
-	GroupId    string `json:"groupId"`
-	ArtifactId string `json:"artifactId"`
-	Packaging  string `json:"packaging"`
-	Version    string `json:"version,omitempty"`
-}
-
-var re = regexp.MustCompile(`Download(?:(?:ing)|(?:ed)): .+(?:\n|\r)`)
-
-func GenerateMvnReport(location string) util.CmdRet {
-	cmd := util.RunCommand("mvn", "--file", location+"pom.xml", "dependency:resolve")
-	if cmd.IsError() {
-		cmd.Stdout = re.ReplaceAllString(cmd.Stdout, "")
-	}
-	return cmd
+func TestMain(m *testing.M) {
+	setupEnvironmentYml1()
+	setupEnvironmentYml2()
+	setupEnvironmentYml3()
+	setupRequirementsTxt1()
+	setupRequirementsTxt2()
+	os.Exit(m.Run())
 }

@@ -17,9 +17,7 @@ package resolve
 
 import (
 	"errors"
-	"io/ioutil"
 	"regexp"
-	"strings"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	i "github.com/venicegeo/vzutil-versioning/common/issue"
@@ -29,8 +27,8 @@ import (
 
 var environment_splitRE = regexp.MustCompile(`^([^>=<]+)((?:(?:<=)|(?:>=))|(?:=))?(.+)?$`)
 
-func ResolveEnvironmentYml(location string, test bool) (d.Dependencies, i.Issues, error) {
-	dat, err := ioutil.ReadFile(location)
+func (r *Resolver) ResolveEnvironmentYml(location string, test bool) (d.Dependencies, i.Issues, error) {
+	dat, err := r.readFile(location)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -49,7 +47,7 @@ func ResolveEnvironmentYml(location string, test bool) (d.Dependencies, i.Issues
 		if parts[1] != "=" {
 			issues = append(issues, i.NewWeakVersion(parts[0], parts[2], parts[1]))
 		}
-		deps[c] = d.NewDependency(parts[0], strings.Split(parts[2], "=")[0], lan.Conda)
+		deps[c] = d.NewDependency(parts[0], parts[2], lan.Conda)
 	}
 	return deps, issues, nil
 }

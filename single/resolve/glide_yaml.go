@@ -16,7 +16,6 @@ limitations under the License.
 package resolve
 
 import (
-	"io/ioutil"
 	"strings"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
@@ -25,12 +24,12 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func ResolveGlideYaml(location string, test bool) (d.Dependencies, i.Issues, error) {
-	yamlDat, err := ioutil.ReadFile(location)
+func (r *Resolver) ResolveGlideYaml(location string, test bool) (d.Dependencies, i.Issues, error) {
+	yamlDat, err := r.readFile(location)
 	if err != nil {
 		return nil, nil, err
 	}
-	lockDat, err := ioutil.ReadFile(strings.TrimSuffix(location, ".yaml") + ".lock")
+	lockDat, err := r.readFile(strings.TrimSuffix(location, ".yaml") + ".lock")
 	if err != nil {
 		return nil, nil, err
 	}

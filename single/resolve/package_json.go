@@ -17,7 +17,6 @@ package resolve
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"regexp"
 	"strings"
 
@@ -34,8 +33,8 @@ type PackageJson struct {
 	DevDependencyMap map[string]string `json:"devDependencies"`
 }
 
-func ResolvePackageJson(location string, test bool) (d.Dependencies, i.Issues, error) {
-	dat, err := ioutil.ReadFile(location)
+func (r *Resolver) ResolvePackageJson(location string, test bool) (d.Dependencies, i.Issues, error) {
+	dat, err := r.readFile(location)
 	if err != nil {
 		return nil, nil, err
 	}
