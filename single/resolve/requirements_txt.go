@@ -37,20 +37,25 @@ func (r *Resolver) ResolveRequirementsTxt(location string, test bool) (d.Depende
 	deps := make(d.Dependencies, len(lines), len(lines))
 	issues := i.Issues{}
 	for c, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.Contains(line, "lib/python") || strings.HasPrefix(line, "-r") || strings.HasPrefix(line, "#") {
-			continue
+		if dep, ok := r.parsePipLine(line, &issues); ok {
+			deps[c] = dep
 		}
-		parts := []string{}
-		if requirements_gitRE.MatchString(line) {
-			parts = requirements_gitRE.FindStringSubmatch(line)[1:]
-		} else {
-			parts = requirements_elseRE.FindStringSubmatch(line)[1:]
-			if parts[1] != "==" {
-				issues = append(issues, i.NewWeakVersion(parts[0], parts[2], parts[1]))
-			}
-		}
-		deps[c] = d.NewDependency(parts[0], parts[2], lan.Python)
 	}
 	return deps, issues, nil
+}
+
+func (r *Resolver) parsePipLine(line string, issues *i.Issues) (d.Dependency, bool) {
+	if line == "" || strings.Contains(line, "lib/python") || strings.HasPrefix(line, "-r") || strings.HasPrefix(line, "#") {
+		return d.Dependency{}, false
+	}
+	parts := []string{}
+	if requirements_gitRE.MatchString(line) {
+		parts = requirements_gitRE.FindStringSubmatch(line)[1:]
+	} else {
+		parts = requirements_elseRE.FindStringSubmatch(line)[1:]
+		if parts[1] != "==" {
+			*issues = append(*issues, i.NewWeakVersion(parts[0], parts[2], parts[1]))
+		}
+	}
+	return d.NewDependency(parts[0], parts[2], lan.Python), true
 }

@@ -16,7 +16,6 @@ limitations under the License.
 package resolve
 
 import (
-	"reflect"
 	"testing"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
@@ -24,30 +23,8 @@ import (
 	l "github.com/venicegeo/vzutil-versioning/common/language"
 )
 
-var environmentYmlTestData = map[string]string{}
-var environmentYmlTestResults = map[string]ResolveResult{}
-
-func readEnvironmentYml(file string) ([]byte, error) {
-	return []byte(environmentYmlTestData[file]), nil
-}
-
 func TestEnvironmentYml(t *testing.T) {
-	resolver := NewResolver(readEnvironmentYml)
-	for k, _ := range environmentYmlTestData {
-		expected := environmentYmlTestResults[k]
-		d, i, e := resolver.ResolveEnvironmentYml(k, false)
-		if !reflect.DeepEqual(e, expected.err) {
-			t.Fatal(e, "not equal to", expected.err)
-		} else if !reflect.DeepEqual(d, expected.deps) {
-			t.Fatal(d, "not equal to", expected.deps)
-		} else if !reflect.DeepEqual(i, expected.issues) {
-			t.Fatal(i, "not equal to", expected.issues)
-		}
-	}
-}
-
-func setupEnvironmentYml1() {
-	environmentYmlTestData["1"] = `
+	addTest("environment_yml", `
 name: test_one
 channels:
     - conda-forge
@@ -55,32 +32,26 @@ dependencies:
   - click=6.6
   - numpy=1.14.0=py27_blas_openblas_200
   - pytides
-`
-	environmentYmlTestResults["1"] = ResolveResult{
+`, ResolveResult{
 		deps:   d.Dependencies{d.NewDependency("click", "6.6", l.Conda), d.NewDependency("numpy", "1.14.0=py27_blas_openblas_200", l.Conda), d.NewDependency("pytides", "", l.Conda)},
 		issues: i.Issues{i.NewWeakVersion("pytides", "", "")},
 		err:    nil,
-	}
-}
+	}, resolver.ResolveEnvironmentYml)
 
-func setupEnvironmentYml2() {
-	environmentYmlTestData["2"] = `
+	addTest("environment_yml", `
 name: test_two
 dependencies:
     - gdal=2.1.3
     - pip=1.2
     - pip=1.3
     - setuptools=0
-`
-	environmentYmlTestResults["2"] = ResolveResult{
+`, ResolveResult{
 		deps:   d.Dependencies{d.NewDependency("gdal", "2.1.3", l.Conda), d.NewDependency("pip", "1.2", l.Conda), d.NewDependency("pip", "1.3", l.Conda), d.NewDependency("setuptools", "0", l.Conda)},
 		issues: i.Issues{},
 		err:    nil,
-	}
-}
+	}, resolver.ResolveEnvironmentYml)
 
-func setupEnvironmentYml3() {
-	environmentYmlTestData["3"] = `
+	addTest("environment_yml", `
 name: test_three
 dependencies:
     - gippy=1.0.0.post3
@@ -88,11 +59,13 @@ dependencies:
     - bfalg-ndwi=2.0.0
     - pip:
       - setuptools==39.0.0
-      - git+https://github.com/happy/place.git@v1.0.1#egg=some-thing
-`
-	environmentYmlTestResults["3"] = ResolveResult{
-		deps:   d.Dependencies{d.NewDependency("gippy", "1.0.0.post3", l.Conda), d.NewDependency("pip", "1.0", l.Conda), d.NewDependency("bfalg-ndwi", "2.0.0", l.Conda), d.NewDependency("setuptools", "29.0.0", l.Python)},
+      - git+https://github.com/happy/place.git@v1.0.1#egg=place
+`, ResolveResult{
+		deps: d.Dependencies{d.NewDependency("gippy", "1.0.0.post3", l.Conda), d.NewDependency("pip", "1.0", l.Conda), d.NewDependency("bfalg-ndwi", "2.0.0", l.Conda),
+			d.NewDependency("setuptools", "39.0.0", l.Python), d.NewDependency("place", "v1.0.1", l.Python)},
 		issues: i.Issues{},
 		err:    nil,
-	}
+	}, resolver.ResolveEnvironmentYml)
+
+	run("environment_yml", t)
 }
