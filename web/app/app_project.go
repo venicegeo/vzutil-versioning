@@ -101,7 +101,7 @@ func (a *Application) viewProject(c *gin.Context) {
 	mux := sync.Mutex{}
 	errs := make(chan error, len(repos))
 	for _, repo := range repos {
-		go a.generateAccordion(accord, repo.RepoFullname, proj, repo, errs, mux)
+		go a.generateAccordion(accord, repo, errs, mux)
 	}
 	err = nil
 	for i := 0; i < len(repos); i++ {
@@ -129,14 +129,14 @@ func (a *Application) viewProject(c *gin.Context) {
 	c.HTML(200, "project.html", h)
 }
 
-func (a *Application) generateAccordion(accord *s.HtmlAccordion, repoName, proj string, repo *Repository, errs chan error, mux sync.Mutex) {
+func (a *Application) generateAccordion(accord *s.HtmlAccordion, repo *Repository, errs chan error, mux sync.Mutex) {
 	refs, err := repo.GetAllRefs()
 	if err != nil {
 		errs <- err
 		return
 	}
 	tempAccord := s.NewHtmlAccordion()
-	shas, _, err := a.rtrvr.ListShasByRefOfRepoInProject(repoName, proj)
+	shas, _, err := repo.MapRefToShas()
 	if err != nil {
 		errs <- err
 		return
@@ -153,7 +153,7 @@ func (a *Application) generateAccordion(accord *s.HtmlAccordion, repoName, proj 
 		tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
 	}
 	mux.Lock()
-	accord.AddItem(repoName, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlButton2("button_gen", "Generate Branch - "+repoName)).Post(), tempAccord.Sort()))
+	accord.AddItem(repo.RepoFullname, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlButton2("button_gen", "Generate Branch - "+repo.RepoFullname)).Post(), tempAccord.Sort()))
 	mux.Unlock()
 	errs <- nil
 }

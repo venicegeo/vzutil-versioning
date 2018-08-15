@@ -19,7 +19,6 @@ import (
 	"log"
 	"regexp"
 
-	c "github.com/venicegeo/vzutil-versioning/common"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -65,8 +64,8 @@ func (w *Worker) startCheckExist() {
 				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s. Continuing\n", worker, err.Error())
 			}
 			if item.Found {
-				var repEntry c.DependencyScan
-				if err = json.Unmarshal(*item.Source, &repEntry); err != nil {
+				var repEntry = new(RepositoryDependencyScan)
+				if err = json.Unmarshal(*item.Source, repEntry); err != nil {
 					log.Printf("[CHECK-WORKER (%d)] Unable to unmarshal sha: %s\nReason: %s\n", worker, work.request.sha, err.Error())
 					work.exists <- false
 					work.singleRet <- nil

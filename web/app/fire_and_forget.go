@@ -19,7 +19,6 @@ import (
 	"log"
 	"strings"
 
-	c "github.com/venicegeo/vzutil-versioning/common"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -119,7 +118,7 @@ func (w *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 		"%s":"desc"
 	},
 	"size":1
-}`, c.FullNameField, scan.RepoFullname, c.RefsField, strings.TrimSuffix(strings.TrimPrefix(u.Format("%#v", scan.Refs), `[]string{`), `}`), c.TimestampField, scan.Timestamp, c.TimestampField))
+}`, Scan_FullnameField, scan.RepoFullname, Scan_RefsField, strings.TrimSuffix(strings.TrimPrefix(u.Format("%#v", scan.Refs), `[]string{`), `}`), Scan_TimestampField, scan.Timestamp, Scan_TimestampField))
 	if err == nil {
 		if result.Hits.TotalHits == 1 {
 			testAgainstEntr := new(RepositoryDependencyScan)

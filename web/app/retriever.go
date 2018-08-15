@@ -22,7 +22,6 @@ import (
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
-	c "github.com/venicegeo/vzutil-versioning/common"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -151,8 +150,8 @@ func (project *Project) ScansByRefInProject(ref string) (map[string]*RepositoryD
 }
 
 // Returns map of refs to shas of a repository in a project
-func (r *Retriever) ListShasByRefOfRepoInProject(fullName, projectRequesting string) (map[string][]string, int64, error) {
-	entryDat, err := es.GetAll(r.app.index, "repository_entry", u.Format(`{
+func (r *Repository) MapRefToShas() (map[string][]string, int64, error) {
+	query := u.Format(`{
 	"bool": {
 		"must": [
 			{
@@ -166,7 +165,10 @@ func (r *Retriever) ListShasByRefOfRepoInProject(fullName, projectRequesting str
 			}
 		]
 	}
-}`, Scan_FullnameField, fullName, Scan_ProjectField, projectRequesting), u.Format(`{"%s":"desc"}`, Scan_TimestampField))
+}`,
+		Scan_FullnameField, r.RepoFullname,
+		Scan_ProjectField, r.ProjectName)
+	entryDat, err := es.GetAll(r.index, "repository_entry", query, u.Format(`{"%s":"desc"}`, Scan_TimestampField))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -174,8 +176,8 @@ func (r *Retriever) ListShasByRefOfRepoInProject(fullName, projectRequesting str
 	res := map[string][]string{}
 
 	for _, entryD := range entryDat.Hits {
-		var entry c.DependencyScan
-		if err := json.Unmarshal(*entryD.Source, &entry); err != nil {
+		entry := new(RepositoryDependencyScan)
+		if err := json.Unmarshal(*entryD.Source, entry); err != nil {
 			return nil, 0, err
 		}
 		for _, refName := range entry.Refs {
@@ -187,24 +189,6 @@ func (r *Retriever) ListShasByRefOfRepoInProject(fullName, projectRequesting str
 	}
 	return res, entryDat.TotalHits, nil
 }
-
-//// Lists the refs of a repo within a project
-//func (r *Retriever) ListRefsOfRepoInProject(fullName, projectRequesting string) ([]string, error) {
-//	in := es.NewAggQuery("refs", c.RefsField)
-//	boool := es.NewBool().SetMust(es.NewBoolQ(es.NewTerm(c.FullNameField, fullName), es.NewTerm(c.RequesterField, projectRequesting)))
-//	in["query"] = map[string]interface{}{"bool": boool}
-//	var out es.AggResponse
-//	if err := r.app.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", in, &out); err != nil {
-//		return nil, err
-//	}
-
-//	res := make([]string, len(out.Aggs["refs"].Buckets), len(out.Aggs["refs"].Buckets))
-//	for i, r := range out.Aggs["refs"].Buckets {
-//		res[i] = strings.TrimPrefix(r.Key, `refs/`)
-//	}
-//	sort.Strings(res)
-//	return res, nil
-//}
 
 func (r *Repository) GetAllRefs() ([]string, error) {
 	in := es.NewAggQuery("refs", Scan_RefsField)
