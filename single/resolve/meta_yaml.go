@@ -16,7 +16,7 @@ limitations under the License.
 package resolve
 
 import (
-	"io/ioutil"
+	"sort"
 	"strings"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
@@ -25,8 +25,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func ResolveMetaYaml(location string, test bool) (d.Dependencies, i.Issues, error) {
-	dat, err := ioutil.ReadFile(location)
+func (r *Resolver) ResolveMetaYaml(location string, test bool) (d.Dependencies, i.Issues, error) {
+	dat, err := r.readFile(location)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -45,6 +45,8 @@ func ResolveMetaYaml(location string, test bool) (d.Dependencies, i.Issues, erro
 		deps = append(deps, d.NewDependency(parts[0], strings.Join(strings.Split(parts[1], " "), "="), lan.Conda))
 	}
 	d.RemoveExactDuplicates(&deps)
+	sort.Sort(deps)
+	sort.Sort(issues)
 	return deps, issues, nil
 }
 

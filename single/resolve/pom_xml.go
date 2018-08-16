@@ -19,14 +19,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	i "github.com/venicegeo/vzutil-versioning/common/issue"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
+	"github.com/venicegeo/vzutil-versioning/single/resolve/mvn"
 	"github.com/venicegeo/vzutil-versioning/single/util"
 )
 
@@ -36,9 +37,9 @@ var removeNewLineRE = regexp.MustCompile(`\r?\n`)
 var removeInfoSpace = regexp.MustCompile(`(\[INFO\] +)`)
 var getFilePath = regexp.MustCompile(`([^\/]+$)`)
 
-func ResolvePomXml(location string, test bool) (d.Dependencies, i.Issues, error) {
+func (r *Resolver) ResolvePomXml(location string, test bool) (d.Dependencies, i.Issues, error) {
 	poms := PomCollection{}
-	data, err := ioutil.ReadFile(location)
+	data, err := r.readFile(location)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -72,7 +73,13 @@ func ResolvePomXml(location string, test bool) (d.Dependencies, i.Issues, error)
 	poms.BuildHierarchy(false)
 
 	//poms.PrintHierarchy()
-	return poms.GetResults()
+	if deps, issues, err := poms.GetResults(); err != nil {
+		return deps, issues, err
+	} else {
+		sort.Sort(deps)
+		sort.Sort(issues)
+		return deps, issues, nil
+	}
 }
 
 type PomProjectWrapper struct {
@@ -180,9 +187,14 @@ func (c *PomCollection) GetResults() (total d.Dependencies, issues i.Issues, err
 		issues = append(issues, iss...)
 		total = append(total, deps...)
 	}
+	for _, dep := range total {
+		if dep.Version == "" {
+			issues = append(issues, i.NewMissingVersion(dep.Name))
+		}
+	}
 	return total, issues, nil
 }
-func getResultsAndFromChildren(pom *PomProjectWrapper, isRoot bool, dependencyManagement []*Item, previousMvnDeps []*MvnDependency) (d.Dependencies, i.Issues, error) {
+func getResultsAndFromChildren(pom *PomProjectWrapper, isRoot bool, dependencyManagement []*Item, previousMvnDeps []*mvn.MvnDependency) (d.Dependencies, i.Issues, error) {
 	deps, issues, err := pom.GetResults()
 	if err != nil {
 		return nil, issues, err
@@ -301,7 +313,7 @@ func (pw *PomProjectWrapper) GetResults() (d.Dependencies, i.Issues, error) {
 	return deps, pw.issues, nil
 }
 
-func (p *PomProjectWrapper) compareAndReplaceDependecies(deps d.Dependencies, mvnDeps []*MvnDependency, dependencyManagement []*Item) {
+func (p *PomProjectWrapper) compareAndReplaceDependecies(deps d.Dependencies, mvnDeps []*mvn.MvnDependency, dependencyManagement []*Item) {
 	if deps == nil || mvnDeps == nil {
 		return
 	}
@@ -358,8 +370,8 @@ func (p *PomProjectWrapper) replaceVariables() error {
 	return nil
 }
 
-func (p *PomProjectWrapper) generateMvnDependencies() ([]*MvnDependency, error) {
-	cmdRet := GenerateMvnReport(p.location)
+func (p *PomProjectWrapper) generateMvnDependencies() ([]*mvn.MvnDependency, error) {
+	cmdRet := mvn.GenerateMvnReport(p.location)
 	if cmdRet.IsError() {
 		return nil, fmt.Errorf("Unable to generate maven report at %s\n%s", p.location, cmdRet.String())
 	}
@@ -388,16 +400,16 @@ func (p *PomProjectWrapper) generateMvnDependencies() ([]*MvnDependency, error) 
 		}
 	}
 	if start == -1 {
-		return []*MvnDependency{}, nil
+		return []*mvn.MvnDependency{}, nil
 	}
 	lines = lines[start:stop]
 	for lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]
 	}
-	dependencies := []*MvnDependency{}
+	dependencies := []*mvn.MvnDependency{}
 	for _, line := range lines {
 		parts := strings.Split(line, ":")
-		dependencies = append(dependencies, &MvnDependency{
+		dependencies = append(dependencies, &mvn.MvnDependency{
 			GroupId:    parts[0],
 			ArtifactId: parts[1],
 			Packaging:  parts[2],

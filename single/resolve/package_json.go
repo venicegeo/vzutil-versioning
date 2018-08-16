@@ -17,8 +17,8 @@ package resolve
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"regexp"
+	"sort"
 	"strings"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
@@ -34,8 +34,8 @@ type PackageJson struct {
 	DevDependencyMap map[string]string `json:"devDependencies"`
 }
 
-func ResolvePackageJson(location string, test bool) (d.Dependencies, i.Issues, error) {
-	dat, err := ioutil.ReadFile(location)
+func (r *Resolver) ResolvePackageJson(location string, test bool) (d.Dependencies, i.Issues, error) {
+	dat, err := r.readFile(location)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -63,5 +63,7 @@ func ResolvePackageJson(location string, test bool) (d.Dependencies, i.Issues, e
 		}
 		deps = append(deps, d.NewDependency(name, version, lan.JavaScript))
 	}
+	sort.Sort(deps)
+	sort.Sort(issues)
 	return deps, issues, nil
 }

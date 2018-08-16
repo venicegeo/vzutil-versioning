@@ -22,6 +22,19 @@ import (
 type Issues []issue
 type issue string
 
+func (is Issues) Len() int      { return len(is) }
+func (is Issues) Swap(i, j int) { is[i], is[j] = is[j], is[i] }
+func (is Issues) Less(i, j int) bool {
+	return is[i] < is[j]
+}
+func (i *Issues) SSlice() []string {
+	res := make([]string, len(*i), len(*i))
+	for i, v := range *i {
+		res[i] = v.String()
+	}
+	return res
+}
+
 func (i *issue) String() string {
 	return string(*i)
 }

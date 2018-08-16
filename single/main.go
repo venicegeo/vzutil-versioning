@@ -18,11 +18,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -44,6 +44,8 @@ var full_name string
 var name string
 
 var cleanup func()
+
+var resolver *r.Resolver
 
 func main() {
 	var err error
@@ -71,6 +73,9 @@ func main() {
 		fmt.Println("The program arguments were incorrect. Usage: single [options] [org/repo] [sha]")
 		os.Exit(1)
 	}
+
+	resolver = r.NewResolver(ioutil.ReadFile)
+	genFileToFunc()
 
 	full_name = info[0]
 	name = strings.SplitN(info[0], "/", 2)[1]
@@ -110,13 +115,7 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		sissues := make([]string, len(issues), len(issues))
-		for i, is := range issues {
-			sissues[i] = is.String()
-		}
-		sort.Sort(deps)
-		sort.Strings(sissues)
-		if dat, err := util.GetJson(com.DependencyScan{full_name, name, sha, refs, deps, sissues, files, timestamp}); err != nil {
+		if dat, err := util.GetJson(com.DependencyScan{full_name, name, sha, refs, deps, issues.SSlice(), files, timestamp}); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		} else {
@@ -169,15 +168,19 @@ func modeScan(location, name string, test bool) ([]string, error) {
 
 var getFile = regexp.MustCompile(`^\/?(?:[^\/]+\/)*(.+)$`)
 
-var fileToFunc = map[string]func(string, bool) (d.Dependencies, i.Issues, error){
-	"glide.yaml":           r.ResolveGlideYaml,
-	"package.json":         r.ResolvePackageJson,
-	"environment.yml":      r.ResolveEnvironmentYml,
-	"environment-dev.yml":  r.ResolveEnvironmentYml,
-	"requirements.txt":     r.ResolveRequirementsTxt,
-	"requirements-dev.txt": r.ResolveRequirementsTxt,
-	"meta.yaml":            r.ResolveMetaYaml,
-	"pom.xml":              r.ResolvePomXml,
+var fileToFunc map[string]func(string, bool) (d.Dependencies, i.Issues, error)
+
+func genFileToFunc() {
+	fileToFunc = map[string]func(string, bool) (d.Dependencies, i.Issues, error){
+		"glide.yaml":           resolver.ResolveGlideYaml,
+		"package.json":         resolver.ResolvePackageJson,
+		"environment.yml":      resolver.ResolveEnvironmentYml,
+		"environment-dev.yml":  resolver.ResolveEnvironmentYml,
+		"requirements.txt":     resolver.ResolveRequirementsTxt,
+		"requirements-dev.txt": resolver.ResolveRequirementsTxt,
+		"meta.yaml":            resolver.ResolveMetaYaml,
+		"pom.xml":              resolver.ResolvePomXml,
+	}
 }
 
 func modeResolve(location, name string, files []string, test bool) (d.Dependencies, i.Issues, error) {

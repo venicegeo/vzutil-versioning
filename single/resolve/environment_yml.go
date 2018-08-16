@@ -17,9 +17,8 @@ package resolve
 
 import (
 	"errors"
-	"io/ioutil"
 	"regexp"
-	"strings"
+	"sort"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	i "github.com/venicegeo/vzutil-versioning/common/issue"
@@ -29,67 +28,75 @@ import (
 
 var environment_splitRE = regexp.MustCompile(`^([^>=<]+)((?:(?:<=)|(?:>=))|(?:=))?(.+)?$`)
 
-func ResolveEnvironmentYml(location string, test bool) (d.Dependencies, i.Issues, error) {
-	dat, err := ioutil.ReadFile(location)
+func (r *Resolver) ResolveEnvironmentYml(location string, test bool) (d.Dependencies, i.Issues, error) {
+	dat, err := r.readFile(location)
 	if err != nil {
 		return nil, nil, err
 	}
-	envw := CondaEnvironmentWrapper{}
-	if err := yaml.Unmarshal(dat, &envw); err != nil {
+	env := CondaEnvironment{}
+	if err := yaml.Unmarshal(dat, &env); err != nil {
 		return nil, nil, err
 	}
-	env, err := envw.convert()
+	condaLines, pipLines, err := env.getDepLines()
 	if err != nil {
 		return nil, nil, err
 	}
-	deps := make(d.Dependencies, len(env.Dependencies), len(env.Dependencies))
+	deps := make(d.Dependencies, 0, len(condaLines)+len(pipLines))
 	issues := i.Issues{}
-	for c, dep := range env.Dependencies {
-		parts := environment_splitRE.FindStringSubmatch(dep)[1:]
-		if parts[1] != "=" {
-			issues = append(issues, i.NewWeakVersion(parts[0], parts[2], parts[1]))
-		}
-		deps[c] = d.NewDependency(parts[0], strings.Split(parts[2], "=")[0], lan.Conda)
+	for _, dep := range condaLines {
+		dep, _ := r.parseCondaLine(dep, &issues)
+		deps = append(deps, dep)
 	}
+	for _, dep := range pipLines {
+		if dep, ok := r.parsePipLine(dep, &issues); ok {
+			deps = append(deps, dep)
+		}
+	}
+	sort.Sort(deps)
+	sort.Sort(issues)
 	return deps, issues, nil
 }
 
-type CondaEnvironmentWrapper struct {
+type CondaEnvironment struct {
 	Name         string        `yaml:"name"`
 	Channels     []string      `yaml:"channels"`
 	Dependencies []interface{} `yaml:"dependencies"`
 }
-type CondaEnvironment struct {
-	Name         string   `yaml:"name"`
-	Channels     []string `yaml:"channels"`
-	Dependencies []string `yaml:"dependencies"`
-}
 
-func (c *CondaEnvironmentWrapper) convert() (*CondaEnvironment, error) {
-	ret := &CondaEnvironment{c.Name, c.Channels, []string{}}
+func (c *CondaEnvironment) getDepLines() ([]string, []string, error) {
+	condaLines := []string{}
+	pipLines := []string{}
 	for _, d := range c.Dependencies {
 		switch d.(type) {
 		case string:
-			ret.Dependencies = append(ret.Dependencies, d.(string))
+			condaLines = append(condaLines, d.(string))
 		case map[interface{}]interface{}:
 			pip, ok := d.(map[interface{}]interface{})["pip"]
 			if !ok {
-				return nil, errors.New("Map found in yml not containing pip key")
+				return nil, nil, errors.New("Map found in yml not containing pip key")
 			}
 			pipDeps, ok := pip.([]interface{})
 			if !ok {
-				return nil, errors.New("Pip entry not []interface{}")
+				return nil, nil, errors.New("Pip entry not []interface{}")
 			}
 			for _, dep := range pipDeps {
 				if str, ok := dep.(string); !ok {
-					return nil, errors.New("Pip dependency non type string")
+					return nil, nil, errors.New("Pip dependency non type string")
 				} else {
-					ret.Dependencies = append(ret.Dependencies, str)
+					pipLines = append(pipLines, str)
 				}
 			}
 		default:
-			return nil, errors.New("Unknown type found in yml")
+			return nil, nil, errors.New("Unknown type found in yml")
 		}
 	}
-	return ret, nil
+	return condaLines, pipLines, nil
+}
+
+func (r *Resolver) parseCondaLine(line string, issues *i.Issues) (d.Dependency, bool) {
+	parts := environment_splitRE.FindStringSubmatch(line)[1:]
+	if parts[1] != "=" {
+		*issues = append(*issues, i.NewWeakVersion(parts[0], parts[2], parts[1]))
+	}
+	return d.NewDependency(parts[0], parts[2], lan.Conda), true
 }
