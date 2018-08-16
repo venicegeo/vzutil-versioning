@@ -411,7 +411,7 @@ func (esi *MockIndex) FilterByTermQuery(typeName string, name string, value inte
 	return resp, nil
 }
 
-func (esi *MockIndex) SearchByJSON(typ string, jsn string) (*elastic.SearchResult, error) {
+func (esi *MockIndex) SearchByJSON(typ string, jsn map[string]interface{}) (*elastic.SearchResult, error) {
 	return nil, fmt.Errorf("SearchByJSON not supported under mocking")
 }
 

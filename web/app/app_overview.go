@@ -67,14 +67,11 @@ func (a *Application) projectsOverview(c *gin.Context) {
 	} else if form.Project == "Add New" {
 		c.Redirect(303, "/newproj")
 	} else {
-		resp, err := a.index.SearchByJSON("project", u.Format(`{
-	"query":{
-		"term":{
-			"displayname":"%s"
+		q := map[string]interface{}{
+			"query": es.NewTerm(es.ProjectDisplayNameField, form.Project),
+			"size":  1,
 		}
-	},
-	"size":1
-}`, form.Project))
+		resp, err := a.index.SearchByJSON(ProjectType, q)
 		if err != nil {
 			c.String(500, "Error getting this project: %s", err.Error())
 			return
@@ -116,7 +113,7 @@ func (a *Application) newProject(c *gin.Context) {
 		}
 		displayName := f.ProjectName
 		name := strings.ToLower(strings.Replace(strings.Replace(f.ProjectName, "/", "_", -1), " ", "", -1))
-		exists, err := a.index.ItemExists("project", name)
+		exists, err := a.index.ItemExists(ProjectType, name)
 		if err != nil {
 			c.String(500, "Error checking exists in db: %s", err.Error())
 			return
@@ -124,7 +121,7 @@ func (a *Application) newProject(c *gin.Context) {
 			c.String(400, "This project already exists")
 			return
 		}
-		if resp, err := a.index.PostData("project", name, es.Project{name, displayName}); err != nil {
+		if resp, err := a.index.PostData(ProjectType, name, es.Project{name, displayName}); err != nil {
 			c.String(500, "Error creating project in db: %s", err.Error())
 			return
 		} else if !resp.Created {

@@ -49,7 +49,7 @@ func (p *Project) ScanBySha(sha string) (*RepositoryDependencyScan, bool, error)
 	var err error
 	//	var found bool
 
-	result, err := p.index.GetByID("repository_entry", sha+"-"+p.Name)
+	result, err := p.index.GetByID(RepositoryEntryType, sha+"-"+p.Name)
 	if result == nil {
 		return nil, false, err
 	} else if !result.Found {
@@ -122,7 +122,9 @@ func (project *Project) ScansByRefInProject(ref string) (map[string]*RepositoryD
 	}
 	work := func(repoName string) {
 		q := u.Format(string(dat), repoName)
-		resp, err := project.index.SearchByJSON("repository_entry", q)
+		var i map[string]interface{}
+		json.Unmarshal([]byte(q), &i)
+		resp, err := project.index.SearchByJSON(RepositoryEntryType, i)
 		if err != nil {
 			addError(repoName, u.Format("Error during query: %s", err.Error()))
 			return
@@ -151,24 +153,11 @@ func (project *Project) ScansByRefInProject(ref string) (map[string]*RepositoryD
 
 // Returns map of refs to shas of a repository in a project
 func (r *Repository) MapRefToShas() (map[string][]string, int64, error) {
-	query := u.Format(`{
-	"bool": {
-		"must": [
-			{
-				"term":{
-					"%s":"%s"
-				}
-			},{
-				"term":{
-					"%s":"%s"
-				}
-			}
-		]
-	}
-}`,
-		Scan_FullnameField, r.RepoFullname,
-		Scan_ProjectField, r.ProjectName)
-	entryDat, err := es.GetAll(r.index, "repository_entry", query, u.Format(`{"%s":"desc"}`, Scan_TimestampField))
+	boool := es.NewBool().
+		SetMust(es.NewBoolQ(
+			es.NewTerm(Scan_FullnameField, r.RepoFullname),
+			es.NewTerm(Scan_ProjectField, r.ProjectName)))
+	entryDat, err := es.GetAll(r.index, RepositoryEntryType, map[string]interface{}{"bool": boool}, map[string]interface{}{Scan_TimestampField: "desc"})
 	if err != nil {
 		return nil, 0, err
 	}
@@ -290,11 +279,7 @@ func (r *Retriever) ListRepositories() ([]string, error) {
 }
 
 func (p *Project) GetAllRepositories() ([]*Repository, error) {
-	hits, err := es.GetAll(p.index, "project_entry", u.Format(`{
-	"term": {
-		"%s":"%s"
-	}
-}`, "project_name", p.Name))
+	hits, err := es.GetAll(p.index, ProjectEntryType, es.NewTerm(es.ProjectEntryNameField, p.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -310,19 +295,13 @@ func (p *Project) GetAllRepositories() ([]*Repository, error) {
 }
 
 func (p *Project) GetRepository(repository string) (*Repository, error) {
-	resp, err := p.index.SearchByJSON("project_entry", u.Format(`{
-	"query": {
-		"bool": {
-			"must": [
-				{
-					"term": { "project_name": "%s" }
-				},{
-					"term": { "repo": "%s" }
-				}
-			]
-		}
-	}
-}`, p.Name, repository))
+	boolq := es.NewBool().
+		SetMust(es.NewBoolQ(
+			es.NewTerm(es.ProjectEntryNameField, p.Name),
+			es.NewTerm(es.ProjectEntryRepositoryField, repository)))
+	resp, err := p.index.SearchByJSON(ProjectEntryType, map[string]interface{}{
+		"query": map[string]interface{}{"bool": boolq},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +325,7 @@ func (r *Retriever) GetRepository(repository, project string) (*Repository, *Pro
 }
 
 func (r *Retriever) GetProject(name string) (*Project, error) {
-	resp, err := r.app.index.GetByID("project", name)
+	resp, err := r.app.index.GetByID(ProjectType, name)
 	if err != nil {
 		return nil, err
 	} else if !resp.Found {
@@ -360,7 +339,7 @@ func (r *Retriever) GetProject(name string) (*Project, error) {
 }
 
 func (r *Retriever) GetAllProjects() ([]*Project, error) {
-	hits, err := es.GetAll(r.app.index, "project", "{}")
+	hits, err := es.GetAll(r.app.index, ProjectType, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
@@ -376,7 +355,7 @@ func (r *Retriever) GetAllProjects() ([]*Project, error) {
 }
 
 func (r *Retriever) GetAllProjectNamesUsingRepository(repo string) ([]string, error) {
-	agg := es.NewAggQuery("projects", "project_name")
+	agg := es.NewAggQuery("projects", es.ProjectEntryNameField)
 	agg["query"] = es.NewTerm("repo", repo)
 	var out es.AggResponse
 	if err := r.app.index.DirectAccess("GET", "/versioning_tool/project_entry/_search", agg, &out); err != nil {

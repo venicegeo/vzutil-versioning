@@ -23,7 +23,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
-	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -49,24 +48,16 @@ type Application struct {
 const ESMapping = `
 {
 	"mappings": {
-		"repository_entry": ` + RepositoryDependencyScanMapping + `,
-		"difference":{
-			"dynamic":"strict",
-			"properties":{
-				"id":{"type":"keyword"},
-				"full_name":{"type":"keyword"},
-				"ref":{"type":"keyword"},
-				"old_sha":{"type":"keyword"},
-				"new_sha":{"type":"keyword"},
-				"removed":` + d.DependencyMapping + `,
-				"added":` + d.DependencyMapping + `,
-				"time":{"type":"keyword"}
-			}
-		},
-		"project_entry": ` + es.ProjectEntryMapping + `,
-		"project": ` + es.ProjectMapping + `
+		"` + RepositoryEntryType + `": ` + RepositoryDependencyScanMapping + `,
+		"` + DifferenceType + `": ` + DifferenceMapping + `,
+		"` + ProjectEntryType + `": ` + es.ProjectEntryMapping + `,
+		"` + ProjectType + `": ` + es.ProjectMapping + `
 	}
 }`
+const RepositoryEntryType = `repository_entry`
+const DifferenceType = `difference`
+const ProjectEntryType = `project_entry`
+const ProjectType = `project`
 
 type Back struct {
 	BackButton string `form:"button_back"`
@@ -115,8 +106,8 @@ func (a *Application) StartInternals() {
 		u.RouteData{"POST", "/newproj", a.newProject, true},
 		u.RouteData{"GET", "/project/:proj", a.viewProject, true},
 		u.RouteData{"POST", "/project/:proj", a.viewProject, true},
-		u.RouteData{"GET", "/addrepo/:proj", a.addReposToProject, true},
-		u.RouteData{"POST", "/addrepo/:proj", a.addReposToProject, true},
+		u.RouteData{"GET", "/addrepo/:proj", a.addRepoToProject, true},
+		u.RouteData{"POST", "/addrepo/:proj", a.addRepoToProject, true},
 		u.RouteData{"GET", "/genbranch/:proj/:org/:repo", a.generateBranch, true},
 		u.RouteData{"GET", "/reportref/:proj", a.reportRefOnProject, true},
 		u.RouteData{"GET", "/removerepo/:proj", a.removeReposFromProject, true},

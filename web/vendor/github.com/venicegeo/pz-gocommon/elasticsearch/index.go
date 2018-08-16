@@ -15,7 +15,6 @@
 package elasticsearch
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -429,17 +428,11 @@ func (esi *Index) FilterByMatchQuery(typ string, name string, value interface{},
 }
 
 // SearchByJSON performs a search over the index via raw JSON.
-func (esi *Index) SearchByJSON(typ string, jsn string) (*elastic.SearchResult, error) {
-	var obj interface{}
-	err := json.Unmarshal([]byte(jsn), &obj)
-	if err != nil {
-		return nil, err
-	}
-
+func (esi *Index) SearchByJSON(typ string, jsn map[string]interface{}) (*elastic.SearchResult, error) {
 	return esi.lib.Search().
 		Index(esi.index).
 		Type(typ).
-		Source(obj).
+		Source(jsn).
 		Do(context.Background())
 }
 

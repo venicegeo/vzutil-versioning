@@ -30,6 +30,9 @@ type Wildcard struct {
 type Terms struct {
 	Terms map[string][]string `json:"terms"`
 }
+type Range struct {
+	Range map[string]map[string]interface{} `json:"range"`
+}
 
 func NewTerm(key, value string) *Term {
 	ret := new(Term)
@@ -44,6 +47,11 @@ func NewWildcard(key, value string) *Wildcard {
 func NewTerms(key string, value ...string) *Terms {
 	ret := new(Terms)
 	ret.Terms = map[string][]string{key: value}
+	return ret
+}
+func NewRange(key, typ string, value interface{}) *Range {
+	ret := new(Range)
+	ret.Range = map[string]map[string]interface{}{key: map[string]interface{}{typ: value}}
 	return ret
 }
 func NewBoolQ(items ...interface{}) *BoolQ {

@@ -55,10 +55,15 @@ const ProjectEntryMapping = `{
 		}
 	}
 }`
+const ProjectEntryNameField = `project_name`
+const ProjectEntryRepositoryField = `repo`
+
 const ProjectMapping = `{
 	"dynamic":"strict",
 	"properties":{
-		"name":{"type":"keyword"},
-		"displayname":{"type":"keyword"}
+		"` + ProjectNameField + `":{"type":"keyword"},
+		"` + ProjectDisplayNameField + `":{"type":"keyword"}
 	}
 }`
+const ProjectNameField = `name`
+const ProjectDisplayNameField = `displayname`

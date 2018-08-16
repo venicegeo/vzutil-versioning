@@ -17,10 +17,9 @@ package app
 import (
 	"encoding/json"
 	"log"
-	"strings"
 
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
-	u "github.com/venicegeo/vzutil-versioning/web/util"
+	"github.com/venicegeo/vzutil-versioning/web/es"
 )
 
 type FireAndForget struct {
@@ -91,34 +90,19 @@ func (w *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 	var err error
 
 	var testAgainstEntry *RepositoryDependencyScan
-	result, err := w.app.index.SearchByJSON("repository_entry", u.Format(`
-{
-	"query":{
-		"bool":{
-			"must":[
-				{
-					"term":{
-						"%s":"%s"
-					}
-				},
-				{
-					"term":{
-							"%s": [%s]
-					}
-				},
-				{
-					"range":{
-						"%s":{ "lt":%d }
-					}
-				}
-			]
-		}
-	},
-	"sort":{
-		"%s":"desc"
-	},
-	"size":1
-}`, Scan_FullnameField, scan.RepoFullname, Scan_RefsField, strings.TrimSuffix(strings.TrimPrefix(u.Format("%#v", scan.Refs), `[]string{`), `}`), Scan_TimestampField, scan.Timestamp, Scan_TimestampField))
+	//TODO difference between term and terms?
+	boolq := es.NewBool().
+		SetMust(es.NewBoolQ(
+			es.NewTerm(Scan_FullnameField, scan.RepoFullname),
+			es.NewTerms(Scan_RefsField, scan.Refs...),
+			es.NewRange(Scan_TimestampField, "lt", scan.Timestamp)))
+	result, err := w.app.index.SearchByJSON(RepositoryEntryType, map[string]interface{}{
+		"query": map[string]interface{}{"bool": boolq},
+		"sort": map[string]interface{}{
+			Scan_TimestampField: "desc",
+		},
+		"size": 1,
+	})
 	if err == nil {
 		if result.Hits.TotalHits == 1 {
 			testAgainstEntr := new(RepositoryDependencyScan)
@@ -128,7 +112,7 @@ func (w *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 		}
 	}
 
-	resp, err := w.app.index.PostData("repository_entry", scan.Sha+"-"+scan.Project, scan)
+	resp, err := w.app.index.PostData(RepositoryEntryType, scan.Sha+"-"+scan.Project, scan)
 	if err != nil {
 		log.Printf("[ES-WORKER] Unable to create entry %s: %s\n", scan.Sha, err.Error())
 		return

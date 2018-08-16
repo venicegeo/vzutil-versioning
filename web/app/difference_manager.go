@@ -46,6 +46,20 @@ type Difference struct {
 	Timestamp time.Time           `json:"time"`
 }
 
+const DifferenceMapping = `{
+	"dynamic":"strict",
+	"properties":{
+		"id":{"type":"keyword"},
+		"full_name":{"type":"keyword"},
+		"ref":{"type":"keyword"},
+		"old_sha":{"type":"keyword"},
+		"new_sha":{"type":"keyword"},
+		"removed":` + depend.DependencyMapping + `,
+		"added":` + depend.DependencyMapping + `,
+		"time":{"type":"keyword"}
+	}
+}`
+
 func (d *Difference) SimpleString() string {
 	return u.Format("%s %s %s", d.FullName, d.RefData, d.Timestamp.String())
 }
@@ -126,11 +140,7 @@ func (d *DifferenceManager) AllDiffsInProject(proj string) (*[]Difference, error
 		bq.Add(es.NewTerm("full_name", repo.RepoFullname))
 	}
 	boool.SetShould(bq)
-	dat, err := json.Marshal(boool)
-	if err != nil {
-		return nil, err
-	}
-	hits, err := es.GetAll(d.app.index, "difference", u.Format(`{"bool":%s}`, string(dat)))
+	hits, err := es.GetAll(d.app.index, "difference", map[string]interface{}{"bool": boool})
 	if err != nil {
 		return nil, err
 	}
