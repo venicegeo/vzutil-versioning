@@ -88,7 +88,7 @@ func (a *Application) reportAtRefWrk(ref string, deps map[string]*RepositoryDepe
 				noDups[dep.String()] = dep
 			}
 		}
-		sorted := make(d.DependencySort, 0, len(noDups))
+		sorted := make(d.Dependencies, 0, len(noDups))
 		for _, dep := range noDups {
 			sorted = append(sorted, dep)
 		}
