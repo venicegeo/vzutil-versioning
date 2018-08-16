@@ -15,6 +15,7 @@
 package structs
 
 type GitWebhook struct {
+	Zen        string        `json:"zen"`
 	Ref        string        `json:"ref"`
 	BeforeSha  string        `json:"before"`
 	AfterSha   string        `json:"after"`

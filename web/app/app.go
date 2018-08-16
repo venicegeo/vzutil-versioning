@@ -24,13 +24,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
-	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 type Application struct {
-	indexName       string
 	singleLocation  string
 	compareLocation string
 	debugMode       bool
@@ -45,40 +43,13 @@ type Application struct {
 
 	killChan chan bool
 
-	index *elasticsearch.Index
+	index elasticsearch.IIndex
 }
 
-type Back struct {
-	BackButton string `form:"button_back"`
-}
-
-func NewApplication(indexName, singleLocation, compareLocation string, debugMode bool) *Application {
-	return &Application{
-		indexName:       indexName,
-		singleLocation:  singleLocation,
-		compareLocation: compareLocation,
-		debugMode:       debugMode,
-		killChan:        make(chan bool),
-	}
-}
-
-func (a *Application) Start() chan error {
-	done := make(chan error)
-	log.Println("Starting up...")
-
-	if err := a.handleMaven(); err != nil {
-		log.Fatal(err)
-	}
-
-	url, user, pass, err := s.GetVcapES()
-	log.Printf("The elasticsearch url has been found to be [%s]\n", url)
-	if err != nil {
-		log.Fatal(err)
-	}
-	i, err := elasticsearch.NewIndex2(url, user, pass, a.indexName, u.Format(`
+const ESMapping = `
 {
 	"mappings": {
-		"repository_entry": %s,
+		"repository_entry": ` + RepositoryDependencyScanMapping + `,
 		"difference":{
 			"dynamic":"strict",
 			"properties":{
@@ -87,22 +58,36 @@ func (a *Application) Start() chan error {
 				"ref":{"type":"keyword"},
 				"old_sha":{"type":"keyword"},
 				"new_sha":{"type":"keyword"},
-				"removed":%s,
-				"added":%s,
+				"removed":` + d.DependencyMapping + `,
+				"added":` + d.DependencyMapping + `,
 				"time":{"type":"keyword"}
 			}
 		},
-		"project_entry": %s,
-		"project": %s
+		"project_entry": ` + es.ProjectEntryMapping + `,
+		"project": ` + es.ProjectMapping + `
 	}
-}`, RepositoryDependencyScanMapping, d.DependencyMapping, d.DependencyMapping, es.ProjectEntryMapping, es.ProjectMapping))
-	if err != nil {
-		log.Fatal(err.Error())
-	} else {
-		log.Println(i.GetVersion())
-	}
+}`
 
-	a.index = i
+type Back struct {
+	BackButton string `form:"button_back"`
+}
+
+func NewApplication(index elasticsearch.IIndex, singleLocation, compareLocation string, debugMode bool) *Application {
+	return &Application{
+		index:           index,
+		singleLocation:  singleLocation,
+		compareLocation: compareLocation,
+		debugMode:       debugMode,
+		killChan:        make(chan bool),
+	}
+}
+
+func (a *Application) StartInternals() {
+	log.Println("Starting internals...")
+
+	if err := a.handleMaven(); err != nil {
+		log.Fatalln(err)
+	}
 
 	a.diffMan = NewDifferenceManager(a)
 	a.wrkr = NewWorker(a, 2)
@@ -112,12 +97,6 @@ func (a *Application) Start() chan error {
 
 	a.wrkr.Start()
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "20012"
-	}
-
-	log.Println("Starting on port", port)
 	a.server = u.NewServer()
 	if _, err := os.Stat("localhost.crt"); err == nil {
 		if _, err = os.Stat("localhost.key"); err == nil {
@@ -146,8 +125,20 @@ func (a *Application) Start() chan error {
 		u.RouteData{"GET", "/diff/:proj", a.differencesInProject, true},
 		u.RouteData{"GET", "/reportsha", a.reportSha, true},
 	})
+}
+
+func (a *Application) StartServer() chan error {
+	done := make(chan error)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "20012"
+	}
+
+	log.Printf("Starting server on port %s...\n", port)
+
 	select {
-	case err = <-a.server.Start(":" + port):
+	case err := <-a.server.Start(":" + port):
 		done <- err
 	case <-a.killChan:
 		done <- errors.New(u.Format("was stopped: %s", a.server.Stop()))
