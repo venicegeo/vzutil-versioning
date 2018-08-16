@@ -30,19 +30,17 @@ git+https://github.com/happy/place.git@v0.1.8#egg=some-thing
 git+https://github.com/mozilla/elasticutils.git#egg=elasticutils
 pytides
 `, ResolveResult{
-		deps:   d.Dependencies{d.NewDependency("click", "6.6", l.Python), d.NewDependency("place", "v0.1.8", l.Python), d.NewDependency("elasticutils", "", l.Python), d.NewDependency("pytides", "", l.Python)},
+		deps:   d.Dependencies{d.NewDependency("click", "6.6", l.Python), d.NewDependency("elasticutils", "", l.Python), d.NewDependency("place", "v0.1.8", l.Python), d.NewDependency("pytides", "", l.Python)},
 		issues: i.Issues{i.NewWeakVersion("pytides", "", "")},
 		err:    nil,
 	}, resolver.ResolveRequirementsTxt)
 
 	addTest("requirements_txt", `
 click==6.6
-git+https://github.com/happy/place.git@v0.1.8#egg=some-thing
-git+https://github.com/mozilla/elasticutils.git#egg=elasticutils
-pytides
+kcilc>=0.6
 `, ResolveResult{
-		deps:   d.Dependencies{d.NewDependency("click", "6.6", l.Python), d.NewDependency("place", "v0.1.8", l.Python), d.NewDependency("elasticutils", "", l.Python), d.NewDependency("pytides", "", l.Python)},
-		issues: i.Issues{i.NewWeakVersion("pytides", "", "")},
+		deps:   d.Dependencies{d.NewDependency("click", "6.6", l.Python), d.NewDependency("kcilc", "0.6", l.Python)},
+		issues: i.Issues{i.NewWeakVersion("kcilc", "0.6", ">=")},
 		err:    nil,
 	}, resolver.ResolveRequirementsTxt)
 

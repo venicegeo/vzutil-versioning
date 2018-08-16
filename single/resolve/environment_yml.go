@@ -18,6 +18,7 @@ package resolve
 import (
 	"errors"
 	"regexp"
+	"sort"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	i "github.com/venicegeo/vzutil-versioning/common/issue"
@@ -51,6 +52,8 @@ func (r *Resolver) ResolveEnvironmentYml(location string, test bool) (d.Dependen
 			deps = append(deps, dep)
 		}
 	}
+	sort.Sort(deps)
+	sort.Sort(issues)
 	return deps, issues, nil
 }
 

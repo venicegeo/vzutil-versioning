@@ -17,6 +17,7 @@ package resolve
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
@@ -41,6 +42,8 @@ func (r *Resolver) ResolveRequirementsTxt(location string, test bool) (d.Depende
 			deps[c] = dep
 		}
 	}
+	sort.Sort(deps)
+	sort.Sort(issues)
 	return deps, issues, nil
 }
 

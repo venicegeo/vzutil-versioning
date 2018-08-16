@@ -16,6 +16,7 @@ limitations under the License.
 package resolve
 
 import (
+	"sort"
 	"strings"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
@@ -44,6 +45,8 @@ func (r *Resolver) ResolveMetaYaml(location string, test bool) (d.Dependencies, 
 		deps = append(deps, d.NewDependency(parts[0], strings.Join(strings.Split(parts[1], " "), "="), lan.Conda))
 	}
 	d.RemoveExactDuplicates(&deps)
+	sort.Sort(deps)
+	sort.Sort(issues)
 	return deps, issues, nil
 }
 

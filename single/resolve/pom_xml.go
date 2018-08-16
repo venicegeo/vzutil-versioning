@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
@@ -72,7 +73,13 @@ func (r *Resolver) ResolvePomXml(location string, test bool) (d.Dependencies, i.
 	poms.BuildHierarchy(false)
 
 	//poms.PrintHierarchy()
-	return poms.GetResults()
+	if deps, issues, err := poms.GetResults(); err != nil {
+		return deps, issues, err
+	} else {
+		sort.Sort(deps)
+		sort.Sort(issues)
+		return deps, issues, nil
+	}
 }
 
 type PomProjectWrapper struct {
@@ -179,6 +186,11 @@ func (c *PomCollection) GetResults() (total d.Dependencies, issues i.Issues, err
 		}
 		issues = append(issues, iss...)
 		total = append(total, deps...)
+	}
+	for _, dep := range total {
+		if dep.Version == "" {
+			issues = append(issues, i.NewMissingVersion(dep.Name))
+		}
 	}
 	return total, issues, nil
 }

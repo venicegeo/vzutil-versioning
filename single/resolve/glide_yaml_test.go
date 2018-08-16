@@ -23,35 +23,24 @@ import (
 	l "github.com/venicegeo/vzutil-versioning/common/language"
 )
 
-func TestPackageJson(t *testing.T) {
-	addTest("package_json", `
-{
-	"devDependencies": {
-		"karma": "42",
-		"mocha": "50"
-	},
-	"dependencies": {
-		"ol": "ok",
-		"ok": "ol"
-	}
-}
+func TestGlideYaml(t *testing.T) {
+	addTest("glide_yaml", `
+package: some/cool/place
+import:
+  - package: dep_one
+    version: abc
+  - package: dep_two
+    version: 1.3
+    subpackages:
+    - dont_include
+testImport:
+  - package: dep_three
 `, ResolveResult{
-		deps:   d.Dependencies{d.NewDependency("karma", "42", l.JavaScript), d.NewDependency("mocha", "50", l.JavaScript), d.NewDependency("ok", "ol", l.JavaScript), d.NewDependency("ol", "ok", l.JavaScript)},
-		issues: i.Issues{},
+		deps:   d.Dependencies{d.NewDependency("dep_one", "abc", l.Go), d.NewDependency("dep_three", "", l.Go), d.NewDependency("dep_two", "1.3", l.Go)},
+		issues: i.Issues{i.NewMissingVersion("dep_three")},
 		err:    nil,
-	}, resolver.ResolvePackageJson)
+	}, resolver.ResolveGlideYaml)
 
-	addTest("package_json", `
-{
-	"dependencies": {
-		"babel-core": "~6.26.3"
-	}
-}`, ResolveResult{
-		deps:   d.Dependencies{d.NewDependency("babel-core", "6.26.3", l.JavaScript)},
-		issues: i.Issues{i.NewWeakVersion("babel-core", "~6.26.3", "~")},
-		err:    nil,
-	}, resolver.ResolvePackageJson)
-
-	run("package_json", t)
+	run("glide_yaml", t)
 
 }

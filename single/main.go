@@ -23,7 +23,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -116,13 +115,7 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		sissues := make([]string, len(issues), len(issues))
-		for i, is := range issues {
-			sissues[i] = is.String()
-		}
-		sort.Sort(deps)
-		sort.Strings(sissues)
-		if dat, err := util.GetJson(com.DependencyScan{full_name, name, sha, refs, deps, sissues, files, timestamp}); err != nil {
+		if dat, err := util.GetJson(com.DependencyScan{full_name, name, sha, refs, deps, issues.SSlice(), files, timestamp}); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		} else {

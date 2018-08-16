@@ -16,6 +16,7 @@ limitations under the License.
 package resolve
 
 import (
+	"sort"
 	"strings"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
@@ -65,6 +66,8 @@ func (r *Resolver) ResolveGlideYaml(location string, test bool) (d.Dependencies,
 		}
 		deps[c] = d.NewDependency(elem.Name, version, lan.Go)
 	}
+	sort.Sort(deps)
+	sort.Sort(issues)
 	return deps, issues, nil
 }
 

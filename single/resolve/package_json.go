@@ -18,6 +18,7 @@ package resolve
 import (
 	"encoding/json"
 	"regexp"
+	"sort"
 	"strings"
 
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
@@ -62,5 +63,7 @@ func (r *Resolver) ResolvePackageJson(location string, test bool) (d.Dependencie
 		}
 		deps = append(deps, d.NewDependency(name, version, lan.JavaScript))
 	}
+	sort.Sort(deps)
+	sort.Sort(issues)
 	return deps, issues, nil
 }

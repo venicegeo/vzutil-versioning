@@ -61,8 +61,8 @@ dependencies:
       - setuptools==39.0.0
       - git+https://github.com/happy/place.git@v1.0.1#egg=place
 `, ResolveResult{
-		deps: d.Dependencies{d.NewDependency("gippy", "1.0.0.post3", l.Conda), d.NewDependency("pip", "1.0", l.Conda), d.NewDependency("bfalg-ndwi", "2.0.0", l.Conda),
-			d.NewDependency("setuptools", "39.0.0", l.Python), d.NewDependency("place", "v1.0.1", l.Python)},
+		deps: d.Dependencies{d.NewDependency("bfalg-ndwi", "2.0.0", l.Conda), d.NewDependency("gippy", "1.0.0.post3", l.Conda), d.NewDependency("pip", "1.0", l.Conda), d.NewDependency("place", "v1.0.1", l.Python),
+			d.NewDependency("setuptools", "39.0.0", l.Python)},
 		issues: i.Issues{},
 		err:    nil,
 	}, resolver.ResolveEnvironmentYml)
