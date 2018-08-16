@@ -22,10 +22,10 @@ import (
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-func GetAll(index *elasticsearch.Index, typ, query string, vsort ...string) (*elastic.SearchHits, error) {
+func GetAll(index elasticsearch.IIndex, typ, query string, vsort ...string) (*elastic.SearchHits, error) {
 	return GetAllSource(index, typ, query, true, vsort...)
 }
-func GetAllSource(index *elasticsearch.Index, typ, query string, source interface{}, vsort ...string) (*elastic.SearchHits, error) {
+func GetAllSource(index elasticsearch.IIndex, typ, query string, source interface{}, vsort ...string) (*elastic.SearchHits, error) {
 	s, err := json.Marshal(source)
 	if err != nil {
 		return nil, err

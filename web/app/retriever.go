@@ -31,11 +31,11 @@ type Retriever struct {
 }
 
 type Project struct {
-	index *elasticsearch.Index
+	index elasticsearch.IIndex
 	*es.Project
 }
 type Repository struct {
-	index   *elasticsearch.Index
+	index   elasticsearch.IIndex
 	project *Project
 	*es.ProjectEntry
 }

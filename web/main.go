@@ -17,10 +17,25 @@ package main
 import (
 	"log"
 
+	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/app"
+	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 )
 
 func main() {
-	app := app.NewApplication("versioning_tool", "./single", "./compare", false)
-	log.Println(<-app.Start())
+	url, user, pass, err := s.GetVcapES()
+	log.Printf("The elasticsearch url has been found to be [%s]\n", url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	index, err := elasticsearch.NewIndex2(url, user, pass, "versioning_tool", app.ESMapping)
+	if err != nil {
+		log.Fatal(err.Error())
+	} else {
+		log.Println(index.GetVersion())
+	}
+
+	app := app.NewApplication(index, "./single", "./compare", false)
+	app.StartInternals()
+	log.Println(<-app.StartServer())
 }

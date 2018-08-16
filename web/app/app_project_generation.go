@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	h "github.com/venicegeo/vzutil-versioning/web/app/helpers"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -33,9 +34,17 @@ func (a *Application) webhookPath(c *gin.Context) {
 		return
 	}
 
-	c.String(200, "Thanks!")
+	if git.Zen != "" {
+		_, str, _, _ := nt.HTTP(nt.GET, "https://api.github.com/zen", nt.NewHeaderBuilder().GetHeader(), nil)
+		if string(str) == "" {
+			str = []byte("Thanks!")
+		}
+		c.String(200, string(str))
+	} else {
+		c.String(200, "Thanks!")
+		a.ff.FireGit(git)
+	}
 
-	a.ff.FireGit(git)
 }
 
 func (a *Application) generateBranch(c *gin.Context) {
