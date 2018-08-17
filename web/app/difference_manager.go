@@ -22,7 +22,6 @@ import (
 	"time"
 
 	c "github.com/venicegeo/vzutil-versioning/common"
-	depend "github.com/venicegeo/vzutil-versioning/common/dependency"
 	t "github.com/venicegeo/vzutil-versioning/common/table"
 	"github.com/venicegeo/vzutil-versioning/compare/pub"
 	"github.com/venicegeo/vzutil-versioning/web/es"
@@ -85,22 +84,6 @@ func (d diffSort) Less(i, j int) bool {
 }
 
 func (dm *DifferenceManager) GenerateReport(d *Difference) string {
-	//TODO delete?
-	/*
-	   getDep := func(dep string) string {
-	   		if resp, err := dm.app.index.GetByID("dependency", dep); err != nil || !resp.Found {
-	   			return dep
-	   		} else {
-	   			var depen depend.Dependency
-	   			if err = json.Unmarshal([]byte(*resp.Source), &depen); err != nil {
-	   				tmp := depend.Dependency{u.Format("Error getting [%s]: [%s]", dep, err.Error()), "", ""}
-	   				return u.Format("%s:%s:%s", tmp.Name, tmp.Version, tmp.Language)
-	   			} else {
-	   				return u.Format("%s:%s:%s", depen.Name, depen.Version, depen.Language)
-	   			}
-	   		}
-	   	}
-	*/
 	height := len(d.Removed)
 	if height < len(d.Added) {
 		height = len(d.Added)
@@ -229,30 +212,6 @@ func (d *DifferenceManager) diffCompareWrk(repoName, projectName, ref string, ol
 	removed := c.ExpectedExtra
 	added := c.ExpectedMissing
 
-	//	added := depend.Dependencies{}
-	//	removed := depend.Dependencies{}
-
-	//	done := make(chan bool, 2)
-
-	//	go func() {
-	//		for _, newDep := range newDeps {
-	//			if !depscont(oldDeps, newDep) {
-	//				added = append(added, newDep)
-	//			}
-	//		}
-	//		done <- true
-	//	}()
-	//	go func() {
-	//		for _, oldDep := range oldDeps {
-	//			if !depscont(newDeps, oldDep) {
-	//				removed = append(removed, oldDep)
-	//			}
-	//		}
-	//		done <- true
-	//	}()
-	//	for i := 0; i < 2; i++ {
-	//		<-done
-	//	}
 	if len(added) == 0 && len(removed) == 0 {
 		return nil, nil
 	}
@@ -270,13 +229,4 @@ func (d *DifferenceManager) diffCompareWrk(repoName, projectName, ref string, ol
 
 func (d *DifferenceManager) Delete(id string) {
 	d.app.index.DeleteByIDWait("difference", id)
-}
-
-func depscont(sl depend.Dependencies, s depend.Dependency) bool {
-	for _, ss := range sl {
-		if ss == s {
-			return true
-		}
-	}
-	return false
 }
