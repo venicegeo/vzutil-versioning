@@ -40,6 +40,9 @@ func (a *Application) projectsOverview(c *gin.Context) {
 	case "Dependency Search":
 		c.Redirect(303, "/depsearch")
 		return
+	case "Custom Compare":
+		c.Redirect(303, "/cdiff")
+		return
 	}
 	if form.Project == "" {
 		table := s.NewHtmlTable()
@@ -167,4 +170,86 @@ func (a *Application) reportSha(c *gin.Context) {
 		}
 	}
 	c.HTML(200, "reportsha.html", h)
+}
+
+func (a *Application) customDiff(c *gin.Context) {
+	var form struct {
+		Back string `form:"button_back"`
+
+		Org  string `form:"org"`
+		Repo string `form:"repo"`
+		Scan string `form:"button_scan"`
+
+		Files []string `form:"files[]"`
+		Next  string   `form:"button_next"`
+
+		OldSha string `form:"oldsha"`
+		NewSha string `form:"newsha"`
+		Submit string `form:"button_submit"`
+	}
+	if err := c.Bind(&form); err != nil {
+		c.String(400, "Error binding form: %s", err.Error())
+		return
+	}
+	if form.Back != "" {
+		c.Redirect(303, "/ui")
+		return
+	}
+	h := gin.H{
+		"org":      form.Org,
+		"repo":     form.Repo,
+		"oldsha":   form.OldSha,
+		"newsha":   form.NewSha,
+		"hidescan": true,
+		"hideshas": true,
+		"hidediff": true,
+	}
+	repoName := u.Format("%s/%s", form.Org, form.Repo)
+	setScan := func(i interface{}) {
+		h["hidescan"] = false
+		switch i.(type) {
+		case string:
+			h["scan"] = s.NewHtmlString(i.(string)).Template()
+		case []string:
+			check := s.NewHtmlCheckbox("files[]")
+			for _, file := range i.([]string) {
+				check.Add(file, file, true)
+			}
+			h["scan"] = s.NewHtmlCollection(check, s.NewHtmlButton2("button_next", "Next")).Template()
+		default:
+			panic("Youre doing this wrong")
+		}
+	}
+	primaryScan := func() {
+		if !a.checkRepoIsReal(form.Org, form.Repo) {
+			setScan("This isnt a real repo")
+		} else {
+			if files, err := a.wrkr.snglRnnr.ScanWithSingle(repoName); err != nil {
+				setScan(err.Error())
+			} else {
+				for i, f := range files {
+					files[i] = strings.TrimPrefix(f, repoName+"/")
+				}
+				setScan(files)
+			}
+		}
+	}
+	files := s.NewHtmlCollection()
+	for _, f := range form.Files {
+		files.Add(s.NewHtmlTextField("files[]", f).Special("readonly"))
+	}
+	if form.Scan != "" {
+		primaryScan()
+	} else if form.Next != "" {
+		h["hidescan"] = false
+		h["hideshas"] = false
+		h["scan"] = files.Template()
+	} else if form.Submit != "" {
+		h["hidescan"] = false
+		h["hideshas"] = false
+		h["scan"] = files.Template()
+		h["hidediff"] = false
+		h["diff"] = "OI"
+	}
+	c.HTML(200, "newdiff.html", h)
 }

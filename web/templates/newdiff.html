@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<head>
+	<style type="text/css">
+td {
+	vertical-align: top;
+	align: left;
+}
+	</style>
+</head>
+<body>
+<form method="post">
+<input type="submit" name="button_back" value="Back">
+<table id="maintable">
+	<tr>
+		<td>
+			<fieldset>
+				<table id="primtable">
+					<tr>
+						<td>Org</td>
+						<td><input type="text" name="org" value="{{ .org }}" id="org"></td>
+					</tr>
+					<tr>
+						<td>Repo</td>
+						<td><input type="text" name="repo" value="{{ .repo }}" id="repo"></td>
+						<td><input type="submit" name="button_scan" value="Scan"></td>		
+					</tr>
+				</table>
+			</fieldset>
+			<div id="scan">
+			<fieldset>
+				{{ .scan }}
+			</fieldset>
+			</div>
+			<div id="shas">
+			<fieldset>
+				<table id="shastable">
+					<tr>
+						<td>Older Sha</td>
+						<td><input type="text" name="oldsha" value="{{ .oldsha }}"	id="oldsha"></td>
+					</tr>
+					<tr>
+						<td>Newer Sha</td>
+						<td><input type="text" name="newsha" value="{{ .newsha }}" id="newsha"></td>
+						<td><input type="submit" name="button_submit" value="Submit"></td>
+					</tr>
+				</table>
+			</fieldset>
+			</div>
+		</td>
+		<td>
+			<div id="diff">
+			<fieldset>
+				{{ .diff }}
+			</fieldset>
+			</div>
+		</td>
+	</tr>
+</table>
+</form>
+<script>
+if({{ .hidescan }})
+	document.getElementById('scan').style.display = "none"
+else
+	document.getElementById('scan').style.display = "block"
+
+if({{ .hideshas }})
+	document.getElementById('shas').style.display = "none"
+else
+	document.getElementById('shas').style.display = "block"
+
+if({{ .hidediff }})
+	document.getElementById('diff').style.display = "none"
+else
+	document.getElementById('diff').style.display = "block"
+
+function show_hide_column(id, col_no, do_show) {
+    var tbl = document.getElementById(id);
+    var rows = tbl.getElementsByTagName('tr');
+
+    for (var row = 0; row < rows.length; row++) {
+        var cols = rows[row].children;
+        if (col_no >= 0 && col_no < cols.length) {
+            var cell = cols[col_no];
+            if (cell.tagName == 'TD') cell.style.display = do_show ? 'block' : 'none';
+        }
+    }
+}
+
+function set_display() {
+	if(document.getElementById('scan').style.display == "block") {
+		document.getElementById('org').readOnly=true
+		document.getElementById('repo').readOnly=true
+		show_hide_column("primtable",2,false)
+	}
+	if(document.getElementById('diff').style.display == "block")
+		show_hide_column("shastable",2,false)
+}
+
+set_display()
+
+</script>
+
+</body>
+</html>
