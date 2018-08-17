@@ -27,9 +27,33 @@ import (
 
 const percolateTypeName = ".percolate"
 
+type anyType struct {
+	s   map[string]interface{}
+	raw *json.RawMessage
+}
+
+func newAnyType(i interface{}) (*anyType, error) {
+	dat, err := json.Marshal(i)
+	if err != nil {
+		return nil, err
+	}
+	var s map[string]interface{}
+	if err = json.Unmarshal(dat, &s); err != nil {
+		return nil, err
+	}
+	raw := new(json.RawMessage)
+	if err = raw.UnmarshalJSON(dat); err != nil {
+		return nil, err
+	}
+	ret := new(anyType)
+	ret.s = s
+	ret.raw = raw
+	return ret, nil
+}
+
 type MockIndexType struct {
 	// maps from id string to document body
-	items map[string]*json.RawMessage
+	items map[string]*anyType
 
 	mapping interface{}
 }
@@ -165,7 +189,7 @@ func (esi *MockIndex) addType(typeName string, mapping string) error {
 
 	esi.types[typeName] = &MockIndexType{
 		mapping: obj,
-		items:   make(map[string]*json.RawMessage),
+		items:   make(map[string]*anyType),
 	}
 
 	return nil
@@ -196,19 +220,13 @@ func (esi *MockIndex) PostData(typeName string, id string, obj interface{}) (*el
 	var typ *MockIndexType
 	if !ok {
 		typ = &MockIndexType{}
-		typ.items = make(map[string]*json.RawMessage)
+		typ.items = make(map[string]*anyType)
 		esi.types[typeName] = typ
 	} else {
 		typ = esi.types[typeName]
 	}
 
-	byts, err := json.Marshal(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	var raw json.RawMessage
-	err = raw.UnmarshalJSON(byts)
+	raw, err := newAnyType(obj)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +235,7 @@ func (esi *MockIndex) PostData(typeName string, id string, obj interface{}) (*el
 		id = esi.newId()
 	}
 
-	typ.items[id] = &raw
+	typ.items[id] = raw
 
 	r := &elastic.IndexResponse{Created: true, Id: id, Index: esi.name, Type: typeName}
 	return r, nil
@@ -239,7 +257,7 @@ func (esi *MockIndex) GetByID(typeName string, id string) (*elastic.GetResult, e
 
 	typ := esi.types[typeName]
 	item := typ.items[id]
-	r := &elastic.GetResult{Id: id, Source: item, Found: true}
+	r := &elastic.GetResult{Id: id, Source: item.raw, Found: true}
 	return r, nil
 }
 
@@ -309,7 +327,7 @@ func (esi *MockIndex) FilterByMatchAll(typeName string, realFormat *piazza.JsonP
 				continue
 			}
 			for ik, iv := range tv.items {
-				objs[ik] = iv
+				objs[ik] = iv.raw
 			}
 		}
 	} else {
@@ -317,7 +335,7 @@ func (esi *MockIndex) FilterByMatchAll(typeName string, realFormat *piazza.JsonP
 			return emptyResp, nil
 		}
 		for ik, iv := range esi.types[typeName].items {
-			objs[ik] = iv
+			objs[ik] = iv.raw
 		}
 	}
 
@@ -376,7 +394,7 @@ func (esi *MockIndex) FilterByTermQuery(typeName string, name string, value inte
 	objs := make(map[string]*json.RawMessage)
 
 	for ik, iv := range esi.types[typeName].items {
-		objs[ik] = iv
+		objs[ik] = iv.raw
 	}
 
 	resp := &elastic.SearchResult{
