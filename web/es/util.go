@@ -15,37 +15,32 @@
 package es
 
 import (
-	"encoding/json"
-
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/pz-gocommon/elasticsearch/elastic-5-api"
-	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-func GetAll(index elasticsearch.IIndex, typ, query string, vsort ...string) (*elastic.SearchHits, error) {
+func GetAll(index elasticsearch.IIndex, typ string, query interface{}, vsort ...interface{}) (*elastic.SearchHits, error) {
 	return GetAllSource(index, typ, query, true, vsort...)
 }
-func GetAllSource(index elasticsearch.IIndex, typ, query string, source interface{}, vsort ...string) (*elastic.SearchHits, error) {
-	s, err := json.Marshal(source)
-	if err != nil {
-		return nil, err
-	}
+func GetAllSource(index elasticsearch.IIndex, typ string, query interface{}, source interface{}, vsort ...interface{}) (*elastic.SearchHits, error) {
 	from := int64(0)
 	size := int64(20)
 	res := &elastic.SearchHits{0, nil, []*elastic.SearchHit{}}
-	sort := "{}"
+	var sort interface{}
 	if len(vsort) > 0 {
 		sort = vsort[0]
+	} else {
+		sort = map[string]interface{}{}
 	}
 	for {
-		str := u.Format(`{
-	"from":%d,
-	"size":%d,
-	"_source": %s,
-	"query":%s,
-	"sort":%s
-}`, from, size, string(s), query, sort)
-		result, err := index.SearchByJSON(typ, str)
+		q := map[string]interface{}{
+			"from":    from,
+			"size":    size,
+			"_source": source,
+			"query":   query,
+			"sort":    sort,
+		}
+		result, err := index.SearchByJSON(typ, q)
 		if err != nil {
 			return nil, err
 		}

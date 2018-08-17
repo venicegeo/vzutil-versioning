@@ -109,11 +109,7 @@ func (a *Application) searchForDepWrk(depName, depVersion string, repos []string
 	nested.SetInnerQuery(map[string]interface{}{"bool": es.NewBool().SetMust(must)})
 	query := map[string]interface{}{"bool": es.NewBool().SetMust(es.NewBoolQ(nested)).SetFilter(es.NewBoolQ(terms))}
 
-	queryDat, err := json.MarshalIndent(query, " ", "   ")
-	if err != nil {
-		return 500, "Unable to create bool query: " + err.Error()
-	}
-	hits, err := es.GetAllSource(a.index, "repository_entry", string(queryDat), []string{Scan_FullnameField, Scan_RefsField})
+	hits, err := es.GetAllSource(a.index, RepositoryEntryType, query, []string{Scan_FullnameField, Scan_RefsField})
 	if err != nil {
 		return 500, "Failure executing bool query: " + err.Error()
 	}

@@ -15,10 +15,13 @@
 package app
 
 import (
+	"encoding/json"
+	"log"
 	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
+	"github.com/venicegeo/pz-gocommon/elasticsearch/elastic-5-api"
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
@@ -119,11 +122,11 @@ func (a *Application) viewProject(c *gin.Context) {
 	h["accordion"] = accord.Template()
 	h["deps"] = depsStr
 	{
-		diffs, err := a.diffMan.DiffListInProject(proj)
+		diffs, err := a.diffMan.GetAllDiffsInProject(proj)
 		if err != nil {
 			h["diff"] = ""
 		} else {
-			h["diff"] = u.Format(" (%d)", len(diffs))
+			h["diff"] = u.Format(" (%d)", len(*diffs))
 		}
 	}
 	c.HTML(200, "project.html", h)
@@ -158,7 +161,7 @@ func (a *Application) generateAccordion(accord *s.HtmlAccordion, repo *Repositor
 	errs <- nil
 }
 
-func (a *Application) addReposToProject(c *gin.Context) {
+func (a *Application) addRepoToProject(c *gin.Context) {
 	var form struct {
 		Back string `form:"button_back"`
 
@@ -286,24 +289,14 @@ func (a *Application) addReposToProject(c *gin.Context) {
 			RepoFullname:   repoName,
 			DependencyInfo: depinfo,
 		}
-		resp, err := a.index.SearchByJSON("project_entry", u.Format(`{
-	"query":{
-		"bool":{
-			"must":[
-				{
-					"term":{
-						"project_name":"%s"
-					}
-				},{
-					"term":{
-						"repo":"%s"
-					}
-				}
-			]
-		}
-	},
-	"size":1
-}`, entry.ProjectName, entry.RepoFullname))
+		boolq := es.NewBool().
+			SetMust(es.NewBoolQ(
+				es.NewTerm(es.ProjectEntryNameField, entry.ProjectName),
+				es.NewTerm(es.ProjectEntryRepositoryField, entry.RepoFullname)))
+		resp, err := a.index.SearchByJSON(ProjectEntryType, map[string]interface{}{
+			"query": map[string]interface{}{"bool": boolq},
+			"size":  1,
+		})
 		if err != nil {
 			c.String(500, "Error checking database for existing repo: %s", err.Error())
 			return
@@ -312,7 +305,7 @@ func (a *Application) addReposToProject(c *gin.Context) {
 			c.String(400, "This repo already exists under this project")
 			return
 		}
-		iresp, err := a.index.PostData("project_entry", "", entry)
+		iresp, err := a.index.PostData(ProjectEntryType, "", entry)
 		if err != nil || !iresp.Created {
 			c.String(500, "Error adding entry to database: ", err)
 			return
@@ -374,20 +367,14 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 		return
 	}
 	if form.Repo != "" {
-		resp, err := a.index.SearchByJSON("project_entry", u.Format(`{
-	"query":{
-		"bool":{
-			"must":[
-				{
-					"term":{"name":"%s"}
-				},{
-					"term":{"repo":"%s"}
-				}
-			]
-		}
-	},
-	"size":1
-}`, proj, form.Repo))
+		boolq := es.NewBool().
+			SetMust(es.NewBoolQ(
+				es.NewTerm(es.ProjectEntryNameField, proj),
+				es.NewTerm(es.ProjectEntryRepositoryField, form.Repo)))
+		resp, err := a.index.SearchByJSON(ProjectEntryType, map[string]interface{}{
+			"query": map[string]interface{}{"bool": boolq},
+			"size":  1,
+		})
 		if err != nil {
 			c.String(400, "Unable to find the project entry: %s", err.Error())
 			return
@@ -396,11 +383,37 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 			c.String(400, "Could not find the project entry")
 			return
 		}
-		_, err = a.index.DeleteByIDWait("project_entry", resp.Hits.Hits[0].Id)
+		entry := new(es.ProjectEntry)
+		if err = json.Unmarshal(*resp.Hits.Hits[0].Source, entry); err != nil {
+			c.String(500, "Unable to read project entry: %s", err.Error())
+			return
+		}
+		_, err = a.index.DeleteByIDWait(ProjectEntryType, resp.Hits.Hits[0].Id)
 		if err != nil {
 			c.String(500, "Unable to delete project entry: %s", err.Error())
 			return
 		}
+		func() {
+			hits, err := es.GetAll(a.index, RepositoryEntryType, map[string]interface{}{
+				"bool": es.NewBool().
+					SetMust(es.NewBoolQ(
+						es.NewTerm(Scan_FullnameField, entry.RepoFullname),
+						es.NewTerm(Scan_ProjectField, entry.ProjectName))),
+			})
+			if err != nil {
+				log.Println("Unable to cleanup after repo", entry.RepoFullname, "in", entry.ProjectName, ":", err.Error())
+				return
+			}
+			wg := sync.WaitGroup{}
+			wg.Add(len(hits.Hits))
+			for _, hit := range hits.Hits {
+				go func(hit *elastic.SearchHit) {
+					a.index.DeleteByID(RepositoryEntryType, hit.Id)
+					wg.Done()
+				}(hit)
+			}
+			wg.Wait()
+		}()
 		c.Redirect(303, "/removerepo/"+proj)
 		return
 	}

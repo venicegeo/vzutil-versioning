@@ -89,7 +89,7 @@ type IIndex interface {
 	GetAllElements(typ string) (*elastic.SearchResult, error)
 	FilterByTermQuery(typ string, name string, value interface{}, format *piazza.JsonPagination) (*elastic.SearchResult, error)
 	FilterByMatchQuery(typ string, name string, value interface{}, format *piazza.JsonPagination) (*elastic.SearchResult, error)
-	SearchByJSON(typ string, jsn string) (*elastic.SearchResult, error)
+	SearchByJSON(typ string, jsn map[string]interface{}) (*elastic.SearchResult, error)
 	SetMapping(typename string, jsn piazza.JsonString) error
 	GetTypes() ([]string, error)
 	GetMapping(typ string) (interface{}, error)

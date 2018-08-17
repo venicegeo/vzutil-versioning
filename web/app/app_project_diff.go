@@ -40,7 +40,7 @@ func (a *Application) differencesInProject(c *gin.Context) {
 		c.HTML(500, "differences.html", gh)
 		return
 	}
-	diffs, err := a.diffMan.AllDiffsInProject(proj)
+	diffs, err := a.diffMan.GetAllDiffsInProject(proj)
 	if err != nil {
 		gh["buttons"] = "Could not load this.\n" + err.Error()
 		gh["data"] = "Error loading this.\n" + err.Error()

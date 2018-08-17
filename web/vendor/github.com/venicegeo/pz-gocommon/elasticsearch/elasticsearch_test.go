@@ -247,7 +247,7 @@ func (suite *EsTester) Test02SimplePost() {
 		assert.NoError(err)
 		assert.NotNil(deleteResult)
 		//PUT it
-		indexResult, err := esi.PutData(mapping, "99", 0)
+		indexResult, err := esi.PutData(mapping, "99", NotObj{ID: 0})
 		assert.NoError(err)
 		assert.NotNil(indexResult)
 	}
@@ -280,7 +280,7 @@ func (suite *EsTester) Test03Operations() {
 	assert.Error(err)
 	_, err = esi.FilterByMatchQuery("", "", "", nil)
 	assert.Error(err)
-	_, err = esi.SearchByJSON("", "")
+	_, err = esi.SearchByJSON("", map[string]interface{}{})
 	assert.Error(err)
 	_, err = esi.GetMapping("")
 	assert.Error(err)

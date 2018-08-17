@@ -27,6 +27,7 @@ import (
 
 	com "github.com/venicegeo/vzutil-versioning/common"
 	"github.com/venicegeo/vzutil-versioning/common/table"
+	c "github.com/venicegeo/vzutil-versioning/compare/pub"
 )
 
 var re = regexp.MustCompile(``)
@@ -42,27 +43,18 @@ func readFile(filename string) (com.DependencyScans, error) {
 	return fileDeps, err
 }
 
-type CompareStruct struct {
-	ActualName      string
-	ExpectedName    string
-	ActualDeps      []string
-	ExpectedDeps    []string
-	ExpectedExtra   []string
-	ExpectedMissing []string
-	Agreed          []string
-}
-
-func NewCompareStruct(actualName, expectedName string) *CompareStruct {
-	return &CompareStruct{actualName, expectedName, []string{}, []string{}, []string{}, []string{}, []string{}}
+func NewCompareStruct(actualName, expectedName string) *c.CompareStruct {
+	return &c.CompareStruct{actualName, expectedName, []string{}, []string{}, []string{}, []string{}, []string{}}
 }
 
 func main() {
-	var file1, file2, outFile, string1, string2 string
+	var file1, file2, outFile, string1, string2, format string
 	flag.StringVar(&file1, "a", "", "Actual File")
 	flag.StringVar(&file2, "e", "", "Expected File")
 	flag.StringVar(&outFile, "o", "", "Output File")
 	flag.StringVar(&string1, "as", "", "Actual String")
 	flag.StringVar(&string2, "es", "", "Expected String")
+	flag.StringVar(&format, "f", "", "Format, only option is json")
 	flag.Parse()
 
 	var expected, actual com.DependencyScans
@@ -98,7 +90,7 @@ func main() {
 		}
 	}
 
-	compares := []*CompareStruct{}
+	compares := []*c.CompareStruct{}
 	for projectName, project := range actual {
 		var maxSim float64 = 0.0
 		var temp float64 = 0.0
@@ -112,12 +104,12 @@ func main() {
 		}
 		str := NewCompareStruct(projectName, maxKey)
 		for _, s := range project.Deps {
-			str.ActualDeps = append(str.ActualDeps, s.String())
+			str.ActualDeps = append(str.ActualDeps, s.FullString())
 		}
 		if str.ExpectedName != "" {
 			if proj, ok := expected[str.ExpectedName]; ok {
 				for _, s := range proj.Deps {
-					str.ExpectedDeps = append(str.ExpectedDeps, s.String())
+					str.ExpectedDeps = append(str.ExpectedDeps, s.FullString())
 				}
 			}
 			delete(expected, str.ExpectedName)
@@ -127,7 +119,7 @@ func main() {
 	for projectName, project := range expected {
 		str := NewCompareStruct("", projectName)
 		for _, s := range project.Deps {
-			str.ExpectedDeps = append(str.ExpectedDeps, s.String())
+			str.ExpectedDeps = append(str.ExpectedDeps, s.FullString())
 		}
 		compares = append(compares, str)
 	}
@@ -170,7 +162,7 @@ func main() {
 			}
 		}
 	}
-	findDifs := func(cmp *CompareStruct) {
+	findDifs := func(cmp *c.CompareStruct) {
 		searchList(&cmp.ActualDeps, &cmp.ExpectedDeps, &cmp.Agreed, &cmp.ExpectedMissing)
 		searchList(&cmp.ExpectedDeps, &cmp.ActualDeps, nil, &cmp.ExpectedExtra)
 		cmp.ExpectedMissing, cmp.ExpectedExtra = similaritySort(cmp.ExpectedMissing, cmp.ExpectedExtra)
@@ -185,34 +177,39 @@ func main() {
 	}
 
 	output := ""
-	for _, cmp := range compares {
-		m := max(len(cmp.Agreed), len(cmp.ExpectedMissing), len(cmp.ExpectedExtra))
-		if m == 0 {
-			continue
+	if format == "json" {
+		dat, _ := json.MarshalIndent(compares, " ", "   ")
+		output = string(dat)
+	} else {
+		for _, cmp := range compares {
+			m := max(len(cmp.Agreed), len(cmp.ExpectedMissing), len(cmp.ExpectedExtra))
+			if m == 0 {
+				continue
+			}
+			t := table.NewTable(3, m+1)
+			agreed := ""
+			missing := ""
+			extra := ""
+			output += fmt.Sprintf("Comparing actual in [%s] to list [%s]\n", cmp.ActualName, cmp.ExpectedName)
+			t.Fill("Agreed", "Missing in List", "Extra in List")
+			for i := 0; i < m; i++ {
+				agreed = ""
+				missing = ""
+				extra = ""
+				if len(cmp.Agreed) > i {
+					agreed = cmp.Agreed[i]
+				}
+				if len(cmp.ExpectedMissing) > i {
+					missing = cmp.ExpectedMissing[i]
+				}
+				if len(cmp.ExpectedExtra) > i {
+					extra = cmp.ExpectedExtra[i]
+				}
+				t.Fill(agreed, missing, extra)
+			}
+			output += t.SpaceAllColumns().NoRowBorders().Format().String()
+			output += "\n\n\n\n"
 		}
-		t := table.NewTable(3, m+1)
-		agreed := ""
-		missing := ""
-		extra := ""
-		output += fmt.Sprintf("Comparing actual in [%s] to list [%s]\n", cmp.ActualName, cmp.ExpectedName)
-		t.Fill("Agreed", "Missing in List", "Extra in List")
-		for i := 0; i < m; i++ {
-			agreed = ""
-			missing = ""
-			extra = ""
-			if len(cmp.Agreed) > i {
-				agreed = cmp.Agreed[i]
-			}
-			if len(cmp.ExpectedMissing) > i {
-				missing = cmp.ExpectedMissing[i]
-			}
-			if len(cmp.ExpectedExtra) > i {
-				extra = cmp.ExpectedExtra[i]
-			}
-			t.Fill(agreed, missing, extra)
-		}
-		output += t.SpaceAllColumns().NoRowBorders().Format().String()
-		output += "\n\n\n\n"
 	}
 	if outFile == "" {
 		fmt.Println(output)
