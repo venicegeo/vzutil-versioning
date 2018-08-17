@@ -122,11 +122,11 @@ func (a *Application) viewProject(c *gin.Context) {
 	h["accordion"] = accord.Template()
 	h["deps"] = depsStr
 	{
-		diffs, err := a.diffMan.DiffListInProject(proj)
+		diffs, err := a.diffMan.GetAllDiffsInProject(proj)
 		if err != nil {
 			h["diff"] = ""
 		} else {
-			h["diff"] = u.Format(" (%d)", len(diffs))
+			h["diff"] = u.Format(" (%d)", len(*diffs))
 		}
 	}
 	c.HTML(200, "project.html", h)

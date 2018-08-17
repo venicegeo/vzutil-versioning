@@ -16,11 +16,15 @@ package app
 
 import (
 	"encoding/json"
+	"os/exec"
 	"sort"
+	"strings"
 	"time"
 
+	c "github.com/venicegeo/vzutil-versioning/common"
 	depend "github.com/venicegeo/vzutil-versioning/common/dependency"
 	t "github.com/venicegeo/vzutil-versioning/common/table"
+	"github.com/venicegeo/vzutil-versioning/compare/pub"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -35,33 +39,37 @@ func NewDifferenceManager(app *Application) *DifferenceManager {
 	return &DifferenceManager{app, ""}
 }
 
+const DifferenceProjectField = "project_name"
+
 type Difference struct {
-	Id        string              `json:"id"`
-	FullName  string              `json:"full_name"`
-	RefData   string              `json:"ref"`
-	OldSha    string              `json:"old_sha"`
-	NewSha    string              `json:"new_sha"`
-	Removed   depend.Dependencies `json:"removed"`
-	Added     depend.Dependencies `json:"added"`
-	Timestamp time.Time           `json:"time"`
+	Id          string    `json:"id"`
+	RepoName    string    `json:"repo_name"`
+	ProjectName string    `json:"project_name"`
+	Ref         string    `json:"ref"`
+	OldSha      string    `json:"old_sha"`
+	NewSha      string    `json:"new_sha"`
+	Removed     []string  `json:"removed"`
+	Added       []string  `json:"added"`
+	Timestamp   time.Time `json:"time"`
 }
 
 const DifferenceMapping = `{
 	"dynamic":"strict",
 	"properties":{
 		"id":{"type":"keyword"},
-		"full_name":{"type":"keyword"},
+		"repo_name":{"type":"keyword"},
+		"project_name":{"type":"keyword"},
 		"ref":{"type":"keyword"},
 		"old_sha":{"type":"keyword"},
 		"new_sha":{"type":"keyword"},
-		"removed":` + depend.DependencyMapping + `,
-		"added":` + depend.DependencyMapping + `,
+		"removed":{"type":"keyword"},
+		"added":{"type":"keyword"},
 		"time":{"type":"keyword"}
 	}
 }`
 
 func (d *Difference) SimpleString() string {
-	return u.Format("%s %s %s", d.FullName, d.RefData, d.Timestamp.String())
+	return u.Format("%s %s %s", d.RepoName, strings.TrimPrefix(d.Ref, "refs/"), d.Timestamp.String())
 }
 
 type diffSort []Difference
@@ -104,10 +112,10 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 	table.Fill("Added")
 	for i := 0; i < height; i++ {
 		if i < len(d.Removed) {
-			removed = append(removed, d.Removed[i].FullString())
+			removed = append(removed, d.Removed[i])
 		}
 		if i < len(d.Added) {
-			added = append(added, d.Added[i].FullString())
+			added = append(added, d.Added[i])
 		}
 	}
 	sort.Strings(removed)
@@ -122,25 +130,11 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 		table.Fill(removed[i])
 		table.Fill(added[i])
 	}
-	return u.Format("Repository %s %s from\n%s -> %s\n%s", d.FullName, d.RefData, d.OldSha, d.NewSha, table.Format().NoRowBorders().SpaceAllColumns().String())
+	return u.Format("Repository %s %s from\n%s -> %s\n%s", d.RepoName, strings.TrimPrefix(d.Ref, "refs/"), d.OldSha, d.NewSha, table.Format().NoRowBorders().SpaceAllColumns().String())
 }
 
-func (d *DifferenceManager) AllDiffsInProject(proj string) (*[]Difference, error) {
-	project, err := d.app.rtrvr.GetProject(proj)
-	if err != nil {
-		return nil, err
-	}
-	repos, err := project.GetAllRepositories()
-	if err != nil {
-		return nil, err
-	}
-	boool := es.NewBool()
-	bq := es.NewBoolQ()
-	for _, repo := range repos {
-		bq.Add(es.NewTerm("full_name", repo.RepoFullname))
-	}
-	boool.SetShould(bq)
-	hits, err := es.GetAll(d.app.index, "difference", map[string]interface{}{"bool": boool})
+func (d *DifferenceManager) GetAllDiffsInProject(proj string) (*[]Difference, error) {
+	hits, err := es.GetAll(d.app.index, DifferenceType, es.NewTerm(DifferenceProjectField, proj))
 	if err != nil {
 		return nil, err
 	}
@@ -156,97 +150,114 @@ func (d *DifferenceManager) AllDiffsInProject(proj string) (*[]Difference, error
 	return &diffs, nil
 }
 
-func (d *DifferenceManager) DiffListInProject(proj string) ([]string, error) {
-	diffs, err := d.AllDiffsInProject(proj)
+//TODO good luck
+//func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Difference, error) {
+//	t := time.Now()
+
+//	var oldDeps, newDeps []depend.Dependency
+//	errs := make(chan error, 2)
+//	errs <- nil
+//	errs <- nil
+//	go func() {
+//		//TODO fix the difference manager pls
+//		//		oldDepsScan, err := d.app.rtrvr.ScanByShaGen(fullName, oldSha, "")
+//		//		if err != nil {
+//		//			errs <- u.Error("Could not get old sha: %s", err.Error())
+//		//			return
+//		//		}
+//		//		oldDeps = oldDepsScan.Deps
+//		//		errs <- nil
+//	}()
+//	go func() {
+//		//		newDepsScan, err := d.app.rtrvr.ScanByShaNameGen(fullName, newSha, "")
+//		//		if err != nil {
+//		//			errs <- u.Error("Could not get new sha: %s", err.Error())
+//		//			return
+//		//		}
+//		//		newDeps = newDepsScan.Deps
+//		//		errs <- nil
+//	}()
+//	for i := 0; i < 2; i++ {
+//		if err := <-errs; err != nil {
+//			return nil, err
+//		}
+//	}
+//	//TODO delete?
+//	/*
+//		toStrings := func(deps []depend.Dependency) []string {
+//			res := make([]string, len(deps), len(deps))
+//			for i, d := range deps {
+//				res[i] = d.String()
+//			}
+//			return res
+//		}
+//	*/
+//	return d.diffCompareWrk(fullName, "Custom", oldDeps, newDeps, oldSha, newSha, t)
+//}
+
+func (d *DifferenceManager) webhookCompare(repoName, projectName, ref string, oldEntry, newEntry *RepositoryDependencyScan) (*Difference, error) {
+	return d.diffCompareWrk(repoName, projectName, ref, oldEntry.Scan, newEntry.Scan, oldEntry.Sha, newEntry.Sha, time.Now())
+}
+
+func (d *DifferenceManager) diffCompareWrk(repoName, projectName, ref string, oldScan, newScan *c.DependencyScan, oldSha, newSha string, t time.Time) (*Difference, error) {
+	oldMap := map[string]*c.DependencyScan{
+		repoName: oldScan,
+	}
+	newMap := map[string]*c.DependencyScan{
+		repoName: newScan,
+	}
+	oldMapDat, err := json.Marshal(oldMap)
 	if err != nil {
 		return nil, err
 	}
-	res := make([]string, len(*diffs))
-	for i, diff := range *diffs {
-		res[i] = diff.SimpleString()
+	newMapDat, err := json.Marshal(newMap)
+	if err != nil {
+		return nil, err
 	}
-	return res, nil
-}
-
-func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Difference, error) {
-	t := time.Now()
-
-	var oldDeps, newDeps []depend.Dependency
-	errs := make(chan error, 2)
-	errs <- nil
-	errs <- nil
-	go func() {
-		//TODO fix the difference manager pls
-		//		oldDepsScan, err := d.app.rtrvr.ScanByShaGen(fullName, oldSha, "")
-		//		if err != nil {
-		//			errs <- u.Error("Could not get old sha: %s", err.Error())
-		//			return
-		//		}
-		//		oldDeps = oldDepsScan.Deps
-		//		errs <- nil
-	}()
-	go func() {
-		//		newDepsScan, err := d.app.rtrvr.ScanByShaNameGen(fullName, newSha, "")
-		//		if err != nil {
-		//			errs <- u.Error("Could not get new sha: %s", err.Error())
-		//			return
-		//		}
-		//		newDeps = newDepsScan.Deps
-		//		errs <- nil
-	}()
-	for i := 0; i < 2; i++ {
-		if err := <-errs; err != nil {
-			return nil, err
-		}
+	dat, err := exec.Command(d.app.compareLocation, "--es", u.Format(`'%s'`, strings.TrimSpace(string(oldMapDat))), "--as", u.Format(`'%s'`, strings.TrimSpace(string(newMapDat))), "--f", "json").CombinedOutput()
+	if err != nil {
+		return nil, u.Error("%s, %s", err.Error(), string(dat))
 	}
-	//TODO delete?
-	/*
-		toStrings := func(deps []depend.Dependency) []string {
-			res := make([]string, len(deps), len(deps))
-			for i, d := range deps {
-				res[i] = d.String()
-			}
-			return res
-		}
-	*/
-	return d.diffCompareWrk(fullName, "Custom", oldDeps, newDeps, oldSha, newSha, t)
-}
-
-func (d *DifferenceManager) webhookCompare(oldEntry, newEntry *RepositoryDependencyScan) (*Difference, error) {
-	//TODO refs
-	return d.diffCompareWrk(newEntry.RepoFullname, newEntry.Refs[0], oldEntry.Scan.Deps, newEntry.Scan.Deps, oldEntry.Sha, newEntry.Sha, newEntry.Timestamp)
-}
-
-func (d *DifferenceManager) diffCompareWrk(fullName, ref string, oldDeps, newDeps depend.Dependencies, oldSha, newSha string, t time.Time) (*Difference, error) {
-	added := depend.Dependencies{}
-	removed := depend.Dependencies{}
-
-	done := make(chan bool, 2)
-
-	go func() {
-		for _, newDep := range newDeps {
-			if !depscont(oldDeps, newDep) {
-				added = append(added, newDep)
-			}
-		}
-		done <- true
-	}()
-	go func() {
-		for _, oldDep := range oldDeps {
-			if !depscont(newDeps, oldDep) {
-				removed = append(removed, oldDep)
-			}
-		}
-		done <- true
-	}()
-	for i := 0; i < 2; i++ {
-		<-done
+	comp := []*compare.CompareStruct{}
+	if err = json.Unmarshal(dat, &comp); err != nil {
+		return nil, err
 	}
+	if len(comp) != 1 {
+		return nil, u.Error("Length of result was %d", len(comp))
+	}
+	c := comp[0]
+	removed := c.ExpectedExtra
+	added := c.ExpectedMissing
+
+	//	added := depend.Dependencies{}
+	//	removed := depend.Dependencies{}
+
+	//	done := make(chan bool, 2)
+
+	//	go func() {
+	//		for _, newDep := range newDeps {
+	//			if !depscont(oldDeps, newDep) {
+	//				added = append(added, newDep)
+	//			}
+	//		}
+	//		done <- true
+	//	}()
+	//	go func() {
+	//		for _, oldDep := range oldDeps {
+	//			if !depscont(newDeps, oldDep) {
+	//				removed = append(removed, oldDep)
+	//			}
+	//		}
+	//		done <- true
+	//	}()
+	//	for i := 0; i < 2; i++ {
+	//		<-done
+	//	}
 	if len(added) == 0 && len(removed) == 0 {
 		return nil, nil
 	}
-	id := u.Hash(u.Format("%s%d", fullName, t))
-	diff := Difference{id, fullName, ref, oldSha, newSha, removed, added, t}
+	id := u.Hash(u.Format("%s%d", repoName, t))
+	diff := Difference{id, repoName, projectName, ref, oldSha, newSha, removed, added, t}
 	resp, err := d.app.index.PostData("difference", id, diff)
 	if err != nil {
 		return nil, err

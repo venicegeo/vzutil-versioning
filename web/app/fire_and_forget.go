@@ -89,25 +89,26 @@ func (w *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 	log.Println("[ES-WORKER] Starting work on", scan.Sha, "for", scan.Project)
 	var err error
 
-	var testAgainstEntry *RepositoryDependencyScan
-	//TODO difference between term and terms?
-	boolq := es.NewBool().
-		SetMust(es.NewBoolQ(
-			es.NewTerm(Scan_FullnameField, scan.RepoFullname),
-			es.NewTerms(Scan_RefsField, scan.Refs...),
-			es.NewRange(Scan_TimestampField, "lt", scan.Timestamp)))
-	result, err := w.app.index.SearchByJSON(RepositoryEntryType, map[string]interface{}{
-		"query": map[string]interface{}{"bool": boolq},
-		"sort": map[string]interface{}{
-			Scan_TimestampField: "desc",
-		},
-		"size": 1,
-	})
-	if err == nil {
-		if result.Hits.TotalHits == 1 {
-			testAgainstEntr := new(RepositoryDependencyScan)
-			if err = json.Unmarshal(*result.Hits.Hits[0].Source, testAgainstEntr); err == nil {
-				testAgainstEntry = testAgainstEntr
+	testAgainstEntries := make(map[string]*RepositoryDependencyScan, len(scan.Refs))
+	for _, ref := range scan.Refs {
+		boolq := es.NewBool().
+			SetMust(es.NewBoolQ(
+				es.NewTerm(Scan_FullnameField, scan.RepoFullname),
+				es.NewTerm(Scan_RefsField, ref),
+				es.NewTerm(Scan_ProjectField, scan.Project),
+				es.NewRange(Scan_TimestampField, "lt", scan.Timestamp)))
+		q := map[string]interface{}{
+			"query": map[string]interface{}{"bool": boolq},
+			"sort": map[string]interface{}{
+				Scan_TimestampField: "desc",
+			},
+			"size": 1,
+		}
+		result, err := w.app.index.SearchByJSON(RepositoryEntryType, q)
+		if err == nil && result.Hits.TotalHits == 1 {
+			entry := new(RepositoryDependencyScan)
+			if err = json.Unmarshal(*result.Hits.Hits[0].Source, entry); err == nil {
+				testAgainstEntries[ref] = entry
 			}
 		}
 	}
@@ -122,13 +123,13 @@ func (w *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 	}
 
 	log.Println("[ES-WORKER] Finished work on", scan.RepoFullname, scan.Sha)
-	go func(fullName string, testAgainstEntry, entry *RepositoryDependencyScan) {
-		if testAgainstEntry == nil {
-			return
-		}
-		_, err := w.app.diffMan.webhookCompare(testAgainstEntry, entry)
-		if err != nil {
-			log.Println("[ES-WORKER] Error creating diff:", err.Error())
-		}
-	}(scan.RepoFullname, testAgainstEntry, scan)
+	for ref, old := range testAgainstEntries {
+		go w.runDiff(scan.RepoFullname, scan.Project, ref, old, scan)
+	}
+}
+
+func (w *FireAndForget) runDiff(repoName, projectName, ref string, oldEntry, newEntry *RepositoryDependencyScan) {
+	if _, err := w.app.diffMan.webhookCompare(repoName, projectName, ref, oldEntry, newEntry); err != nil {
+		log.Println("[ES-WORKER] Error creating diff:", err.Error())
+	}
 }

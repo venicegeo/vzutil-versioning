@@ -130,6 +130,7 @@ func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan 
 		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]", printHeader, request.sha, err.Error())
 		return nil
 	}
+	//TODO
 	//	if singleRet.Sha != request.sha {
 	//		sr.sendStringTo(printLocation, "%sGeneration failed to run against %s, it ran against sha %s", printHeader, request.sha, singleRet.Sha)
 	//		return nil
