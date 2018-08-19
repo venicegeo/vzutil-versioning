@@ -135,7 +135,20 @@ func (d *DifferenceManager) GetAllDiffsInProject(proj string) (*[]Difference, er
 
 //TODO good luck
 func (d *DifferenceManager) ShaCompare(repoName string, files []string, oldSha, newSha string) (*Difference, error) {
-	return nil, nil
+	ret := make(chan *RepositoryDependencyScan, 2)
+	defer func() {
+		close(ret)
+	}()
+	repo := &es.ProjectEntry{RepoFullname: repoName, DependencyInfo: es.ProjectEntryDependencyInfo{repoName, es.IncomingSha, "", files}}
+	d.app.wrkr.AddTask(&SingleRunnerRequest{&Repository{nil, nil, repo}, oldSha, ""}, nil, ret)
+	d.app.wrkr.AddTask(&SingleRunnerRequest{&Repository{nil, nil, repo}, newSha, ""}, nil, ret)
+	oldScan := <-ret
+	newScan := <-ret
+	if oldScan == nil || newScan == nil {
+		return nil, u.Error("At least one of the shas failed")
+	}
+	//TODO
+	return d.diffCompareWrk(repoName, "", "", oldScan.Scan, newScan.Scan, oldSha, newSha, time.Now(), false)
 	//	t := time.Now()
 
 	//	var oldDeps, newDeps []depend.Dependency

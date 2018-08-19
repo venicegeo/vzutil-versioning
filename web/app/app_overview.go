@@ -16,9 +16,11 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/venicegeo/vzutil-versioning/common/table"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -140,36 +142,87 @@ func (a *Application) newProject(c *gin.Context) {
 
 func (a *Application) reportSha(c *gin.Context) {
 	var form struct {
-		Back   string `form:"button_back"`
-		Org    string `form:"org"`
-		Repo   string `form:"repo"`
-		Sha    string `form:"sha"`
-		Submit string `form:"button_submit"`
+		Back string `form:"button_back"`
+
+		Org  string `form:"org"`
+		Repo string `form:"repo"`
+		Sha  string `form:"sha"`
+		Scan string `form:"button_scan"`
+
+		Files  []string `form:"files[]"`
+		Submit string   `form:"button_submit"`
 	}
 	if err := c.Bind(&form); err != nil {
-		c.String(400, "Could not bind the form: %s", err.Error())
+		c.String(400, "Error binding form: %s", err.Error())
 		return
 	}
 	if form.Back != "" {
 		c.Redirect(303, "/ui")
 		return
 	}
-	h := gin.H{"report": "Report will appear here"}
-	if form.Submit != "" {
-		fullName := u.Format("%s/%s", form.Org, form.Repo)
-		//TODO wont work
-		if repo, _, err := a.rtrvr.GetRepository(fullName, ""); err != nil {
-			h["report"] = u.Format("Unable to run against %s at %s:\n%s", fullName, form.Sha, err.Error())
+	h := gin.H{
+		"org":        form.Org,
+		"repo":       form.Repo,
+		"sha":        form.Sha,
+		"hidescan":   true,
+		"hidereport": true,
+	}
+	repoName := u.Format("%s/%s", form.Org, form.Repo)
+	setScan := func(i interface{}) {
+		h["hidescan"] = false
+		switch i.(type) {
+		case string:
+			h["scan"] = s.NewHtmlString(i.(string)).Template()
+		case []string:
+			check := s.NewHtmlCheckbox("files[]")
+			for _, file := range i.([]string) {
+				check.Add(file, file, true)
+			}
+			h["scan"] = s.NewHtmlCollection(check, s.NewHtmlButton2("button_submit", "Submit")).Template()
+		default:
+			panic("Youre doing this wrong")
+		}
+	}
+	primaryScan := func() {
+		if !a.checkRepoIsReal(form.Org, form.Repo) {
+			setScan("This isnt a real repo")
 		} else {
-			scan, err := a.rtrvr.ScanByShaNameGen(repo, form.Sha)
-			if err != nil {
-				h["report"] = u.Format("Unable to run against %s at %s:\n%s", fullName, form.Sha, err.Error())
+			if files, err := a.wrkr.snglRnnr.ScanWithSingle(repoName); err != nil {
+				setScan(err.Error())
 			} else {
-				h["report"] = a.reportAtShaWrk(scan)
+				for i, f := range files {
+					files[i] = strings.TrimPrefix(f, repoName)
+				}
+				setScan(files)
 			}
 		}
 	}
-	c.HTML(200, "reportsha.html", h)
+	getReport := func() string {
+		ret := make(chan *RepositoryDependencyScan, 2)
+		defer func() {
+			close(ret)
+		}()
+		repo := &es.ProjectEntry{RepoFullname: repoName, DependencyInfo: es.ProjectEntryDependencyInfo{repoName, es.IncomingSha, "", form.Files}}
+		a.wrkr.AddTask(&SingleRunnerRequest{&Repository{nil, nil, repo}, form.Sha, ""}, nil, ret)
+		scan := <-ret
+		if scan == nil {
+			return "Generating this sha resulted in an unknown error"
+		}
+		return a.reportAtShaWrk(scan)
+	}
+	files := s.NewHtmlCollection()
+	for _, f := range form.Files {
+		files.Add(s.NewHtmlTextField("files[]", f).Special("readonly"))
+	}
+	if form.Scan != "" {
+		primaryScan()
+	} else if form.Submit != "" {
+		h["hidescan"] = false
+		h["hidereport"] = false
+		h["scan"] = files.Template()
+		h["report"] = getReport()
+	}
+	c.HTML(200, "customsha.html", h)
 }
 
 func (a *Application) customDiff(c *gin.Context) {
@@ -228,7 +281,7 @@ func (a *Application) customDiff(c *gin.Context) {
 				setScan(err.Error())
 			} else {
 				for i, f := range files {
-					files[i] = strings.TrimPrefix(f, repoName+"/")
+					files[i] = strings.TrimPrefix(f, repoName)
 				}
 				setScan(files)
 			}
@@ -249,7 +302,32 @@ func (a *Application) customDiff(c *gin.Context) {
 		h["hideshas"] = false
 		h["scan"] = files.Template()
 		h["hidediff"] = false
-		h["diff"] = "OI"
+		diff, err := a.diffMan.ShaCompare(repoName, form.Files, form.OldSha, form.NewSha)
+		if err != nil {
+			h["diff"] = err.Error()
+		} else {
+			height := len(diff.Added)
+			if height < len(diff.Removed) {
+				height = len(diff.Removed)
+			}
+			t := table.NewTable(2, height+1).NoRowBorders()
+			t.Fill("Removed", "Added")
+			for i := 0; i < height; i++ {
+				if i >= len(diff.Removed) {
+					t.Fill("")
+				} else {
+					t.Fill(diff.Removed[i])
+				}
+				if i >= len(diff.Added) {
+					t.Fill("")
+				} else {
+					t.Fill(diff.Added[i])
+				}
+			}
+			dat, _ := json.MarshalIndent(diff, " ", "   ")
+			fmt.Println(string(dat))
+			h["diff"] = t.HasHeading().Format().String()
+		}
 	}
-	c.HTML(200, "newdiff.html", h)
+	c.HTML(200, "customdiff.html", h)
 }

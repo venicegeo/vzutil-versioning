@@ -27,11 +27,12 @@ type Table struct {
 	nextColumn       int
 	drawRowBorder    bool
 	drawColumnBorder bool
+	hasHeading       bool
 	fillCount        int
 }
 
 func NewTable(width, height int) *Table {
-	table := &Table{[][]string{}, []bool{}, 0, 0, true, true, 0}
+	table := &Table{[][]string{}, []bool{}, 0, 0, true, true, false, 0}
 	for i := 0; i < height; i++ {
 		temp := make([]string, width)
 		for j := 0; j < width; j++ {
@@ -45,6 +46,10 @@ func NewTable(width, height int) *Table {
 	return table
 }
 
+func (t *Table) HasHeading() *Table {
+	t.hasHeading = true
+	return t
+}
 func (t *Table) SpaceColumn(i int) *Table {
 	t.spaceColum[i] = true
 	return t
@@ -147,7 +152,16 @@ func (t *Table) String() string {
 	}
 	tempS := temp.String()
 	temp.WriteString("\n")
-	temp.WriteString(res.String())
+	if t.hasHeading {
+		parts := strings.SplitN(res.String(), "\n", 2)
+		temp.WriteString(parts[0])
+		temp.WriteString("\n")
+		temp.WriteString(strings.Replace(tempS, "_", "-", -1))
+		temp.WriteString("\n")
+		temp.WriteString(parts[1])
+	} else {
+		temp.WriteString(res.String())
+	}
 	temp.WriteString(tempS)
 	return temp.String()
 }
