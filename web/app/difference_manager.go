@@ -133,56 +133,27 @@ func (d *DifferenceManager) GetAllDiffsInProject(proj string) (*[]Difference, er
 	return &diffs, nil
 }
 
-//TODO good luck
-//func (d *DifferenceManager) ShaCompare(fullName, oldSha, newSha string) (*Difference, error) {
-//	t := time.Now()
-
-//	var oldDeps, newDeps []depend.Dependency
-//	errs := make(chan error, 2)
-//	errs <- nil
-//	errs <- nil
-//	go func() {
-//		//TODO fix the difference manager pls
-//		//		oldDepsScan, err := d.app.rtrvr.ScanByShaGen(fullName, oldSha, "")
-//		//		if err != nil {
-//		//			errs <- u.Error("Could not get old sha: %s", err.Error())
-//		//			return
-//		//		}
-//		//		oldDeps = oldDepsScan.Deps
-//		//		errs <- nil
-//	}()
-//	go func() {
-//		//		newDepsScan, err := d.app.rtrvr.ScanByShaNameGen(fullName, newSha, "")
-//		//		if err != nil {
-//		//			errs <- u.Error("Could not get new sha: %s", err.Error())
-//		//			return
-//		//		}
-//		//		newDeps = newDepsScan.Deps
-//		//		errs <- nil
-//	}()
-//	for i := 0; i < 2; i++ {
-//		if err := <-errs; err != nil {
-//			return nil, err
-//		}
-//	}
-//	//TODO delete?
-//	/*
-//		toStrings := func(deps []depend.Dependency) []string {
-//			res := make([]string, len(deps), len(deps))
-//			for i, d := range deps {
-//				res[i] = d.String()
-//			}
-//			return res
-//		}
-//	*/
-//	return d.diffCompareWrk(fullName, "Custom", oldDeps, newDeps, oldSha, newSha, t)
-//}
-
-func (d *DifferenceManager) webhookCompare(repoName, projectName, ref string, oldEntry, newEntry *RepositoryDependencyScan) (*Difference, error) {
-	return d.diffCompareWrk(repoName, projectName, ref, oldEntry.Scan, newEntry.Scan, oldEntry.Sha, newEntry.Sha, time.Now())
+func (d *DifferenceManager) ShaCompare(repoName string, files []string, oldSha, newSha string) (*Difference, error) {
+	ret := make(chan *RepositoryDependencyScan, 2)
+	defer func() {
+		close(ret)
+	}()
+	repo := &es.ProjectEntry{RepoFullname: repoName, DependencyInfo: es.ProjectEntryDependencyInfo{repoName, es.IncomingSha, "", files}}
+	d.app.wrkr.AddTask(&SingleRunnerRequest{&Repository{nil, nil, repo}, oldSha, ""}, nil, ret)
+	d.app.wrkr.AddTask(&SingleRunnerRequest{&Repository{nil, nil, repo}, newSha, ""}, nil, ret)
+	oldScan := <-ret
+	newScan := <-ret
+	if oldScan == nil || newScan == nil {
+		return nil, u.Error("At least one of the shas failed")
+	}
+	return d.diffCompareWrk(repoName, "", "", oldScan.Scan, newScan.Scan, oldSha, newSha, time.Now(), false)
 }
 
-func (d *DifferenceManager) diffCompareWrk(repoName, projectName, ref string, oldScan, newScan *c.DependencyScan, oldSha, newSha string, t time.Time) (*Difference, error) {
+func (d *DifferenceManager) webhookCompare(repoName, projectName, ref string, oldEntry, newEntry *RepositoryDependencyScan) (*Difference, error) {
+	return d.diffCompareWrk(repoName, projectName, ref, oldEntry.Scan, newEntry.Scan, oldEntry.Sha, newEntry.Sha, time.Now(), true)
+}
+
+func (d *DifferenceManager) diffCompareWrk(repoName, projectName, ref string, oldScan, newScan *c.DependencyScan, oldSha, newSha string, t time.Time, post bool) (*Difference, error) {
 	oldMap := map[string]*c.DependencyScan{
 		repoName: oldScan,
 	}
@@ -217,12 +188,14 @@ func (d *DifferenceManager) diffCompareWrk(repoName, projectName, ref string, ol
 	}
 	id := u.Hash(u.Format("%s%d", repoName, t))
 	diff := Difference{id, repoName, projectName, ref, oldSha, newSha, removed, added, t}
-	resp, err := d.app.index.PostData("difference", id, diff)
-	if err != nil {
-		return nil, err
-	}
-	if !resp.Created {
-		return nil, u.Error("Diff was not created")
+	if post {
+		resp, err := d.app.index.PostData("difference", id, diff)
+		if err != nil {
+			return nil, err
+		}
+		if !resp.Created {
+			return nil, u.Error("Diff was not created")
+		}
 	}
 	return &diff, nil
 }

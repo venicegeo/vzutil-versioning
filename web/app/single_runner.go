@@ -151,6 +151,7 @@ func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan 
 			return nil
 		}
 	}
+	sr.sendStringTo(printLocation, "%sFinished work on %s", printHeader, request.sha)
 	res.Scan = singleRet
 	return res
 }

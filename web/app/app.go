@@ -115,6 +115,8 @@ func (a *Application) StartInternals() {
 		u.RouteData{"GET", "/depsearch", a.searchForDep, true},
 		u.RouteData{"GET", "/diff/:proj", a.differencesInProject, true},
 		u.RouteData{"GET", "/reportsha", a.reportSha, true},
+		u.RouteData{"GET", "/cdiff", a.customDiff, true},
+		u.RouteData{"POST", "/cdiff", a.customDiff, true},
 	})
 }
 
