@@ -75,6 +75,17 @@ func StringSliceTrimSpaceRemoveEmpty(s []string) []string {
 	}
 	return u
 }
+func SplitAtAnyTrim(str string, split ...string) []string {
+	spl := []string{str}
+	for _, s := range split {
+		temp := []string{}
+		for _, sp := range spl {
+			temp = append(temp, strings.Split(sp, s)...)
+		}
+		spl = temp
+	}
+	return StringSliceTrimSpaceRemoveEmpty(spl)
+}
 
 type CmdRet struct {
 	args   []string

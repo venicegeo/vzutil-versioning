@@ -24,6 +24,7 @@ import (
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	i "github.com/venicegeo/vzutil-versioning/common/issue"
 	lan "github.com/venicegeo/vzutil-versioning/common/language"
+	"github.com/venicegeo/vzutil-versioning/single/util"
 	"gopkg.in/yaml.v2"
 )
 
@@ -48,7 +49,7 @@ func (r *Resolver) ResolveMetaYaml(location string, test bool) (d.Dependencies, 
 	deps := make(d.Dependencies, 0, len(recipe.Requirements.Build)+len(recipe.Requirements.Run)+len(recipe.Requirements.Host))
 	issues := i.Issues{}
 	for _, s := range append(append(recipe.Requirements.Build, recipe.Requirements.Run...), recipe.Requirements.Host...) {
-		parts := strings.Split(s, " ")
+		parts := util.SplitAtAnyTrim(s, " ", "=")
 		if len(parts) == 1 {
 			parts = append(parts, "")
 			issues = append(issues, i.NewMissingVersion(parts[0]))

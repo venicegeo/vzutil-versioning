@@ -35,11 +35,11 @@ func (r *Resolver) ResolveRequirementsTxt(location string, test bool) (d.Depende
 		return nil, nil, err
 	}
 	lines := util.StringSliceTrimSpaceRemoveEmpty(strings.Split(string(dat), "\n"))
-	deps := make(d.Dependencies, len(lines), len(lines))
+	deps := make(d.Dependencies, 0, len(lines))
 	issues := i.Issues{}
-	for c, line := range lines {
+	for _, line := range lines {
 		if dep, ok := r.parsePipLine(line, &issues); ok {
-			deps[c] = dep
+			deps = append(deps, dep)
 		}
 	}
 	sort.Sort(deps)

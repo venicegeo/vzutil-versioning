@@ -82,8 +82,9 @@ requirements:
     - python
     - blas 1.1 {{ variant }}
     - openblas
+    - zzz ==hello
 `, ResolveResult{
-		deps:   d.Dependencies{d.NewDependency("blas", "1.1=openblas", l.Conda), d.NewDependency("cython", "", l.Conda), d.NewDependency("openblas", "", l.Conda), d.NewDependency("pip", "", l.Conda), d.NewDependency("python", "", l.Conda)},
+		deps:   d.Dependencies{d.NewDependency("blas", "1.1=openblas", l.Conda), d.NewDependency("cython", "", l.Conda), d.NewDependency("openblas", "", l.Conda), d.NewDependency("pip", "", l.Conda), d.NewDependency("python", "", l.Conda), d.NewDependency("zzz", "hello", l.Conda)},
 		issues: i.Issues{i.NewMissingVersion("cython"), i.NewMissingVersion("openblas"), i.NewMissingVersion("openblas"), i.NewMissingVersion("pip"), i.NewMissingVersion("python"), i.NewMissingVersion("python")},
 		err:    nil,
 	}, resolver.ResolveMetaYaml)
