@@ -1,5 +1,5 @@
-hash: bf2d31a7b33283082e78fe4ac01ed594849e94a162a2a63a98de3e2cf85e98bf
-updated: 2018-08-20T09:15:06.602705921-04:00
+hash: f449f222dfda4ee93b723b759f40cc700e212f55625a8203f0c1822a5ff11be9
+updated: 2018-08-20T11:59:22.47102071-04:00
 imports:
 - name: github.com/braintree/manners
   version: 82a8879fc5fd0381fa8b2d8033b19bf255252088
@@ -19,7 +19,7 @@ imports:
 - name: github.com/pkg/errors
   version: c605e284fe17294bda444b34710735b29d1a9d90
 - name: github.com/venicegeo/pz-gocommon
-  version: 39c5582622f6a4d8b6c30ec220f66ccca26498f0
+  version: 36e98058d51d9d44807ce88e964106a4d1fb4520
   subpackages:
   - elasticsearch
   - elasticsearch/elastic-5-api

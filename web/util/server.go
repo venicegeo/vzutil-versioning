@@ -18,6 +18,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/braintree/manners"
@@ -80,7 +81,7 @@ func (server *Server) Start(uri string) chan error {
 
 	return done
 }
-func (server *Server) Configure(routeData []RouteData) error {
+func (server *Server) Configure(templateLocation string, routeData []RouteData) error {
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.New()
@@ -103,7 +104,10 @@ func (server *Server) Configure(routeData []RouteData) error {
 
 	router.NoRoute(server.noRoute)
 
-	router.LoadHTMLGlob("templates/*")
+	if !strings.HasSuffix(templateLocation, "/") {
+		templateLocation += "/"
+	}
+	router.LoadHTMLGlob(templateLocation + "*")
 	server.router = router
 
 	return nil

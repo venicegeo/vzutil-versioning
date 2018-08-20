@@ -28,12 +28,13 @@ import (
 const percolateTypeName = ".percolate"
 
 type anyType struct {
+	id   string
 	s    map[string]interface{}
 	vars map[string]interface{}
 	raw  *json.RawMessage
 }
 
-func newAnyType(i interface{}) (*anyType, error) {
+func newAnyType(id string, i interface{}) (*anyType, error) {
 	dat, err := json.Marshal(i)
 	if err != nil {
 		return nil, err
@@ -52,6 +53,7 @@ func newAnyType(i interface{}) (*anyType, error) {
 		return nil, err
 	}
 	ret.raw = raw
+	ret.id = id
 	return ret, nil
 }
 
@@ -230,7 +232,7 @@ func (esi *MockIndex) PostData(typeName string, id string, obj interface{}) (*el
 		typ = esi.types[typeName]
 	}
 
-	raw, err := newAnyType(obj)
+	raw, err := newAnyType(id, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -434,29 +436,48 @@ func (esi *MockIndex) FilterByTermQuery(typeName string, name string, value inte
 }
 
 func (esi *MockIndex) SearchByJSON(typ string, jsn map[string]interface{}) (*elastic.SearchResult, error) {
+	fmt.Println(jsn)
 	query, ok := jsn["query"]
 	if !ok {
 		return nil, fmt.Errorf("Must include a query in mock SearchByJSON")
 	}
-	convert := func(any map[string]*anyType) *elastic.SearchResult {
+	convertToSlice := func(any map[string]*anyType) []*anyType {
+		res := make([]*anyType, 0, len(any))
+		for _, v := range any {
+			res = append(res, v)
+		}
+		return res
+	}
+	convertToResult := func(any []*anyType) *elastic.SearchResult {
 		hits := make([]*elastic.SearchHit, 0, len(any))
-		for id, item := range any {
-			hits = append(hits, &elastic.SearchHit{Id: id, Source: item.raw})
+		for _, item := range any {
+			hits = append(hits, &elastic.SearchHit{Id: item.id, Source: item.raw})
 		}
 		return &elastic.SearchResult{Hits: &elastic.SearchHits{int64(len(hits)), nil, hits}}
-
 	}
+	var ret []*anyType
 	term, hasTerm := query.(map[string]interface{})["term"]
 	boool, hasBool := query.(map[string]interface{})["bool"]
-	if hasTerm && hasBool {
+	if len(query.(map[string]interface{})) == 0 {
+		ret = convertToSlice(esi.types[typ].items)
+	} else if hasTerm && hasBool {
 		return nil, fmt.Errorf("Cannot use both term and bool in mock SearchByJSON")
 	} else if hasTerm {
-		return convert(esi.terms_query(term, esi.types[typ].items)), nil
+		ret = convertToSlice(esi.terms_query(term, esi.types[typ].items))
 	} else if hasBool {
-		return convert(esi.bool_query(boool, esi.types[typ].items)), nil
+		ret = convertToSlice(esi.bool_query(boool, esi.types[typ].items))
 	} else {
 		return nil, fmt.Errorf("Unsupported operation in mock SearchByJSON")
 	}
+	size := 10
+	if isize, ok := jsn["size"]; ok {
+		size = int(isize.(int64))
+		if len(ret) < size {
+			size = len(ret)
+		}
+	}
+	ret = ret[:size]
+	return convertToResult(ret), nil
 }
 
 func (esi *MockIndex) GetTypes() ([]string, error) {
