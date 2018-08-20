@@ -722,3 +722,81 @@ func (suite *EsTester) Test15NewIndex2() {
 	_, err = NewIndexInterface(sys, "", "", false)
 	assert.Error(err)
 }
+
+func (suite *EsTester) Test16SearchByJson() {
+	t := suite.T()
+	assert := assert.New(t)
+
+	var err error
+
+	esi := suite.SetUpIndex()
+	assert.NotNil(esi)
+	defer closerT(t, esi)
+
+	hits, err := esi.SearchByJSON(mapping, map[string]interface{}{
+		"query": map[string]interface{}{
+			"term": map[string]interface{}{
+				"data": "data0",
+			},
+		},
+	})
+	assert.NoError(err)
+	assert.Equal(hits.TotalHits(), int64(1))
+	assert.Len(hits.Hits.Hits, 1)
+
+	hits, err = esi.SearchByJSON(mapping, map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": []interface{}{
+					map[string]interface{}{
+						"term": map[string]interface{}{
+							"data": "data0",
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.NoError(err)
+	assert.Equal(hits.TotalHits(), int64(1))
+	assert.Len(hits.Hits.Hits, 1)
+
+	hits, err = esi.SearchByJSON(mapping, map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"should": []interface{}{
+					map[string]interface{}{
+						"term": map[string]interface{}{
+							"data": "data0",
+						},
+					},
+					map[string]interface{}{
+						"term": map[string]interface{}{
+							"data": "data1",
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.NoError(err)
+	assert.Equal(hits.TotalHits(), int64(2))
+	assert.Len(hits.Hits.Hits, 2)
+
+	hits, err = esi.SearchByJSON(mapping, map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must_not": []interface{}{
+					map[string]interface{}{
+						"term": map[string]interface{}{
+							"data": "data0",
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.NoError(err)
+	assert.Equal(hits.TotalHits(), int64(2))
+	assert.Len(hits.Hits.Hits, 2)
+}

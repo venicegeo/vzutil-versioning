@@ -23,6 +23,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -55,7 +56,7 @@ func main() {
 
 	flag.BoolVar(&scan, "scan", false, "Scan for dependency files")
 	flag.BoolVar(&all, "all", false, "Run against all found dependency files")
-	flag.BoolVar(&includeTest, "testing", false, "Include testing dependencies")
+	flag.BoolVar(&includeTest, "testing", true, "Include testing dependencies")
 	flag.Var(&files, "f", "Add file to scan")
 	flag.Parse()
 	info := flag.Args()
@@ -202,12 +203,13 @@ func modeResolve(location, name string, files []string, test bool) (d.Dependenci
 		}
 		d, i, e := funcc(full, test)
 		if e != nil {
-			return nil, nil, e
+			return nil, nil, fmt.Errorf("%s: %s", f, e)
 		}
 		deps = append(deps, d...)
 		issues = append(issues, i...)
 	}
 	d.RemoveExactDuplicates(&deps)
+	sort.Sort(deps)
 	return deps, issues, nil
 }
 
