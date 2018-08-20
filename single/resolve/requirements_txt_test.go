@@ -37,6 +37,7 @@ pytides
 
 	addTest("requirements_txt", `
 click==6.6
+#comment
 kcilc>=0.6
 `, ResolveResult{
 		deps:   d.Dependencies{d.NewDependency("click", "6.6", l.Python), d.NewDependency("kcilc", "0.6", l.Python)},
