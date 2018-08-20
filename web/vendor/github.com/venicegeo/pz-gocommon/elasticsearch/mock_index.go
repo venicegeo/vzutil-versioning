@@ -28,8 +28,9 @@ import (
 const percolateTypeName = ".percolate"
 
 type anyType struct {
-	s   map[string]interface{}
-	raw *json.RawMessage
+	s    map[string]interface{}
+	vars map[string]interface{}
+	raw  *json.RawMessage
 }
 
 func newAnyType(i interface{}) (*anyType, error) {
@@ -47,6 +48,9 @@ func newAnyType(i interface{}) (*anyType, error) {
 	}
 	ret := new(anyType)
 	ret.s = s
+	if ret.vars, err = piazza.GetVarsFromStruct(s); err != nil {
+		return nil, err
+	}
 	ret.raw = raw
 	return ret, nil
 }
@@ -430,7 +434,29 @@ func (esi *MockIndex) FilterByTermQuery(typeName string, name string, value inte
 }
 
 func (esi *MockIndex) SearchByJSON(typ string, jsn map[string]interface{}) (*elastic.SearchResult, error) {
-	return nil, fmt.Errorf("SearchByJSON not supported under mocking")
+	query, ok := jsn["query"]
+	if !ok {
+		return nil, fmt.Errorf("Must include a query in mock SearchByJSON")
+	}
+	convert := func(any map[string]*anyType) *elastic.SearchResult {
+		hits := make([]*elastic.SearchHit, 0, len(any))
+		for id, item := range any {
+			hits = append(hits, &elastic.SearchHit{Id: id, Source: item.raw})
+		}
+		return &elastic.SearchResult{Hits: &elastic.SearchHits{int64(len(hits)), nil, hits}}
+
+	}
+	term, hasTerm := query.(map[string]interface{})["term"]
+	boool, hasBool := query.(map[string]interface{})["bool"]
+	if hasTerm && hasBool {
+		return nil, fmt.Errorf("Cannot use both term and bool in mock SearchByJSON")
+	} else if hasTerm {
+		return convert(esi.terms_query(term, esi.types[typ].items)), nil
+	} else if hasBool {
+		return convert(esi.bool_query(boool, esi.types[typ].items)), nil
+	} else {
+		return nil, fmt.Errorf("Unsupported operation in mock SearchByJSON")
+	}
 }
 
 func (esi *MockIndex) GetTypes() ([]string, error) {
@@ -449,4 +475,116 @@ func (esi *MockIndex) GetMapping(typ string) (interface{}, error) {
 
 func (esi *MockIndex) DirectAccess(verb string, endpoint string, input interface{}, output interface{}) error {
 	return fmt.Errorf("DirectAccess not supported")
+}
+
+func (esi *MockIndex) terms_query(term interface{}, items map[string]*anyType) map[string]*anyType {
+	hits := map[string]*anyType{}
+	var key string
+	var value interface{}
+	for key, value = range term.(map[string]interface{}) {
+		break
+	}
+	for id, item := range items {
+		if v, ok := item.vars[key]; ok {
+			if v == value {
+				hits[id] = item
+			}
+		}
+	}
+	return hits
+}
+func (esi *MockIndex) bool_query(boool interface{}, items map[string]*anyType) map[string]*anyType {
+	must, hasMust := boool.(map[string]interface{})["must"]
+	should, hasShould := boool.(map[string]interface{})["should"]
+	mustNot, hasMustNot := boool.(map[string]interface{})["must_not"]
+	var anyTypes map[string]*anyType
+	if hasMust {
+		anyTypes = esi.bool_must_query(must, items)
+	} else {
+		anyTypes = items
+	}
+	if hasShould {
+		anyTypes = esi.bool_should_query(should, anyTypes)
+	}
+	if hasMustNot {
+		anyTypes = esi.bool_must_not_query(mustNot, anyTypes)
+	}
+	return anyTypes
+}
+func (esi *MockIndex) bool_must_query(must interface{}, items map[string]*anyType) map[string]*anyType {
+	finds := make([][]string, len(must.([]interface{})), len(must.([]interface{})))
+	for i, terms := range must.([]interface{}) {
+		if term, hasTerm := terms.(map[string]interface{})["term"]; hasTerm {
+			found := esi.terms_query(term, items)
+			finds[i] = make([]string, 0, len(found))
+			for k, _ := range found {
+				finds[i] = append(finds[i], k)
+			}
+		} else {
+			finds[i] = []string{}
+		}
+	}
+	contains := func(slice []string, str string) bool {
+		for _, v := range slice {
+			if v == str {
+				return true
+			}
+		}
+		return false
+	}
+	intersection := func(a, b []string) []string {
+		res := []string{}
+		for _, v := range a {
+			if contains(b, v) {
+				res = append(res, v)
+			}
+		}
+		return res
+	}
+
+	res := map[string]*anyType{}
+	if len(finds) == 0 {
+		return res
+	}
+	found := finds[0]
+	for i := 1; i < len(finds); i++ {
+		found = intersection(found, finds[i])
+	}
+	for _, v := range found {
+		res[v] = items[v]
+	}
+	return res
+}
+func (esi *MockIndex) bool_should_query(should interface{}, items map[string]*anyType) map[string]*anyType {
+	finds := make([][]string, len(should.([]interface{})), len(should.([]interface{})))
+	for i, terms := range should.([]interface{}) {
+		if term, hasTerm := terms.(map[string]interface{})["term"]; hasTerm {
+			found := esi.terms_query(term, items)
+			finds[i] = make([]string, 0, len(found))
+			for k, _ := range found {
+				finds[i] = append(finds[i], k)
+			}
+		} else {
+			finds[i] = []string{}
+		}
+	}
+	allKeys := map[string]struct{}{}
+	for _, find := range finds {
+		for _, k := range find {
+			allKeys[k] = struct{}{}
+		}
+	}
+	res := map[string]*anyType{}
+	for k, _ := range allKeys {
+		res[k] = items[k]
+	}
+	return res
+}
+func (esi *MockIndex) bool_must_not_query(must_not interface{}, items map[string]*anyType) map[string]*anyType {
+	res := items
+	musts := esi.bool_must_query(must_not, items)
+	for k, _ := range musts {
+		delete(res, k)
+	}
+	return res
 }
