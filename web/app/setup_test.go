@@ -18,49 +18,38 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/venicegeo/pz-gocommon/elasticsearch/elastic-5-api"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 )
 
 func TestAddProjects(t *testing.T) {
-	if resp, err := testApp.index.PostData(ProjectType, "project1", es.Project{"project1", "Project One"}); err != nil {
-		t.Error("Could not create project:", err.Error())
-	} else if !resp.Created {
-		t.Error("Project could not be created for unknown reason")
-	}
+	assert := assert.New(t)
 
-	if resp, err := testApp.index.PostData(ProjectType, "project2", es.Project{"project2", "Project Two"}); err != nil {
-		t.Error("Could not create project:", err.Error())
-	} else if !resp.Created {
-		t.Error("Project could not be created for unknown reason")
-	}
+	resp, err := testApp.index.PostData(ProjectType, "project1", es.Project{"project1", "Project One"})
+	assert.Nil(err)
+	assert.True(resp.Created)
 
-	if proj, err := testApp.rtrvr.GetProject("project1"); err != nil {
-		t.Error("Could not get project:", err.Error())
-	} else {
-		if proj.Name != "project1" {
-			t.Error("Name wrong:", proj.Name)
-		} else if proj.DisplayName != "Project One" {
-			t.Error("Display name wrong:", proj.DisplayName)
-		}
-	}
+	resp, err = testApp.index.PostData(ProjectType, "project2", es.Project{"project2", "Project Two"})
+	assert.Nil(err)
+	assert.True(resp.Created)
 
-	if projects, err := testApp.rtrvr.GetAllProjects(); err != nil {
-		t.Error("Could not get all projects:", err.Error())
-	} else {
-		if len(projects) != 2 {
-			t.Error("Length of projects", len(projects))
-		}
-	}
+	proj, err := testApp.rtrvr.GetProject("project1")
+	assert.Nil(err)
+	assert.Equal("project1", proj.Name)
+	assert.Equal("Project One", proj.DisplayName)
+
+	projects, err := testApp.rtrvr.GetAllProjects()
+	assert.Nil(err)
+	assert.Len(projects, 2)
 }
 
 func TestAddRepositories(t *testing.T) {
+	assert := assert.New(t)
+
 	test := func(resp *elastic.IndexResponse, err error) {
-		if err != nil {
-			t.Error("Could not create repository:", err.Error())
-		} else if !resp.Created {
-			t.Error("Repository could not be created")
-		}
+		assert.Nil(err)
+		assert.True(resp.Created)
 	}
 	test(testApp.index.PostData(ProjectEntryType, "", es.ProjectEntry{
 		ProjectName:    "project1",
@@ -82,32 +71,22 @@ func TestAddRepositories(t *testing.T) {
 
 	proj1, _ := testApp.rtrvr.GetProject("project1")
 	proj1repos, err := proj1.GetAllRepositories()
-	if err != nil {
-		t.Error("Unable to get project1 repos:", err.Error())
-	} else if len(proj1repos) != 2 {
-		t.Error("Proj1 didnt return 2 repos:", len(proj1repos))
-	}
+	assert.Nil(err)
+	assert.Len(proj1repos, 2)
+
 	proj2repo, project2, err := testApp.rtrvr.GetRepository("venicegeo/pz-gateway", "project2")
-	if err != nil {
-		t.Error("Unable to get project2 repo:", err.Error())
-	} else if project2 == nil {
-		t.Error("Unable to get the project for project2 repo")
-	} else if proj2repo.RepoFullname != "venicegeo/pz-gateway" {
-		t.Error("Repo name is wrong:", proj2repo.RepoFullname)
-	} else if proj2repo.ProjectName != "project2" {
-		t.Error("Project name is wrong:", proj2repo.ProjectName)
-	}
-	// Not supported
-	//	if projects, err := testApp.rtrvr.GetAllProjectNamesUsingRepository("venicegeo/pz-gateway"); err != nil {
-	//		t.Error("Error getting project using repository:", err.Error())
-	//	} else if len(projects) != 2 {
-	//		t.Error("did not return 2 projects:", len(projects))
-	//	}
-	//	if projects, err := testApp.rtrvr.GetAllProjectNamesUsingRepository("venicegeo/bfalg-ndwi"); err != nil {
-	//		t.Error("Error get project using repository", err.Error())
-	//	} else if len(projects) != 1 {
-	//		t.Error("did not return 1 project", len(projects))
-	//	}
+	assert.Nil(err)
+	assert.NotNil(project2)
+	assert.Equal("venicegeo/pz-gateway", proj2repo.RepoFullname)
+	assert.Equal("project2", proj2repo.ProjectName)
+
+	projects, err := testApp.rtrvr.GetAllProjectNamesUsingRepository("venicegeo/pz-gateway")
+	assert.Nil(err)
+	assert.Len(projects, 2)
+
+	projects, err = testApp.rtrvr.GetAllProjectNamesUsingRepository("venicegeo/bfalg-ndwi")
+	assert.Nil(err)
+	assert.Len(projects, 1)
 }
 
 func TestFire(t *testing.T) {
@@ -128,42 +107,44 @@ func TestFire(t *testing.T) {
 }
 
 func TestGetRepositories(t *testing.T) {
-	if repos, err := testApp.rtrvr.ListRepositories(); err != nil {
-		t.Error("Failed to list repositories:", err.Error())
-	} else if len(repos) != 2 {
-		t.Error("Len repos not 2:", len(repos))
-	}
-	if projects, err := testApp.rtrvr.GetAllProjectNamesUsingRepository("venicegeo/pz-gateway"); err != nil {
-		t.Error("Failed to get projects using repository:", err.Error())
-	} else if len(projects) != 2 {
-		t.Error("Did not right amount of projects using repository", len(projects))
-	}
-	if projects, err := testApp.rtrvr.GetAllProjectNamesUsingRepository("venicegeo/bfalg-ndwi"); err != nil {
-		t.Error("Failed to get projects using repository:", err.Error())
-	} else if len(projects) != 1 {
-		t.Error("Did not get right amount of projects using repository", len(projects))
-	}
-	project, _ := testApp.rtrvr.GetProject("project1")
-	if refs, err := project.GetAllRefs(); err != nil {
-		t.Error("Could not get all refs from project:", err.Error())
-	} else if len(refs) != 2 {
-		t.Error("Len of refs not 2:", len(refs))
-	}
+	assert := assert.New(t)
 
-	if repo, err := project.GetRepository("venicegeo/pz-gateway"); err != nil {
-		t.Error("Could not get repo:", err.Error())
-	} else {
-		if refs, err := repo.GetAllRefs(); err != nil {
-			t.Error("Could not get refs from repo:", err.Error())
-		} else if len(refs) != 1 {
-			t.Error("Did not get right number of refs:", len(refs))
-		}
-	}
+	repos, err := testApp.rtrvr.ListRepositories()
+	assert.Nil(err)
+	assert.Len(repos, 2)
+
+	project, _ := testApp.rtrvr.GetProject("project1")
+	refs, err := project.GetAllRefs()
+	assert.Nil(err)
+	assert.Len(refs, 2)
+
+	repo, err := project.GetRepository("venicegeo/pz-gateway")
+	assert.Nil(err)
+	refs, err = repo.GetAllRefs()
+	assert.Nil(err)
+	assert.Len(refs, 1)
 
 	project, _ = testApp.rtrvr.GetProject("project2")
-	if refs, err := project.GetAllRefs(); err != nil {
-		t.Error("Could not get all refs from project:", err.Error())
-	} else if len(refs) != 1 {
-		t.Error("Len of refs not 1:", len(refs))
-	}
+	refs, err = project.GetAllRefs()
+	assert.Nil(err)
+	assert.Len(refs, 1)
+}
+
+func TestGetScans(t *testing.T) {
+	assert := assert.New(t)
+
+	proj1, _ := testApp.rtrvr.GetProject("project1")
+	proj2, _ := testApp.rtrvr.GetProject("project2")
+
+	scan, found, err := proj1.ScanBySha("47bd5b191a28b637e44170cf93a50b0a2b4075f7")
+	assert.Nil(err)
+	assert.True(found)
+	assert.Equal("project1", scan.Project)
+	assert.Equal("venicegeo/pz-gateway", scan.RepoFullname)
+
+	scan, found, err = proj2.ScanBySha("47bd5b191a28b637e44170cf93a50b0a2b4075f7")
+	assert.Nil(err)
+	assert.False(found)
+	assert.Nil(scan)
+
 }

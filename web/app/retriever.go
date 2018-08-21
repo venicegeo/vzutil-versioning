@@ -43,6 +43,7 @@ func NewRetriever(app *Application) *Retriever {
 	return &Retriever{app}
 }
 
+//Test: TestGetScans
 func (p *Project) ScanBySha(sha string) (*RepositoryDependencyScan, bool, error) {
 	var entry = new(RepositoryDependencyScan)
 	var err error
@@ -56,6 +57,7 @@ func (p *Project) ScanBySha(sha string) (*RepositoryDependencyScan, bool, error)
 	}
 	return entry, true, json.Unmarshal(*result.Source, entry)
 }
+
 func (r *Retriever) ScanByShaNameGen(repo *Repository, sha string) (*RepositoryDependencyScan, error) {
 	scan, found, err := repo.project.ScanBySha(sha)
 	if err != nil || !found {
@@ -295,7 +297,7 @@ func (r *Retriever) GetAllProjects() ([]*Project, error) {
 	return res, nil
 }
 
-//Test: TestGetRepositories
+//Test: TestAddRepositories
 func (r *Retriever) GetAllProjectNamesUsingRepository(repo string) ([]string, error) {
 	agg := es.NewAggQuery("projects", es.ProjectEntryNameField)
 	agg["query"] = es.NewTerm("repo", repo)
