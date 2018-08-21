@@ -179,6 +179,7 @@ func (r *Repository) MapRefToShas() (map[string][]string, int64, error) {
 	return res, entryDat.TotalHits, nil
 }
 
+// CANNOT TEST
 func (r *Repository) GetAllRefs() ([]string, error) {
 	in := es.NewAggQuery("refs", Scan_RefsField)
 	boool := es.NewBool().SetMust(es.NewBoolQ(es.NewTerm(Scan_FullnameField, r.RepoFullname), es.NewTerm(Scan_ProjectField, r.project.Name)))
@@ -196,6 +197,7 @@ func (r *Repository) GetAllRefs() ([]string, error) {
 	return res, nil
 }
 
+// CANNOT TEST
 func (p *Project) GetAllRefs() ([]string, error) {
 	repos, err := p.GetAllRepositories()
 	if err != nil {
@@ -220,55 +222,8 @@ func (p *Project) GetAllRefs() ([]string, error) {
 	return res, nil
 }
 
-// Returns map of repository to all of its refs, within a project
-func (r *Retriever) ListRefsByRepositoryInProject(projectRequesting string) (*map[string][]string, int, error) {
-	project, err := r.GetProject(projectRequesting)
-	if err != nil {
-		return nil, 0, err
-	}
-	repos, err := project.GetAllRepositories()
-	if err != nil {
-		return nil, 0, err
-	}
-	res := map[string][]string{}
-	totalNumber := 0
-	errs := make(chan error, len(repos))
-	mux := &sync.Mutex{}
-
-	work := func(repo string) {
-		in := es.NewAggQuery("refs", Scan_RefsField)
-		in["query"] = es.NewTerm(Scan_FullnameField, repo)
-		var out es.AggResponse
-		if err := r.app.index.DirectAccess("GET", "/versioning_tool/repository_entry/_search", in, &out); err != nil {
-			errs <- err
-			return
-		}
-		num := len(out.Aggs["refs"].Buckets)
-		temp := out.Aggs["refs"].GetKeys()
-		sort.Strings(temp)
-		mux.Lock()
-		{
-			totalNumber += num
-			res[repo] = temp
-			errs <- nil
-		}
-		mux.Unlock()
-	}
-
-	for _, p := range repos {
-		go work(p.RepoFullname)
-	}
-	err = nil
-	for i := 0; i < len(repos); i++ {
-		e := <-errs
-		if e != nil {
-			err = e
-		}
-	}
-	return &res, totalNumber, err
-}
-
 // Lists all known repositories, regardless of project
+// CANNOT TEST
 func (r *Retriever) ListRepositories() ([]string, error) {
 	agg := es.NewAggQuery("repo", Scan_FullnameField)
 	var resp es.AggResponse
@@ -278,6 +233,7 @@ func (r *Retriever) ListRepositories() ([]string, error) {
 	return resp.Aggs["repo"].GetKeys(), nil
 }
 
+//Test: TestAddRepositories
 func (p *Project) GetAllRepositories() ([]*Repository, error) {
 	hits, err := es.GetAll(p.index, ProjectEntryType, es.NewTerm(es.ProjectEntryNameField, p.Name))
 	if err != nil {
@@ -315,6 +271,7 @@ func (p *Project) GetRepository(repository string) (*Repository, error) {
 	return res, nil
 }
 
+//Test: TestAddRepositories
 func (r *Retriever) GetRepository(repository, project string) (*Repository, *Project, error) {
 	proj, err := r.GetProject(project)
 	if err != nil {
@@ -324,6 +281,7 @@ func (r *Retriever) GetRepository(repository, project string) (*Repository, *Pro
 	return repo, proj, err
 }
 
+//Test: TestAddProjects
 func (r *Retriever) GetProject(name string) (*Project, error) {
 	resp, err := r.app.index.GetByID(ProjectType, name)
 	if err != nil {
@@ -338,6 +296,7 @@ func (r *Retriever) GetProject(name string) (*Project, error) {
 	return &Project{r.app.index, p}, nil
 }
 
+//Test: TestAddProjects
 func (r *Retriever) GetAllProjects() ([]*Project, error) {
 	hits, err := es.GetAll(r.app.index, ProjectType, map[string]interface{}{})
 	if err != nil {
@@ -354,6 +313,7 @@ func (r *Retriever) GetAllProjects() ([]*Project, error) {
 	return res, nil
 }
 
+// CANNOT TEST
 func (r *Retriever) GetAllProjectNamesUsingRepository(repo string) ([]string, error) {
 	agg := es.NewAggQuery("projects", es.ProjectEntryNameField)
 	agg["query"] = es.NewTerm("repo", repo)

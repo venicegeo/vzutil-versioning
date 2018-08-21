@@ -15,6 +15,7 @@
 package elasticsearch
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -435,8 +436,16 @@ func (esi *MockIndex) FilterByTermQuery(typeName string, name string, value inte
 	return resp, nil
 }
 
-func (esi *MockIndex) SearchByJSON(typ string, jsn map[string]interface{}) (*elastic.SearchResult, error) {
-	fmt.Println(jsn)
+func (esi *MockIndex) SearchByJSON(typ string, jsni map[string]interface{}) (*elastic.SearchResult, error) {
+	dat, err := json.Marshal(jsni)
+	if err != nil {
+		return nil, err
+	}
+	var jsn map[string]interface{}
+
+	if err = piazza.UnmarshalNumber(bytes.NewReader(dat), &jsn); err != nil {
+		return nil, err
+	}
 	query, ok := jsn["query"]
 	if !ok {
 		return nil, fmt.Errorf("Must include a query in mock SearchByJSON")
@@ -471,10 +480,11 @@ func (esi *MockIndex) SearchByJSON(typ string, jsn map[string]interface{}) (*ela
 	}
 	size := 10
 	if isize, ok := jsn["size"]; ok {
-		size = int(isize.(int64))
-		if len(ret) < size {
-			size = len(ret)
-		}
+		tmp, _ := isize.(json.Number).Int64()
+		size = int(tmp)
+	}
+	if len(ret) < size {
+		size = len(ret)
 	}
 	ret = ret[:size]
 	return convertToResult(ret), nil
