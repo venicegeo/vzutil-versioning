@@ -28,9 +28,10 @@ import (
 )
 
 type Application struct {
-	singleLocation  string
-	compareLocation string
-	debugMode       bool
+	singleLocation   string
+	compareLocation  string
+	templateLocation string
+	debugMode        bool
 
 	server *u.Server
 
@@ -63,13 +64,14 @@ type Back struct {
 	BackButton string `form:"button_back"`
 }
 
-func NewApplication(index elasticsearch.IIndex, singleLocation, compareLocation string, debugMode bool) *Application {
+func NewApplication(index elasticsearch.IIndex, singleLocation, compareLocation, templateLocation string, debugMode bool) *Application {
 	return &Application{
-		index:           index,
-		singleLocation:  singleLocation,
-		compareLocation: compareLocation,
-		debugMode:       debugMode,
-		killChan:        make(chan bool),
+		index:            index,
+		singleLocation:   singleLocation,
+		compareLocation:  compareLocation,
+		templateLocation: templateLocation,
+		debugMode:        debugMode,
+		killChan:         make(chan bool),
 	}
 }
 
@@ -94,7 +96,7 @@ func (a *Application) StartInternals() {
 			a.server.SetTLSInfo("localhost.crt", "localhost.key")
 		}
 	}
-	a.server.Configure([]u.RouteData{
+	a.server.Configure(a.templateLocation, []u.RouteData{
 		u.RouteData{"GET", "/", a.defaultPath, false},
 		u.RouteData{"POST", "/webhook", a.webhookPath, false},
 
