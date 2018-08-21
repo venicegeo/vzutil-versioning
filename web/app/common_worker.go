@@ -17,7 +17,7 @@ package app
 import (
 	"encoding/json"
 	"log"
-	"regexp"
+	"sync"
 
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -27,7 +27,10 @@ type Worker struct {
 
 	snglRnnr        *SingleRunner
 	numWorkers      int
+	mux             *sync.Mutex
+	checkWorking    []bool
 	checkExistQueue chan *existsWork
+	cloneWorking    []bool
 	cloneQueue      chan *scanWork
 }
 
@@ -42,11 +45,26 @@ type scanWork struct {
 }
 
 func NewWorker(app *Application, numWorkers int) *Worker {
-	wrkr := Worker{app, NewSingleRunner(app), numWorkers, make(chan *existsWork, 1000), make(chan *scanWork, 1000)}
+	wrkr := Worker{app, NewSingleRunner(app), numWorkers, &sync.Mutex{}, make([]bool, numWorkers), make(chan *existsWork, 1000), make([]bool, numWorkers), make(chan *scanWork, 1000)}
 	return &wrkr
 }
 
-var depRe = regexp.MustCompile(`(.*):(.*):(.*)`)
+func (w *Worker) JobsInSystem() int {
+	w.mux.Lock()
+	res := len(w.checkExistQueue) + len(w.cloneQueue)
+	for _, b := range w.checkWorking {
+		if b {
+			res++
+		}
+	}
+	for _, b := range w.cloneWorking {
+		if b {
+			res++
+		}
+	}
+	w.mux.Unlock()
+	return res
+}
 
 func (w *Worker) Start() {
 	w.startCheckExist()
@@ -57,6 +75,9 @@ func (w *Worker) startCheckExist() {
 	work := func(worker int) {
 		for {
 			work := <-w.checkExistQueue
+			w.mux.Lock()
+			w.checkWorking[worker] = true
+			w.mux.Unlock()
 			log.Printf("[CHECK-WORKER (%d)] Starting work on %s\n", worker, work.request.sha)
 
 			item, err := w.app.index.GetByID(RepositoryEntryType, work.request.sha+"-"+work.request.repository.ProjectName)
@@ -95,9 +116,12 @@ func (w *Worker) startCheckExist() {
 			work.exists <- false
 			log.Printf("[CHECK-WORKER (%d)] Adding %s to clone queue\n", worker, work.request.sha)
 			w.cloneQueue <- &scanWork{work.request, work.singleRet}
+			w.mux.Lock()
+			w.checkWorking[worker] = false
+			w.mux.Unlock()
 		}
 	}
-	for i := 1; i <= w.numWorkers; i++ {
+	for i := 0; i < w.numWorkers; i++ {
 		go work(i)
 	}
 }
@@ -118,13 +142,19 @@ func (w *Worker) startClone() {
 				}
 			}()
 			work := <-w.cloneQueue
+			w.mux.Lock()
+			w.cloneWorking[worker] = true
+			w.mux.Unlock()
 
 			singleRet := w.snglRnnr.RunAgainstSingle(u.Format("[CLONE-WORKER (%d)] ", worker), toPrint, work.request)
 			done <- true
 			work.singleRet <- singleRet
+			w.mux.Lock()
+			w.cloneWorking[worker] = false
+			w.mux.Unlock()
 		}
 	}
-	for i := 1; i <= w.numWorkers; i++ {
+	for i := 0; i < w.numWorkers; i++ {
 		go work(i)
 	}
 }

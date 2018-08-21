@@ -117,5 +117,53 @@ func TestFire(t *testing.T) {
 	testApp.ff.FireRequest(&SingleRunnerRequest{proj1gateway, "47bd5b191a28b637e44170cf93a50b0a2b4075f7", "refs/heads/master"})
 	testApp.ff.FireRequest(&SingleRunnerRequest{proj2gateway, "14d63d433469009a1acfecaf32d37087e16e528b", "refs/heads/master"})
 	testApp.ff.FireRequest(&SingleRunnerRequest{ndwi, "2997b89620dc34547c3c9c2ba755a9e769814d5e", "refs/heads/Production"})
-	time.Sleep(time.Minute)
+	start := time.Now()
+	time.Sleep(time.Second * 2)
+	for testApp.wrkr.JobsInSystem() != 0 {
+		time.Sleep(time.Second * 2)
+	}
+	if (time.Now().Unix() - start.Unix()) > int64(time.Second*5) {
+		t.Error("Something ran too fast")
+	}
+}
+
+func TestGetRepositories(t *testing.T) {
+	if repos, err := testApp.rtrvr.ListRepositories(); err != nil {
+		t.Error("Failed to list repositories:", err.Error())
+	} else if len(repos) != 2 {
+		t.Error("Len repos not 2:", len(repos))
+	}
+	if projects, err := testApp.rtrvr.GetAllProjectNamesUsingRepository("venicegeo/pz-gateway"); err != nil {
+		t.Error("Failed to get projects using repository:", err.Error())
+	} else if len(projects) != 2 {
+		t.Error("Did not right amount of projects using repository", len(projects))
+	}
+	if projects, err := testApp.rtrvr.GetAllProjectNamesUsingRepository("venicegeo/bfalg-ndwi"); err != nil {
+		t.Error("Failed to get projects using repository:", err.Error())
+	} else if len(projects) != 1 {
+		t.Error("Did not get right amount of projects using repository", len(projects))
+	}
+	project, _ := testApp.rtrvr.GetProject("project1")
+	if refs, err := project.GetAllRefs(); err != nil {
+		t.Error("Could not get all refs from project:", err.Error())
+	} else if len(refs) != 2 {
+		t.Error("Len of refs not 2:", len(refs))
+	}
+
+	if repo, err := project.GetRepository("venicegeo/pz-gateway"); err != nil {
+		t.Error("Could not get repo:", err.Error())
+	} else {
+		if refs, err := repo.GetAllRefs(); err != nil {
+			t.Error("Could not get refs from repo:", err.Error())
+		} else if len(refs) != 1 {
+			t.Error("Did not get right number of refs:", len(refs))
+		}
+	}
+
+	project, _ = testApp.rtrvr.GetProject("project2")
+	if refs, err := project.GetAllRefs(); err != nil {
+		t.Error("Could not get all refs from project:", err.Error())
+	} else if len(refs) != 1 {
+		t.Error("Len of refs not 1:", len(refs))
+	}
 }

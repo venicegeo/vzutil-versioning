@@ -1031,10 +1031,10 @@ func (a *AggregationBucketRangeItem) UnmarshalJSON(data []byte) error {
 type AggregationBucketKeyItems struct {
 	Aggregations
 
-	DocCountErrorUpperBound int64                       //`json:"doc_count_error_upper_bound"`
-	SumOfOtherDocCount      int64                       //`json:"sum_other_doc_count"`
-	Buckets                 []*AggregationBucketKeyItem //`json:"buckets"`
-	Meta                    map[string]interface{}      // `json:"meta,omitempty"`
+	DocCountErrorUpperBound int64                       `json:"doc_count_error_upper_bound"`
+	SumOfOtherDocCount      int64                       `json:"sum_other_doc_count"`
+	Buckets                 []*AggregationBucketKeyItem `json:"buckets"`
+	Meta                    map[string]interface{}      `json:"meta,omitempty"`
 }
 
 // UnmarshalJSON decodes JSON data and initializes an AggregationBucketKeyItems structure.
@@ -1063,10 +1063,10 @@ func (a *AggregationBucketKeyItems) UnmarshalJSON(data []byte) error {
 type AggregationBucketKeyItem struct {
 	Aggregations
 
-	Key         interface{} //`json:"key"`
-	KeyAsString *string     //`json:"key_as_string"`
+	Key         interface{} `json:"key"`
+	KeyAsString *string     `json:"key_as_string"`
 	KeyNumber   json.Number
-	DocCount    int64 //`json:"doc_count"`
+	DocCount    int64 `json:"doc_count"`
 }
 
 // UnmarshalJSON decodes JSON data and initializes an AggregationBucketKeyItem structure.

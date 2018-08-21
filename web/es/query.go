@@ -14,6 +14,12 @@
 
 package es
 
+import (
+	"errors"
+
+	"github.com/venicegeo/pz-gocommon/elasticsearch/elastic-5-api"
+)
+
 type Bool struct {
 	Must    *BoolQ `json:"must,omitempty"`
 	Should  *BoolQ `json:"should,omitempty"`
@@ -97,24 +103,47 @@ func NewAggQuery(aggName, fieldName string) map[string]interface{} {
 		"size": 0}
 }
 
-type Bucket struct {
-	Key      string `json:"key"`
-	DocCount int64  `json:"doc_count"`
-}
-type Agg struct {
-	Buckets []Bucket `json:"buckets"`
-}
+//type Bucket struct {
+//	Key      string `json:"key"`
+//	DocCount int64  `json:"doc_count"`
+//}
+//type Agg struct {
+//	Buckets []Bucket `json:"buckets"`
+//}
 
-func (a Agg) GetKeys() []string {
-	res := make([]string, len(a.Buckets), len(a.Buckets))
-	for i, b := range a.Buckets {
-		res[i] = b.Key
+//func (a Agg) GetKeys() []string {
+//	res := make([]string, len(a.Buckets), len(a.Buckets))
+//	for i, b := range a.Buckets {
+//		res[i] = b.Key
+//	}
+//	return res
+//}
+
+//type AggResponse struct {
+//	Aggs map[string]Agg `json:"aggregations"`
+//}
+
+func GetAggKeysFromSearchResponse(term string, resp *elastic.SearchResult, err error, transform ...func(string) string) ([]string, error) {
+	if err != nil {
+		return nil, err
 	}
-	return res
-}
-
-type AggResponse struct {
-	Aggs map[string]Agg `json:"aggregations"`
+	var trans func(string) string
+	if len(transform) > 0 {
+		trans = transform[0]
+	} else {
+		trans = func(a string) string {
+			return a
+		}
+	}
+	agg, ok := resp.Aggregations.Terms(term)
+	if !ok {
+		return nil, errors.New("Agg query failed to find agg term")
+	}
+	res := make([]string, len(agg.Buckets), len(agg.Buckets))
+	for i, b := range agg.Buckets {
+		res[i] = trans(b.Key.(string))
+	}
+	return res, nil
 }
 
 type NestedQuery map[string]interface{}
