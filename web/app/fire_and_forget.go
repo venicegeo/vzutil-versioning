@@ -30,27 +30,28 @@ func NewFireAndForget(app *Application) *FireAndForget {
 	return &FireAndForget{app}
 }
 
-func (w *FireAndForget) FireRequest(request *SingleRunnerRequest) {
+func (ff *FireAndForget) FireRequest(request *SingleRunnerRequest) {
 	go func(request *SingleRunnerRequest) {
-		exists := make(chan bool, 1)
+		exists := make(chan *RepositoryDependencyScan, 1)
 		ret := make(chan *RepositoryDependencyScan, 1)
 		defer func() {
 			close(exists)
 			close(ret)
 		}()
-		w.app.wrkr.AddTask(request, exists, ret)
+		ff.app.wrkr.AddTask(request, exists, ret)
 		e := <-exists
-		if e {
-			return
-		}
-		r := <-ret
-		if r != nil {
-			w.postScan(r)
+		if e != nil {
+			ff.tryUpdateScan(request.ref, e)
+		} else {
+			r := <-ret
+			if r != nil {
+				ff.postScan(r)
+			}
 		}
 	}(request)
 }
 
-func (w *FireAndForget) FireGit(git *s.GitWebhook) {
+func (ff *FireAndForget) FireGit(git *s.GitWebhook) {
 	go func(git *s.GitWebhook) {
 		fire := func(git *s.GitWebhook, repo *Repository) {
 			ret := make(chan *RepositoryDependencyScan, 1)
@@ -60,20 +61,20 @@ func (w *FireAndForget) FireGit(git *s.GitWebhook) {
 				sha:        git.AfterSha,
 				ref:        git.Ref,
 			}
-			w.app.wrkr.AddTask(request, nil, ret)
+			ff.app.wrkr.AddTask(request, nil, ret)
 			r := <-ret
 			if r != nil {
-				w.postScan(r)
+				ff.postScan(r)
 			}
 		}
 
 		log.Println("[RECIEVED WEBHOOK]", git.Repository.FullName, git.AfterSha, git.Ref)
-		if projects, err := w.app.rtrvr.GetAllProjectNamesUsingRepository(git.Repository.FullName); err != nil {
+		if projects, err := ff.app.rtrvr.GetAllProjectNamesUsingRepository(git.Repository.FullName); err != nil {
 			log.Println("FAILED TO FIND PROJECTS USING REPOSITORY FOR WEBHOOK", git.AfterSha)
 		} else {
 			for _, p := range projects {
 				go func(p string) {
-					if repo, _, err := w.app.rtrvr.GetRepository(git.Repository.FullName, p); err != nil {
+					if repo, _, err := ff.app.rtrvr.GetRepository(git.Repository.FullName, p); err != nil {
 						log.Println("FAILED TO GET THE REPO INSTANCE UNDER", p)
 					} else {
 						go fire(git, repo)
@@ -85,7 +86,28 @@ func (w *FireAndForget) FireGit(git *s.GitWebhook) {
 
 }
 
-func (w *FireAndForget) postScan(scan *RepositoryDependencyScan) {
+func (ff *FireAndForget) tryUpdateScan(ref string, scan *RepositoryDependencyScan) {
+	contains := false
+	for _, r := range scan.Refs {
+		if r == ref {
+			contains = true
+			break
+		}
+	}
+	if contains {
+		return
+	}
+	scan.Refs = append(scan.Refs, ref)
+
+	_, err := ff.app.index.PostData(RepositoryEntryType, scan.Sha+"-"+scan.Project, scan)
+	if err != nil {
+		log.Printf("[ES-WORKER] Unable to update entry %s: %s\n", scan.Sha, err.Error())
+	} else {
+		log.Println("[ES-WORKER] Updated", scan.Sha, "for", scan.Project, "with ref", ref)
+	}
+}
+
+func (ff *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 	log.Println("[ES-WORKER] Starting work on", scan.Sha, "for", scan.Project)
 	var err error
 
@@ -104,7 +126,7 @@ func (w *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 			},
 			"size": 1,
 		}
-		result, err := w.app.index.SearchByJSON(RepositoryEntryType, q)
+		result, err := ff.app.index.SearchByJSON(RepositoryEntryType, q)
 		if err == nil && result.Hits.TotalHits == 1 {
 			entry := new(RepositoryDependencyScan)
 			if err = json.Unmarshal(*result.Hits.Hits[0].Source, entry); err == nil {
@@ -113,7 +135,7 @@ func (w *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 		}
 	}
 
-	resp, err := w.app.index.PostData(RepositoryEntryType, scan.Sha+"-"+scan.Project, scan)
+	resp, err := ff.app.index.PostData(RepositoryEntryType, scan.Sha+"-"+scan.Project, scan)
 	if err != nil {
 		log.Printf("[ES-WORKER] Unable to create entry %s: %s\n", scan.Sha, err.Error())
 		return
@@ -124,7 +146,7 @@ func (w *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 
 	log.Println("[ES-WORKER] Finished work on", scan.RepoFullname, scan.Sha)
 	for ref, old := range testAgainstEntries {
-		go w.runDiff(scan.RepoFullname, scan.Project, ref, old, scan)
+		go ff.runDiff(scan.RepoFullname, scan.Project, ref, old, scan)
 	}
 }
 

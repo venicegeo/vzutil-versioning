@@ -36,7 +36,7 @@ type Worker struct {
 
 type existsWork struct {
 	request   *SingleRunnerRequest
-	exists    chan bool
+	exists    chan *RepositoryDependencyScan
 	singleRet chan *RepositoryDependencyScan
 }
 type scanWork struct {
@@ -81,39 +81,22 @@ func (w *Worker) startCheckExist() {
 			log.Printf("[CHECK-WORKER (%d)] Starting work on %s\n", worker, work.request.sha)
 
 			item, err := w.app.index.GetByID(RepositoryEntryType, work.request.sha+"-"+work.request.repository.ProjectName)
-			if err != nil {
+			if err != nil || !item.Found {
 				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s. Continuing\n", worker, err.Error())
 			}
 			if item.Found {
-				var repEntry = new(RepositoryDependencyScan)
+				repEntry := new(RepositoryDependencyScan)
 				if err = json.Unmarshal(*item.Source, repEntry); err != nil {
 					log.Printf("[CHECK-WORKER (%d)] Unable to unmarshal sha: %s\nReason: %s\n", worker, work.request.sha, err.Error())
-					work.exists <- false
+					work.exists <- nil
 					work.singleRet <- nil
 					continue
 				}
-				work.exists <- true
-				go func(work *existsWork) {
-					log.Printf("[CHECK-WORKER (%d)] This sha already exists\n", worker)
-					refFound := false
-					if work.request.ref == "" {
-						return
-					}
-					for _, name := range repEntry.Refs {
-						if name == work.request.ref {
-							refFound = true
-							break
-						}
-					}
-					if !refFound {
-						log.Printf("[CHECK-WORKER (%d)] Adding ref [%s] to sha [%s]\n", worker, work.request.ref, work.request.sha)
-						repEntry.Refs = append(repEntry.Refs, work.request.ref)
-						w.app.index.PostData("repository_entry", work.request.sha, repEntry)
-					}
-				}(work)
+				work.exists <- repEntry
+				log.Printf("[CHECK-WORKER (%d)] This sha already exists\n", worker)
 				continue
 			}
-			work.exists <- false
+			work.exists <- nil
 			log.Printf("[CHECK-WORKER (%d)] Adding %s to clone queue\n", worker, work.request.sha)
 			w.cloneQueue <- &scanWork{work.request, work.singleRet}
 			w.mux.Lock()
@@ -159,7 +142,7 @@ func (w *Worker) startClone() {
 	}
 }
 
-func (w *Worker) AddTask(request *SingleRunnerRequest, exists chan bool, singleRet chan *RepositoryDependencyScan) {
+func (w *Worker) AddTask(request *SingleRunnerRequest, exists chan *RepositoryDependencyScan, singleRet chan *RepositoryDependencyScan) {
 	if exists != nil {
 		w.checkExistQueue <- &existsWork{request, exists, singleRet}
 	} else {
