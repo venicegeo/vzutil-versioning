@@ -130,7 +130,7 @@ func (project *Project) ScansByRefInProject(ref string) (map[string]*RepositoryD
 			addError(repoName, u.Format("Error during query: %s", err.Error()))
 			return
 		}
-		if resp.Hits.TotalHits != 1 {
+		if resp.Hits.TotalHits == 0 {
 			wg.Done()
 			return
 		}
@@ -243,8 +243,8 @@ func (p *Project) GetRepository(repository string) (*Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	if resp.TotalHits() != 1 {
-		return nil, u.Error("Total hits not 1 but %d", resp.TotalHits())
+	if len(resp.Hits.Hits) != 1 {
+		return nil, u.Error("Total hits not 1 but %d", len(resp.Hits.Hits))
 	}
 	res := new(Repository)
 	if err = json.Unmarshal(*resp.Hits.Hits[0].Source, res); err != nil {
