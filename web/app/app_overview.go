@@ -115,7 +115,7 @@ func (a *Application) newProject(c *gin.Context) {
 			c.String(400, "You can not do this")
 			return
 		}
-		displayName := f.ProjectName
+		displayName := strings.TrimSpace(f.ProjectName)
 		name := strings.ToLower(strings.Replace(strings.Replace(f.ProjectName, "/", "_", -1), " ", "", -1))
 		exists, err := a.index.ItemExists(ProjectType, name)
 		if err != nil {
@@ -155,6 +155,9 @@ func (a *Application) reportSha(c *gin.Context) {
 		c.String(400, "Error binding form: %s", err.Error())
 		return
 	}
+	form.Org = strings.TrimSpace(form.Org)
+	form.Repo = strings.TrimSpace(form.Repo)
+	form.Sha = strings.TrimSpace(form.Sha)
 	if form.Back != "" {
 		c.Redirect(303, "/ui")
 		return
