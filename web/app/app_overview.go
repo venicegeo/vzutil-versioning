@@ -16,7 +16,6 @@ package app
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -116,7 +115,7 @@ func (a *Application) newProject(c *gin.Context) {
 			c.String(400, "You can not do this")
 			return
 		}
-		displayName := f.ProjectName
+		displayName := strings.TrimSpace(f.ProjectName)
 		name := strings.ToLower(strings.Replace(strings.Replace(f.ProjectName, "/", "_", -1), " ", "", -1))
 		exists, err := a.index.ItemExists(ProjectType, name)
 		if err != nil {
@@ -156,6 +155,9 @@ func (a *Application) reportSha(c *gin.Context) {
 		c.String(400, "Error binding form: %s", err.Error())
 		return
 	}
+	form.Org = strings.TrimSpace(form.Org)
+	form.Repo = strings.TrimSpace(form.Repo)
+	form.Sha = strings.TrimSpace(form.Sha)
 	if form.Back != "" {
 		c.Redirect(303, "/ui")
 		return
@@ -248,6 +250,10 @@ func (a *Application) customDiff(c *gin.Context) {
 		c.Redirect(303, "/ui")
 		return
 	}
+	form.Org = strings.TrimSpace(form.Org)
+	form.Repo = strings.TrimSpace(form.Repo)
+	form.OldSha = strings.TrimSpace(form.OldSha)
+	form.NewSha = strings.TrimSpace(form.NewSha)
 	h := gin.H{
 		"org":      form.Org,
 		"repo":     form.Repo,
@@ -288,8 +294,11 @@ func (a *Application) customDiff(c *gin.Context) {
 		}
 	}
 	files := s.NewHtmlCollection()
-	for _, f := range form.Files {
-		files.Add(s.NewHtmlTextField("files[]", f).Special("readonly"))
+	for i := 0; i < len(form.Files); i++ {
+		files.Add(s.NewHtmlTextField("files[]", form.Files[i]).Special("readonly"))
+		if i < len(form.Files)-1 {
+			files.Add(s.NewHtmlBr())
+		}
 	}
 	if form.Scan != "" {
 		primaryScan()
@@ -305,6 +314,8 @@ func (a *Application) customDiff(c *gin.Context) {
 		diff, err := a.diffMan.ShaCompare(repoName, form.Files, form.OldSha, form.NewSha)
 		if err != nil {
 			h["diff"] = err.Error()
+		} else if diff == nil {
+			h["diff"] = "These are identical"
 		} else {
 			height := len(diff.Added)
 			if height < len(diff.Removed) {
@@ -324,8 +335,6 @@ func (a *Application) customDiff(c *gin.Context) {
 					t.Fill(diff.Added[i])
 				}
 			}
-			dat, _ := json.MarshalIndent(diff, " ", "   ")
-			fmt.Println(string(dat))
 			h["diff"] = t.HasHeading().Format().String()
 		}
 	}

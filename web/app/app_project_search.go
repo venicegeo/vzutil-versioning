@@ -17,6 +17,7 @@ package app
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
@@ -34,6 +35,8 @@ func (a *Application) searchForDep(c *gin.Context) {
 		c.String(400, "Unable to bind form: %s", err.Error())
 		return
 	}
+	form.DepName = strings.TrimSpace(form.DepName)
+	form.DepVersion = strings.TrimSpace(form.DepVersion)
 	h := gin.H{
 		"data":             "Search Results will appear here",
 		"depsearchname":    form.DepName,
@@ -67,6 +70,8 @@ func (a *Application) searchForDepInProject(c *gin.Context) {
 		c.String(400, "Unable to bind form: %s", err.Error())
 		return
 	}
+	form.DepName = strings.TrimSpace(form.DepName)
+	form.DepVersion = strings.TrimSpace(form.DepVersion)
 	h := gin.H{
 		"data":             "Search Results will appear here",
 		"depsearchname":    form.DepName,

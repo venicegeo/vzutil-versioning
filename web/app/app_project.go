@@ -189,6 +189,10 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 		c.Redirect(303, "/project/"+proj)
 		return
 	}
+	form.Org = strings.TrimSpace(form.Org)
+	form.Repo = strings.TrimSpace(form.Repo)
+	form.AltOrg = strings.TrimSpace(form.AltOrg)
+	form.AltRepo = strings.TrimSpace(form.AltRepo)
 	h := gin.H{
 		"org":      form.Org,
 		"repo":     form.Repo,
