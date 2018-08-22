@@ -16,7 +16,6 @@ package app
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -248,6 +247,10 @@ func (a *Application) customDiff(c *gin.Context) {
 		c.Redirect(303, "/ui")
 		return
 	}
+	form.Org = strings.TrimSpace(form.Org)
+	form.Repo = strings.TrimSpace(form.Repo)
+	form.OldSha = strings.TrimSpace(form.OldSha)
+	form.NewSha = strings.TrimSpace(form.NewSha)
 	h := gin.H{
 		"org":      form.Org,
 		"repo":     form.Repo,
@@ -288,8 +291,11 @@ func (a *Application) customDiff(c *gin.Context) {
 		}
 	}
 	files := s.NewHtmlCollection()
-	for _, f := range form.Files {
-		files.Add(s.NewHtmlTextField("files[]", f).Special("readonly"))
+	for i := 0; i < len(form.Files); i++ {
+		files.Add(s.NewHtmlTextField("files[]", form.Files[i]).Special("readonly"))
+		if i < len(form.Files)-1 {
+			files.Add(s.NewHtmlBr())
+		}
 	}
 	if form.Scan != "" {
 		primaryScan()
@@ -305,6 +311,8 @@ func (a *Application) customDiff(c *gin.Context) {
 		diff, err := a.diffMan.ShaCompare(repoName, form.Files, form.OldSha, form.NewSha)
 		if err != nil {
 			h["diff"] = err.Error()
+		} else if diff == nil {
+			h["diff"] = "These are identical"
 		} else {
 			height := len(diff.Added)
 			if height < len(diff.Removed) {
@@ -324,8 +332,6 @@ func (a *Application) customDiff(c *gin.Context) {
 					t.Fill(diff.Added[i])
 				}
 			}
-			dat, _ := json.MarshalIndent(diff, " ", "   ")
-			fmt.Println(string(dat))
 			h["diff"] = t.HasHeading().Format().String()
 		}
 	}
