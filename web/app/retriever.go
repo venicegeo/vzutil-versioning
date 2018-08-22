@@ -43,6 +43,7 @@ func NewRetriever(app *Application) *Retriever {
 	return &Retriever{app}
 }
 
+//Test: TestGetScans
 func (p *Project) ScanBySha(sha string) (*RepositoryDependencyScan, bool, error) {
 	var entry = new(RepositoryDependencyScan)
 	var err error
@@ -56,6 +57,7 @@ func (p *Project) ScanBySha(sha string) (*RepositoryDependencyScan, bool, error)
 	}
 	return entry, true, json.Unmarshal(*result.Source, entry)
 }
+
 func (r *Retriever) ScanByShaNameGen(repo *Repository, sha string) (*RepositoryDependencyScan, error) {
 	scan, found, err := repo.project.ScanBySha(sha)
 	if err != nil || !found {
@@ -128,7 +130,7 @@ func (project *Project) ScansByRefInProject(ref string) (map[string]*RepositoryD
 			addError(repoName, u.Format("Error during query: %s", err.Error()))
 			return
 		}
-		if resp.Hits.TotalHits != 1 {
+		if resp.Hits.TotalHits == 0 {
 			wg.Done()
 			return
 		}
@@ -241,8 +243,8 @@ func (p *Project) GetRepository(repository string) (*Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	if resp.TotalHits() != 1 {
-		return nil, u.Error("Total hits not 1 but %d", resp.TotalHits())
+	if len(resp.Hits.Hits) != 1 {
+		return nil, u.Error("Total hits not 1 but %d", len(resp.Hits.Hits))
 	}
 	res := new(Repository)
 	if err = json.Unmarshal(*resp.Hits.Hits[0].Source, res); err != nil {
@@ -295,7 +297,7 @@ func (r *Retriever) GetAllProjects() ([]*Project, error) {
 	return res, nil
 }
 
-//Test: TestGetRepositories
+//Test: TestAddRepositories
 func (r *Retriever) GetAllProjectNamesUsingRepository(repo string) ([]string, error) {
 	agg := es.NewAggQuery("projects", es.ProjectEntryNameField)
 	agg["query"] = es.NewTerm("repo", repo)
