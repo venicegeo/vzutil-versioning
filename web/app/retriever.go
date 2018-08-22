@@ -70,14 +70,14 @@ func (r *Retriever) ScanByShaNameGen(repo *Repository, sha string) (*RepositoryD
 				return nil, u.Error("Could not verify this sha, head code: %d", code)
 			}
 		}
-		exists := make(chan bool, 1)
+		exists := make(chan *RepositoryDependencyScan, 1)
 		ret := make(chan *RepositoryDependencyScan, 1)
 		r.app.wrkr.AddTask(&SingleRunnerRequest{
 			repository: repo,
 			sha:        sha,
 			ref:        "",
 		}, exists, ret)
-		if !<-exists {
+		if <-exists == nil {
 			scan = <-ret
 			if scan == nil {
 				return nil, u.Error("There was an error while running this")
