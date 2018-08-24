@@ -106,6 +106,7 @@ func (a *Application) StartInternals() {
 		u.RouteData{"GET", "/ui", a.projectsOverview, true},
 		u.RouteData{"GET", "/newproj", a.newProject, true},
 		u.RouteData{"POST", "/newproj", a.newProject, true},
+		u.RouteData{"GET", "/delproj/:proj", a.deleteProject, true},
 		u.RouteData{"GET", "/project/:proj", a.viewProject, true},
 		u.RouteData{"POST", "/project/:proj", a.viewProject, true},
 		u.RouteData{"GET", "/addrepo/:proj", a.addRepoToProject, true},

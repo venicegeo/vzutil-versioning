@@ -76,6 +76,9 @@ func (a *Application) viewProject(c *gin.Context) {
 		case "Dependency Search":
 			c.Redirect(303, "/depsearch/"+proj)
 			return
+		case "Delete Project":
+			c.Redirect(303, "/delproj/"+proj)
+			return
 		}
 	} else if form.Sha != "" {
 		scan, found, err := project.ScanBySha(form.Sha)

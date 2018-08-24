@@ -136,6 +136,7 @@ func (server *Server) middleware(route RouteData) gin.HandlerFunc {
 				return
 			}
 		}
+		c.Header("Cache-Control", "no-store")
 		route.Handler(c)
 		c.Next()
 	}

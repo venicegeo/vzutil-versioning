@@ -139,6 +139,47 @@ func (a *Application) newProject(c *gin.Context) {
 	}
 }
 
+func (a *Application) deleteProject(c *gin.Context) {
+	var form struct {
+		Submit string `form:"button_submit"`
+	}
+	if err := c.Bind(&form); err != nil {
+		c.String(500, "Could not bind form: %s", err.Error())
+	}
+	proj := c.Param("proj")
+	switch form.Submit {
+	case "YES":
+	case "no":
+		c.Redirect(303, "/project/"+proj)
+		return
+	case "":
+		c.HTML(200, "confirmation.html", nil)
+		return
+	default:
+		c.String(400, "Stop trying to break this please")
+		return
+	}
+	if exists, err := a.index.ItemExists(ProjectType, proj); err != nil {
+		c.String(500, "Error checking status of project: %s", err.Error())
+		return
+	} else if !exists {
+		c.String(400, "Why would you give me a project that doesnt exist?")
+		return
+	}
+	a.index.DeleteByID(ProjectType, proj)
+	if hits, err := es.GetAll(a.index, ProjectEntryType, es.NewTerm(es.ProjectEntryNameField, proj)); err == nil {
+		for _, hit := range hits.Hits {
+			a.index.DeleteByID(ProjectEntryType, hit.Id)
+		}
+	}
+	if hits, err := es.GetAll(a.index, RepositoryEntryType, es.NewTerm(Scan_ProjectField, proj)); err == nil {
+		for _, hit := range hits.Hits {
+			a.index.DeleteByID(RepositoryEntryType, hit.Id)
+		}
+	}
+	c.Redirect(303, "/ui")
+}
+
 func (a *Application) reportSha(c *gin.Context) {
 	var form struct {
 		Back string `form:"button_back"`
