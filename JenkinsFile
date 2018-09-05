@@ -1,136 +1,137 @@
 #!/usr/bin/groovy
 
 node {
-    def root = pwd()
-    def mvn = tool 'M3'
-    def golangTool = tool 'golang_1.7'
-    def appName = ""
-    def appvers = ""
+  def root = pwd()
+  def mvn = tool 'M3'
+  def golangTool = tool 'golang_1.7'
+  def appName = ""
+  def appvers = ""
+  def gopath = "${root}/gopath"
 
-    stage("Config") {
-      // clone the configuration repository and copy the current configuration
-      def configDir = "${root}/configuration"
-      def configFile = "${root}/config.json"
-      dir(configDir) {
-        git url: "${env.CONFIGURATION_URL}", credentialsId: "${env.CONFIGURATION_CREDS}"
-        sh "mv ${configDir}/${ENVIRONMENT}-config.json ${configFile}"
-        deleteDir()
-      }
-      // read the current configuration
-      def configJson = readJSON file: "${configFile}"
-      for (param in configJson.credparams + configJson.jobparams) { 
-        env."${param.name}" = (param.type == "booleanParam") ? "${param.defaultvalue}".toBoolean() : "${param.defaultvalue}"
-      }
+  stage("Config") {
+    if(!fileExists('.cf')) {
+      sh "mkdir -p .cf"
     }
+
+    // clone the configuration repository and copy the current configuration
+    def configDir = "${root}/configuration"
+    def configFile = "${root}/config.json"
+    dir(configDir) {
+      git url: "${env.CONFIGURATION_URL}", credentialsId: "${env.CONFIGURATION_CREDS}"
+      sh "mv ${configDir}/${ENVIRONMENT}-config.json ${configFile}"
+      deleteDir()
+    }
+    // read the current configuration
+    def configJson = readJSON file: "${configFile}"
+    for (param in configJson.credparams + configJson.jobparams) { 
+      env."${param.name}" = (param.type == "booleanParam") ? "${param.defaultvalue}".toBoolean() : "${param.defaultvalue}"
+    }
+  }
     
-    stage("Setup") {
-        deleteDir()
+  stage("Setup") {
+    deleteDir()
 		withEnv([
-          "PATH+=${golangTool}/bin:${root}/gopath/bin",
-          "GOROOT=${golangTool}",
-          "GOPATH=${root}/gopath"
-        ]) {
-            sh """
-              mkdir -p ${root}/gopath/bin ${root}/gopath/pkg ${root}/gopath/src/github.com/venicegeo/vzutil-versioning
-              go version
-            """
-    
-        }
-		dir("${root}/gopath/src/github.com/venicegeo/vzutil-versioning") {
+      "PATH+=${golangTool}/bin:${gopath}/bin",
+      "GOROOT=${golangTool}",
+      "GOPATH=${gopath}"
+    ]) {
+      sh """
+        mkdir -p ${gopath}/bin ${gopath}/pkg ${gopath}/src/github.com/venicegeo/vzutil-versioning
+        go version
+      """
+    }
+
+		dir("${gopath}/src/github.com/venicegeo/vzutil-versioning") {
 			git url: "${env.GIT_URL}", branch: "${env.GIT_BRANCH}"
 			appvers = (sh(script: "git describe --long --tags --always | sed 's/\\./-/'g", returnStdout: true)).trim();
 			appName = "vzutil-versioning-${appvers}-${env.BUILD_NUMBER}"
 		}
-    }
+  }
 
-    stage("Build") {
-        withEnv([
-          "PATH+=${golangTool}/bin:${root}/gopath/bin",
-          "GOROOT=${golangTool}",
-          "GOPATH=${root}/gopath",
-          "GOBIN=${root}/gopath/bin"
-        ]) {
-            sh """
-              cd "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/single"
-              go install
-              cd ../web
-              go install
-              cd ../compare
-              go install
-            """
-        }
+  stage("Build") {
+    withEnv([
+      "PATH+=${golangTool}/bin:${gopath}/bin",
+      "GOROOT=${golangTool}",
+      "GOPATH=${gopath}",
+      "GOBIN=${gopath}/bin"
+    ]) {
+      sh """
+        go build -v github.com/venicegeo/vzutil-versioning/single 
+        go build -v github.com/venicegeo/vzutil-versioning/web 
+        go build -v github.com/venicegeo/vzutil-versioning/compare      
+      """
     }
+  }
     
-    stage("Deploy") {
-        withEnv([
-          "PATH+=${golangTool}/bin:${root}/gopath/bin",
-          "GOROOT=${golangTool}",
-          "GOPATH=${root}/gopath"
-        ]) {
-            sh """
-              mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/manifest.jenkins.yml" .
-              mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/environment.yml" .
-              mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/Procfile" .
-              mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/write_settings.sh" .
-              mv "\$GOPATH/src/github.com/venicegeo/vzutil-versioning/web/templates" .
-              mv ${root}/gopath/bin/* .
-              rm -rf gopath/
-            """
+  stage("Deploy") {
+    withEnv([
+      "PATH+=${golangTool}/bin:${gopath}/bin",
+      "GOROOT=${golangTool}",
+      "GOPATH=${gopath}"
+    ]) {
+      sh """
+        cp "${gopath}/src/github.com/venicegeo/vzutil-versioning/manifest.jenkins.yml" .
+        cp "${gopath}/src/github.com/venicegeo/vzutil-versioning/environment.yml" .
+        cp "${gopath}/src/github.com/venicegeo/vzutil-versioning/Procfile" .
+        cp "${gopath}/src/github.com/venicegeo/vzutil-versioning/write_settings.sh" .
+        cp -r "${gopath}/src/github.com/venicegeo/vzutil-versioning/web/templates" .
+        rm -rf gopath/
+      """
       withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${env.ARTIFACT_STORAGE_CREDS}", usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS']]) {
         sh """
           ./write_settings.sh
           rm write_settings.sh
         """
       }
-         if(!fileExists('.cf')) {
-      sh "mkdir -p .cf"
-    }
-    withEnv(['CF_HOME=.cf']) {
-      withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${env.PCF_CREDS}", usernameVariable: 'CFUSER', passwordVariable: 'CFPASS']]) {
-        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${env.JENKINS_CREDS}", usernameVariable: 'JUSER', passwordVariable: 'JPASS']]) {
-	sh "ls"
-        sh "cf api ${env.PCF_API_ENDPOINT}"
-        sh "cf auth ${CFUSER} ${CFPASS}"
-        sh "cf target -o ${env.PCF_ORG} -s ${env.PROVISION_SPACE}"
-	try {
-          def jauth= (JUSER+":"+JPASS).bytes.encodeBase64().toString()
-          sh "cf push ${appName} -f manifest.jenkins.yml --hostname ${appName} -d ${env.PROVISION_DOMAIN} -u none --no-start"
-          sh "cf set-env ${appName} SPACE ${env.PROVISION_SPACE}"
-          sh "cf set-env ${appName} DOMAIN ${env.PROVISION_DOMAIN}"
-          sh "cf set-env ${appName} ARTIFACT_STORAGE_URL ${env.ARTIFACT_STORAGE_URL}"
-          sh "cf set-env ${appName} JENKINS ${jauth}"
-	  sh "cf set-env ${appName} ES_VCAP ${env.ES_VCAP}"
-	  sh "cf bind-service ${appName} ${env.ES_VCAP}"
-          sh "cf start ${appName}"
-        } catch (Exception e) {
-	  try {
-		sh "cf logs --recent ${appName}"
-	  } catch (Exception ex) {
-		echo "Printing logs failed: ${ex}"
-	}
-        sh "cf delete ${appName} -f -r"
-        error("Error during application start. Deleting ${appName} and failing the build.")
-          }
-	    }
+    
+      withEnv(['CF_HOME=.cf']) {
+        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${env.PCF_CREDS}", usernameVariable: 'CFUSER', passwordVariable: 'CFPASS']]) {
+          withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${env.JENKINS_CREDS}", usernameVariable: 'JUSER', passwordVariable: 'JPASS']]) {
+	          sh "ls"
+            sh "cf api ${env.PCF_API_ENDPOINT}"
+            sh "cf auth ${CFUSER} ${CFPASS}"
+            sh "cf target -o ${env.PCF_ORG} -s ${env.PROVISION_SPACE}"
+            try {
+              def jauth = (JUSER+":"+JPASS).bytes.encodeBase64().toString()
+              sh "cf push ${appName} -f manifest.jenkins.yml --hostname ${appName} -d ${env.PROVISION_DOMAIN} -u none --no-start"
+              sh "cf set-env ${appName} SPACE ${env.PROVISION_SPACE}"
+              sh "cf set-env ${appName} DOMAIN ${env.PROVISION_DOMAIN}"
+              sh "cf set-env ${appName} ARTIFACT_STORAGE_URL ${env.ARTIFACT_STORAGE_URL}"
+              sh "cf set-env ${appName} JENKINS ${jauth}"
+              sh "cf set-env ${appName} ES_VCAP ${env.ES_VCAP}"
+              sh "cf bind-service ${appName} ${env.ES_VCAP}"
+              sh "cf start ${appName}"
+            } catch (Exception e1) {
+              echo "Exception during deployment ${e1}"
+	            try {
+		            sh "cf logs --recent ${appName}"
+	            } catch (Exception ex) {
+		            echo "Printing logs failed: ${e2}"
+	            }
+              sh "cf delete ${appName} -f -r"
+              error("Error during application start. Deleting ${appName} and failing the build.")
+            }
+	        }
+        }
       }
-    }
- withEnv(['CF_HOME=.cf']) {
-      withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${env.PCF_CREDS}", usernameVariable: 'CFUSER', passwordVariable: 'CFPASS']]) {
-        sh "cf api ${env.PCF_API_ENDPOINT}"
-        sh "cf auth ${CFUSER} ${CFPASS}"
-        sh "cf target -o ${env.PCF_ORG} -s ${env.PROVISION_SPACE}"
-        def legacyAppNames = sh(script: "cf routes | grep \"vzutil-versioning \" | awk '{print \$4}'", returnStdout: true)
-        sh "cf map-route ${appName} ${env.PROVISION_DOMAIN} --hostname vzutil-versioning"
-        // Remove Legacy applications
-        for (Object legacyApp : legacyAppNames.trim().tokenize(',')) {
-          def legacyAppName = legacyApp.toString().trim()
-          if (legacyAppName != appName) {
-            sh "cf unmap-route ${legacyAppName} ${env.PROVISION_DOMAIN} --hostname vzutil-versioning"
-            sh "cf delete -f ${legacyAppName} -r"
+
+      withEnv(['CF_HOME=.cf']) {
+        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${env.PCF_CREDS}", usernameVariable: 'CFUSER', passwordVariable: 'CFPASS']]) {
+          sh "cf api ${env.PCF_API_ENDPOINT}"
+          sh "cf auth ${CFUSER} ${CFPASS}"
+          sh "cf target -o ${env.PCF_ORG} -s ${env.PROVISION_SPACE}"
+          def legacyAppNames = sh(script: "cf routes | grep \"vzutil-versioning \" | awk '{print \$4}'", returnStdout: true)
+          sh "cf map-route ${appName} ${env.PROVISION_DOMAIN} --hostname vzutil-versioning"
+          // Remove Legacy applications
+          for (Object legacyApp : legacyAppNames.trim().tokenize(',')) {
+            def legacyAppName = legacyApp.toString().trim()
+            if (legacyAppName != appName) {
+              sh "cf unmap-route ${legacyAppName} ${env.PROVISION_DOMAIN} --hostname vzutil-versioning"
+              sh "cf delete -f ${legacyAppName} -r"
+            }
           }
         }
       }
     }
-        }
-    }
+  }
 }
