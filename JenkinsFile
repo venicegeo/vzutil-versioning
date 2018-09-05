@@ -105,7 +105,7 @@ node {
               echo "Exception during deployment ${e1}"
 	            try {
 		            sh "cf logs --recent ${appName}"
-	            } catch (Exception ex) {
+	            } catch (Exception e2) {
 		            echo "Printing logs failed: ${e2}"
 	            }
               sh "cf delete ${appName} -f -r"
