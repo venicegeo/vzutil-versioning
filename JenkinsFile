@@ -124,7 +124,7 @@ node {
       }
 
       sh """
-        zip vzutil-versioning.zip single web compare manifest.jenkins.yml environment.yml Procfile templates settings.xml
+        zip -r9 vzutil-versioning.zip single web compare manifest.jenkins.yml environment.yml Procfile templates settings.xml
       """
     }
   }
