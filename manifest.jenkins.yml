@@ -2,7 +2,7 @@ applications:
 - name: vzutil-versioning
   host: vzutil-versioning
   buildpack: python_buildpack
-  path: ./vzutil-versioning.tar.gz
+  path: ./vzutil-versioning.zip
   memory: 1024M
   instances: 1
   timeout: 180

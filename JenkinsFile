@@ -57,7 +57,7 @@ node {
           sh "cf bind-service ${deployAppName} ${env.ES_VCAP}"
           sh "cf start ${deployAppName}"
         } catch (Exception e) {
-          error(e)
+          error(e.toString())
           error("Error during application start. Deleting ${deployAppName} and failing the build.")
           printLogsFailsafe(deployAppName)
           sh "cf delete ${deployAppName} -f -r"
