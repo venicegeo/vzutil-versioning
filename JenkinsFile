@@ -124,7 +124,7 @@ node {
       }
 
       sh """
-        tar cvvfz vzutil-versioning.tar.gz single web compare manifest.jenkins.yml environment.yml Procfile templates settings.xml
+        zip vzutil-versioning.zip single web compare manifest.jenkins.yml environment.yml Procfile templates settings.xml
       """
     }
   }
