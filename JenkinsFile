@@ -51,7 +51,7 @@ node {
         try {
           sh "cf push ${deployAppName} -f manifest.jenkins.yml --hostname ${deployAppName} -d ${pcfDomain} -u none --no-start"
           sh "cf set-env ${deployAppName} SPACE ${pcfSpace}"
-          sh "cf set-env ${deployAppName} DOMAIN ${pcfSpace}"
+          sh "cf set-env ${deployAppName} DOMAIN ${pcfDomain}"
           sh "cf set-env ${deployAppName} ARTIFACT_STORAGE_URL ${env.ARTIFACT_STORAGE_URL}"
           sh "cf set-env ${deployAppName} ES_VCAP ${env.ES_VCAP}"
           sh "cf bind-service ${deployAppName} ${env.ES_VCAP}"
