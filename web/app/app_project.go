@@ -159,7 +159,7 @@ func (a *Application) generateAccordion(accord *s.HtmlAccordion, repo *Repositor
 		tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
 	}
 	mux.Lock()
-	accord.AddItem(repo.RepoFullname, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlButton2("button_gen", "Generate Branch - "+repo.RepoFullname)).Post(), tempAccord.Sort()))
+	accord.AddItem(repo.Fullname, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlButton2("button_gen", "Generate Branch - "+repo.Fullname)).Post(), tempAccord.Sort()))
 	mux.Unlock()
 	errs <- nil
 }
@@ -205,7 +205,7 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 		"text_sha": form.TextSha,
 		"hidescan": true,
 	}
-	depinfo := es.ProjectEntryDependencyInfo{FilesToScan: form.Files}
+	depinfo := es.RepositoryDependencyInfo{FilesToScan: form.Files}
 	isThis := false
 	switch form.PrimaryType {
 	case "radio_other":
@@ -291,16 +291,18 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 	}
 
 	submit := func() {
-		entry := es.ProjectEntry{
-			ProjectName:    proj,
-			RepoFullname:   repoName,
+		id := nt.NewUuid().String()
+		entry := es.Repository{
+			Id:             id,
+			ProjectId:      proj,
+			Fullname:       repoName,
 			DependencyInfo: depinfo,
 		}
 		boolq := es.NewBool().
 			SetMust(es.NewBoolQ(
-				es.NewTerm(es.ProjectEntryNameField, entry.ProjectName),
-				es.NewTerm(es.ProjectEntryRepositoryField, entry.RepoFullname)))
-		resp, err := a.index.SearchByJSON(ProjectEntryType, map[string]interface{}{
+				es.NewTerm(es.RepositoryProjectIdField, entry.ProjectId),
+				es.NewTerm(es.RepositoryNameField, entry.Fullname)))
+		resp, err := a.index.SearchByJSON(RepositoryType, map[string]interface{}{
 			"query": map[string]interface{}{"bool": boolq},
 			"size":  1,
 		})
@@ -312,7 +314,7 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 			c.String(400, "This repo already exists under this project")
 			return
 		}
-		iresp, err := a.index.PostData(ProjectEntryType, "", entry)
+		iresp, err := a.index.PostData(RepositoryType, id, entry)
 		if err != nil || !iresp.Created {
 			c.String(500, "Error adding entry to database: ", err)
 			return
@@ -376,9 +378,9 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 	if form.Repo != "" {
 		boolq := es.NewBool().
 			SetMust(es.NewBoolQ(
-				es.NewTerm(es.ProjectEntryNameField, proj),
-				es.NewTerm(es.ProjectEntryRepositoryField, form.Repo)))
-		resp, err := a.index.SearchByJSON(ProjectEntryType, map[string]interface{}{
+				es.NewTerm(es.RepositoryProjectIdField, proj),
+				es.NewTerm(es.RepositoryNameField, form.Repo)))
+		resp, err := a.index.SearchByJSON(RepositoryType, map[string]interface{}{
 			"query": map[string]interface{}{"bool": boolq},
 			"size":  1,
 		})
@@ -390,12 +392,12 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 			c.String(400, "Could not find the project entry")
 			return
 		}
-		entry := new(es.ProjectEntry)
+		entry := new(es.Repository)
 		if err = json.Unmarshal(*resp.Hits.Hits[0].Source, entry); err != nil {
 			c.String(500, "Unable to read project entry: %s", err.Error())
 			return
 		}
-		_, err = a.index.DeleteByIDWait(ProjectEntryType, resp.Hits.Hits[0].Id)
+		_, err = a.index.DeleteByIDWait(RepositoryType, resp.Hits.Hits[0].Id)
 		if err != nil {
 			c.String(500, "Unable to delete project entry: %s", err.Error())
 			return
@@ -404,11 +406,11 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 			hits, err := es.GetAll(a.index, RepositoryEntryType, map[string]interface{}{
 				"bool": es.NewBool().
 					SetMust(es.NewBoolQ(
-						es.NewTerm(Scan_FullnameField, entry.RepoFullname),
-						es.NewTerm(Scan_ProjectField, entry.ProjectName))),
+						es.NewTerm(Scan_FullnameField, entry.Fullname),
+						es.NewTerm(Scan_ProjectIdField, entry.ProjectId))),
 			})
 			if err != nil {
-				log.Println("Unable to cleanup after repo", entry.RepoFullname, "in", entry.ProjectName, ":", err.Error())
+				log.Println("Unable to cleanup after repo", entry.Fullname, "in", entry.ProjectId, ":", err.Error())
 				return
 			}
 			wg := sync.WaitGroup{}
@@ -437,7 +439,7 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 	h := gin.H{}
 	buttons := s.NewHtmlCollection()
 	for _, repo := range repos {
-		buttons.Add(s.NewHtmlButton2("button_submit", repo.RepoFullname))
+		buttons.Add(s.NewHtmlButton2("button_submit", repo.Fullname))
 		buttons.Add(s.NewHtmlBr())
 	}
 	h["repos"] = buttons.Template()

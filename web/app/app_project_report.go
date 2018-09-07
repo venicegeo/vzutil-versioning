@@ -71,7 +71,7 @@ func (a *Application) reportAtRefWrk(ref string, deps map[string]*RepositoryDepe
 	switch typ {
 	case "seperate":
 		for name, depss := range deps {
-			buf.WriteString(u.Format("%s at %s in %s\n%s\nFrom %s %s", name, ref, depss.Project, depss.Sha, depss.Scan.Fullname, depss.Scan.Sha))
+			buf.WriteString(u.Format("%s at %s in %s\n%s\nFrom %s %s", name, ref, depss.ProjectId, depss.Sha, depss.Scan.Fullname, depss.Scan.Sha))
 			t := table.NewTable(3, len(depss.Scan.Deps))
 			for _, dep := range depss.Scan.Deps {
 				t.Fill(dep.Name, dep.Version, dep.Language.String())
@@ -105,7 +105,7 @@ func (a *Application) reportAtRefWrk(ref string, deps map[string]*RepositoryDepe
 
 func (a *Application) reportAtShaWrk(scan *RepositoryDependencyScan) string {
 	buf := bytes.NewBufferString("")
-	buf.WriteString(u.Format("%s at %s in %s\n", scan.RepoFullname, scan.Sha, scan.Project))
+	buf.WriteString(u.Format("%s at %s in %s\n", scan.RepoFullname, scan.Sha, scan.ProjectId))
 	buf.WriteString(u.Format("Dependencies from %s at %s\n", scan.Scan.Fullname, scan.Scan.Sha))
 	buf.WriteString("Files scanned:\n")
 	for _, f := range scan.Scan.Files {

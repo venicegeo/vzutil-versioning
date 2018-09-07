@@ -138,7 +138,7 @@ func (d *DifferenceManager) ShaCompare(repoName string, files []string, oldSha, 
 	defer func() {
 		close(ret)
 	}()
-	repo := &es.ProjectEntry{RepoFullname: repoName, DependencyInfo: es.ProjectEntryDependencyInfo{repoName, es.IncomingSha, "", files}}
+	repo := &es.Repository{Fullname: repoName, DependencyInfo: es.RepositoryDependencyInfo{repoName, es.IncomingSha, "", files}}
 	d.app.wrkr.AddTask(&SingleRunnerRequest{&Repository{nil, nil, repo}, oldSha, ""}, nil, ret)
 	d.app.wrkr.AddTask(&SingleRunnerRequest{&Repository{nil, nil, repo}, newSha, ""}, nil, ret)
 	oldScan := <-ret

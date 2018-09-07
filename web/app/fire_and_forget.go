@@ -99,16 +99,16 @@ func (ff *FireAndForget) tryUpdateScan(ref string, scan *RepositoryDependencySca
 	}
 	scan.Refs = append(scan.Refs, ref)
 
-	_, err := ff.app.index.PostData(RepositoryEntryType, scan.Sha+"-"+scan.Project, scan)
+	_, err := ff.app.index.PostData(RepositoryEntryType, scan.Sha+"-"+scan.ProjectId, scan)
 	if err != nil {
 		log.Printf("[ES-WORKER] Unable to update entry %s: %s\n", scan.Sha, err.Error())
 	} else {
-		log.Println("[ES-WORKER] Updated", scan.Sha, "for", scan.Project, "with ref", ref)
+		log.Println("[ES-WORKER] Updated", scan.Sha, "for", scan.ProjectId, "with ref", ref)
 	}
 }
 
 func (ff *FireAndForget) postScan(scan *RepositoryDependencyScan) {
-	log.Println("[ES-WORKER] Starting work on", scan.Sha, "for", scan.Project)
+	log.Println("[ES-WORKER] Starting work on", scan.Sha, "for", scan.ProjectId)
 	var err error
 
 	testAgainstEntries := make(map[string]*RepositoryDependencyScan, len(scan.Refs))
@@ -117,7 +117,7 @@ func (ff *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 			SetMust(es.NewBoolQ(
 				es.NewTerm(Scan_FullnameField, scan.RepoFullname),
 				es.NewTerm(Scan_RefsField, ref),
-				es.NewTerm(Scan_ProjectField, scan.Project),
+				es.NewTerm(Scan_ProjectIdField, scan.ProjectId),
 				es.NewRange(Scan_TimestampField, "lt", scan.Timestamp)))
 		q := map[string]interface{}{
 			"query": map[string]interface{}{"bool": boolq},
@@ -135,7 +135,7 @@ func (ff *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 		}
 	}
 
-	resp, err := ff.app.index.PostData(RepositoryEntryType, scan.Sha+"-"+scan.Project, scan)
+	resp, err := ff.app.index.PostData(RepositoryEntryType, scan.Sha+"-"+scan.ProjectId, scan)
 	if err != nil {
 		log.Printf("[ES-WORKER] Unable to create entry %s: %s\n", scan.Sha, err.Error())
 		return
@@ -146,7 +146,7 @@ func (ff *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 
 	log.Println("[ES-WORKER] Finished work on", scan.RepoFullname, scan.Sha)
 	for ref, old := range testAgainstEntries {
-		go ff.runDiff(scan.RepoFullname, scan.Project, ref, old, scan)
+		go ff.runDiff(scan.RepoFullname, scan.ProjectId, ref, old, scan)
 	}
 }
 

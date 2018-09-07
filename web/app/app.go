@@ -51,13 +51,13 @@ const ESMapping = `
 	"mappings": {
 		"` + RepositoryEntryType + `": ` + RepositoryDependencyScanMapping + `,
 		"` + DifferenceType + `": ` + DifferenceMapping + `,
-		"` + ProjectEntryType + `": ` + es.ProjectEntryMapping + `,
+		"` + RepositoryType + `": ` + es.RepositoryMapping + `,
 		"` + ProjectType + `": ` + es.ProjectMapping + `
 	}
 }`
 const RepositoryEntryType = `repository_entry`
 const DifferenceType = `difference`
-const ProjectEntryType = `project_entry`
+const RepositoryType = `repository`
 const ProjectType = `project`
 
 type Back struct {

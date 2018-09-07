@@ -40,7 +40,7 @@ type SingleRunnerRequest struct {
 
 type RepositoryDependencyScan struct {
 	RepoFullname string            `json:"repo"`
-	Project      string            `json:"project"`
+	ProjectId    string            `json:"project_id"`
 	Refs         []string          `json:"refs"`
 	Sha          string            `json:"sha"`
 	Timestamp    time.Time         `json:"timestamp"`
@@ -48,7 +48,7 @@ type RepositoryDependencyScan struct {
 }
 
 const Scan_FullnameField = "repo"
-const Scan_ProjectField = "project"
+const Scan_ProjectIdField = "project_id"
 const Scan_RefsField = "refs"
 const Scan_ShaField = "sha"
 const Scan_TimestampField = "timestamp"
@@ -59,11 +59,11 @@ const Scan_SubFilesField = "scan." + c.FilesField
 const RepositoryDependencyScanMapping string = `{
 	"dynamic":"strict",
 	"properties":{
-		"repo":{"type":"keyword"},
-		"project":{"type":"keyword"},
-		"refs":{"type":"keyword"},
-		"sha":{"type":"keyword"},
-		"timestamp":{"type":"keyword"},
+		"` + Scan_FullnameField + `":{"type":"keyword"},
+		"` + Scan_ProjectIdField + `":{"type":"keyword"},
+		"` + Scan_RefsField + `":{"type":"keyword"},
+		"` + Scan_ShaField + `":{"type":"keyword"},
+		"` + Scan_TimestampField + `":{"type":"keyword"},
 		"scan":` + c.DependencyScanMapping + `
 	}
 }`
@@ -120,8 +120,8 @@ func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan 
 		return nil
 	}
 	res := &RepositoryDependencyScan{
-		RepoFullname: request.repository.RepoFullname,
-		Project:      request.repository.ProjectName,
+		RepoFullname: request.repository.Fullname,
+		ProjectId:    request.repository.ProjectId,
 		Refs:         []string{request.ref},
 		Sha:          request.sha,
 	}
@@ -136,9 +136,9 @@ func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan 
 	//		return nil
 	//	}
 	{ //Find timestamp of commit
-		code, body, _, err := nt.HTTP(nt.GET, "https://github.com/"+request.repository.RepoFullname+"/commit/"+request.sha, nt.NewHeaderBuilder().GetHeader(), nil)
+		code, body, _, err := nt.HTTP(nt.GET, "https://github.com/"+request.repository.Fullname+"/commit/"+request.sha, nt.NewHeaderBuilder().GetHeader(), nil)
 		if err != nil || code != 200 {
-			sr.sendStringTo(printLocation, "%sUnable to find timestamp for %s [%d: %s]", printHeader, request.repository.RepoFullname, code, err.Error())
+			sr.sendStringTo(printLocation, "%sUnable to find timestamp for %s [%d: %s]", printHeader, request.repository.Fullname, code, err.Error())
 			return nil
 		}
 		matches := sr.findCommitTime.FindStringSubmatch(strings.TrimSpace(string(body)))
@@ -147,7 +147,7 @@ func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan 
 			return nil
 		}
 		if res.Timestamp, err = time.Parse(time.RFC3339, matches[1]); err != nil {
-			sr.sendStringTo(printLocation, "%sError parsing timestamp for %s [%s]", printHeader, request.repository.RepoFullname, err.Error())
+			sr.sendStringTo(printLocation, "%sError parsing timestamp for %s [%s]", printHeader, request.repository.Fullname, err.Error())
 			return nil
 		}
 	}

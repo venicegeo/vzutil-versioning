@@ -100,7 +100,7 @@ func (a *Application) generateBranchWrk(repoName, fullName, branch, proj string)
 			sha:        sha,
 			ref:        ref,
 		}
-		log.Println(repository.RepoFullname, sha, ref, proj)
+		log.Println(repository.Fullname, sha, ref, proj)
 		a.ff.FireRequest(&request)
 	}(repository, branch, sha)
 	return sha, nil
@@ -117,10 +117,10 @@ func (a *Application) genTagsWrk(proj string) (string, error) {
 	}
 	go func(repos []*Repository, proj string) {
 		for _, repo := range repos {
-			name := strings.SplitN(repo.RepoFullname, "/", 2)[1]
-			dat, err := h.NewTagsRunner(name, repo.RepoFullname).Run()
+			name := strings.SplitN(repo.Fullname, "/", 2)[1]
+			dat, err := h.NewTagsRunner(name, repo.Fullname).Run()
 			if err != nil {
-				log.Println("[TAG UPDATER] Was unable to run tags against " + repo.RepoFullname + ": [" + err.Error() + "]")
+				log.Println("[TAG UPDATER] Was unable to run tags against " + repo.Fullname + ": [" + err.Error() + "]")
 				continue
 			}
 			go func(dat map[string]string, repo *Repository) {
@@ -140,7 +140,7 @@ func (a *Application) genTagsWrk(proj string) (string, error) {
 	buf := bytes.NewBufferString("Trying to run against:\n")
 	for _, repo := range repos {
 		buf.WriteString("\n")
-		buf.WriteString(repo.RepoFullname)
+		buf.WriteString(repo.Fullname)
 	}
 	return buf.String(), nil
 }

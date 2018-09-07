@@ -15,34 +15,41 @@
 package es
 
 type Project struct {
-	Name        string `json:"name"`
+	Id          string `json:"id"`
 	DisplayName string `json:"displayname"`
 }
 
-type ProjectEntry struct {
-	ProjectName    string                     `json:"project_name"`
-	RepoFullname   string                     `json:"repo"`
-	DependencyInfo ProjectEntryDependencyInfo `json:"depend_info"`
+const ProjectMapping = `{
+	"dynamic":"strict",
+	"properties":{
+		"` + ProjectIdField + `":{"type":"keyword"},
+		"` + ProjectDisplayNameField + `":{"type":"keyword"}
+	}
+}`
+const ProjectIdField = `id`
+const ProjectDisplayNameField = `displayname`
+
+//-----------------------------------------------------------------
+
+type Repository struct {
+	Id             string                   `json:"id"`
+	ProjectId      string                   `json:"project_id"`
+	Fullname       string                   `json:"repo"`
+	DependencyInfo RepositoryDependencyInfo `json:"depend_info"`
 }
 
-type ProjectEntryDependencyInfo struct {
+type RepositoryDependencyInfo struct {
 	RepoFullname string       `json:"repo"`
 	CheckoutType CheckoutType `json:"checkout_type"`
 	CustomField  string       `json:"custom"`
 	FilesToScan  []string     `json:"files"`
 }
 
-type CheckoutType string
-
-const IncomingSha CheckoutType = "IncomingSha"
-const SameRef CheckoutType = "SameRef"
-const CustomRef CheckoutType = "CustomRef"
-const ExactSha CheckoutType = "ExactSha"
-
-const ProjectEntryMapping = `{
+const RepositoryMapping = `{
 	"dynamic":"strict",
 	"properties":{
-		"project_name":{"type":"keyword"},
+		"id":{"type":"keyword"},
+		"project_id":{"type":"keyword"},
 		"repo":{"type":"keyword"},
 		"depend_info":{
 			"dynamic":"strict",
@@ -55,15 +62,13 @@ const ProjectEntryMapping = `{
 		}
 	}
 }`
-const ProjectEntryNameField = `project_name`
-const ProjectEntryRepositoryField = `repo`
+const RepositoryIdField = `id`
+const RepositoryProjectIdField = `project_id`
+const RepositoryNameField = `repo`
 
-const ProjectMapping = `{
-	"dynamic":"strict",
-	"properties":{
-		"` + ProjectNameField + `":{"type":"keyword"},
-		"` + ProjectDisplayNameField + `":{"type":"keyword"}
-	}
-}`
-const ProjectNameField = `name`
-const ProjectDisplayNameField = `displayname`
+type CheckoutType string
+
+const IncomingSha CheckoutType = "IncomingSha"
+const SameRef CheckoutType = "SameRef"
+const CustomRef CheckoutType = "CustomRef"
+const ExactSha CheckoutType = "ExactSha"

@@ -92,7 +92,7 @@ func (a *Application) searchForDepInProject(c *gin.Context) {
 		}
 		reposStr := make([]string, len(repos), len(repos))
 		for i, repo := range repos {
-			reposStr[i] = repo.RepoFullname
+			reposStr[i] = repo.Fullname
 		}
 		code, dat := a.searchForDepWrk(form.DepName, form.DepVersion, reposStr)
 		h["data"] = dat

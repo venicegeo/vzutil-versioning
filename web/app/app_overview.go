@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	p "github.com/venicegeo/pz-gocommon/gocommon"
 	"github.com/venicegeo/vzutil-versioning/common/table"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
@@ -89,7 +90,7 @@ func (a *Application) projectsOverview(c *gin.Context) {
 			c.String(500, "Unable to unmarshal project: %s", err.Error())
 			return
 		}
-		c.Redirect(303, "/project/"+proj.Name)
+		c.Redirect(303, "/project/"+proj.Id)
 	}
 }
 
@@ -116,8 +117,9 @@ func (a *Application) newProject(c *gin.Context) {
 			return
 		}
 		displayName := strings.TrimSpace(f.ProjectName)
-		name := strings.ToLower(strings.Replace(strings.Replace(f.ProjectName, "/", "_", -1), " ", "", -1))
-		exists, err := a.index.ItemExists(ProjectType, name)
+		id := p.NewUuid().String()
+		//TODO query for one
+		exists, err := a.index.ItemExists(ProjectType, id)
 		if err != nil {
 			c.String(500, "Error checking exists in db: %s", err.Error())
 			return
@@ -125,7 +127,7 @@ func (a *Application) newProject(c *gin.Context) {
 			c.String(400, "This project already exists")
 			return
 		}
-		if resp, err := a.index.PostData(ProjectType, name, es.Project{name, displayName}); err != nil {
+		if resp, err := a.index.PostData(ProjectType, id, es.Project{id, displayName}); err != nil {
 			c.String(500, "Error creating project in db: %s", err.Error())
 			return
 		} else if !resp.Created {
@@ -167,12 +169,12 @@ func (a *Application) deleteProject(c *gin.Context) {
 		return
 	}
 	a.index.DeleteByID(ProjectType, proj)
-	if hits, err := es.GetAll(a.index, ProjectEntryType, es.NewTerm(es.ProjectEntryNameField, proj)); err == nil {
+	if hits, err := es.GetAll(a.index, RepositoryType, es.NewTerm(es.RepositoryProjectIdField, proj)); err == nil {
 		for _, hit := range hits.Hits {
-			a.index.DeleteByID(ProjectEntryType, hit.Id)
+			a.index.DeleteByID(RepositoryType, hit.Id)
 		}
 	}
-	if hits, err := es.GetAll(a.index, RepositoryEntryType, es.NewTerm(Scan_ProjectField, proj)); err == nil {
+	if hits, err := es.GetAll(a.index, RepositoryEntryType, es.NewTerm(Scan_ProjectIdField, proj)); err == nil {
 		for _, hit := range hits.Hits {
 			a.index.DeleteByID(RepositoryEntryType, hit.Id)
 		}
@@ -245,7 +247,7 @@ func (a *Application) reportSha(c *gin.Context) {
 		defer func() {
 			close(ret)
 		}()
-		repo := &es.ProjectEntry{RepoFullname: repoName, DependencyInfo: es.ProjectEntryDependencyInfo{repoName, es.IncomingSha, "", form.Files}}
+		repo := &es.Repository{Fullname: repoName, DependencyInfo: es.RepositoryDependencyInfo{repoName, es.IncomingSha, "", form.Files}}
 		a.wrkr.AddTask(&SingleRunnerRequest{&Repository{nil, nil, repo}, form.Sha, ""}, nil, ret)
 		scan := <-ret
 		if scan == nil {
