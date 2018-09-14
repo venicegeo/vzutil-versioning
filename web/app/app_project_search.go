@@ -60,7 +60,7 @@ func (a *Application) searchForDep(c *gin.Context) {
 }
 
 func (a *Application) searchForDepInProject(c *gin.Context) {
-	proj := c.Param("proj")
+	projId := c.Param("proj")
 	var form struct {
 		Back         string `form:"button_back"`
 		DepName      string `form:"depsearchname"`
@@ -79,9 +79,9 @@ func (a *Application) searchForDepInProject(c *gin.Context) {
 		"depsearchversion": form.DepVersion,
 	}
 	if form.Back != "" {
-		c.Redirect(303, "/project/"+proj)
+		c.Redirect(303, "/project/"+projId)
 	} else if form.ButtonSearch != "" {
-		project, err := a.rtrvr.GetProject(proj)
+		project, err := a.rtrvr.GetProjectById(projId)
 		if err != nil {
 			c.String(400, "Could not get this project: %s", err.Error())
 			return

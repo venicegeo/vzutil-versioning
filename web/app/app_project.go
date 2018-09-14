@@ -30,8 +30,8 @@ import (
 )
 
 func (a *Application) viewProject(c *gin.Context) {
-	proj := c.Param("proj")
-	project, err := a.rtrvr.GetProject(proj)
+	projId := c.Param("proj")
+	project, err := a.rtrvr.GetProjectById(projId)
 	if err != nil {
 		c.String(400, "Error getting this project: %s", err.Error())
 		return
@@ -54,31 +54,31 @@ func (a *Application) viewProject(c *gin.Context) {
 		c.Redirect(303, "/ui")
 		return
 	} else if form.Reload != "" {
-		c.Redirect(303, "/project/"+proj)
+		c.Redirect(303, "/project/"+projId)
 		return
 	} else if form.Util != "" {
 		switch form.Util {
 		case "Report By Ref":
-			c.Redirect(303, "/reportref/"+proj)
+			c.Redirect(303, "/reportref/"+projId)
 			return
 		case "Generate All Tags":
-			str, err := a.genTagsWrk(proj)
+			str, err := a.genTagsWrk(projId)
 			if err != nil {
 				u.Format("Unable to generate all tags: %s", err.Error())
 			} else {
 				depsStr = str
 			}
 		case "Add Repository":
-			c.Redirect(303, "/addrepo/"+proj)
+			c.Redirect(303, "/addrepo/"+projId)
 			return
 		case "Remove Repository":
-			c.Redirect(303, "/removerepo/"+proj)
+			c.Redirect(303, "/removerepo/"+projId)
 			return
 		case "Dependency Search":
-			c.Redirect(303, "/depsearch/"+proj)
+			c.Redirect(303, "/depsearch/"+projId)
 			return
 		case "Delete Project":
-			c.Redirect(303, "/delproj/"+proj)
+			c.Redirect(303, "/delproj/"+projId)
 			return
 		}
 	} else if form.Sha != "" {
@@ -93,10 +93,10 @@ func (a *Application) viewProject(c *gin.Context) {
 		depsStr = a.reportAtShaWrk(scan)
 	} else if form.Gen != "" {
 		repoFullName := strings.TrimPrefix(form.Gen, "Generate Branch - ")
-		c.Redirect(303, u.Format("/genbranch/%s/%s", proj, repoFullName))
+		c.Redirect(303, u.Format("/genbranch/%s/%s", projId, repoFullName))
 		return
 	} else if form.Diff != "" {
-		c.Redirect(303, "/diff/"+proj)
+		c.Redirect(303, "/diff/"+projId)
 		return
 	}
 	accord := s.NewHtmlAccordion()
@@ -126,7 +126,7 @@ func (a *Application) viewProject(c *gin.Context) {
 	h["accordion"] = accord.Template()
 	h["deps"] = depsStr
 	{
-		diffs, err := a.diffMan.GetAllDiffsInProject(proj)
+		diffs, err := a.diffMan.GetAllDiffsInProject(projId)
 		if err != nil {
 			h["diff"] = ""
 		} else {
@@ -184,13 +184,13 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 		Files  []string `form:"files[]"`
 		Submit string   `form:"button_submit"`
 	}
-	proj := c.Param("proj")
+	projId := c.Param("proj")
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Error binding form: %s", err.Error())
 		return
 	}
 	if form.Back != "" {
-		c.Redirect(303, "/project/"+proj)
+		c.Redirect(303, "/project/"+projId)
 		return
 	}
 	form.Org = strings.TrimSpace(form.Org)
@@ -295,7 +295,7 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 		id := nt.NewUuid().String()
 		entry := types.Repository{
 			Id:             id,
-			ProjectId:      proj,
+			ProjectId:      projId,
 			Fullname:       repoName,
 			DependencyInfo: depinfo,
 		}
@@ -320,7 +320,7 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 			c.String(500, "Error adding entry to database: ", err)
 			return
 		}
-		c.Redirect(303, "/project/"+proj)
+		c.Redirect(303, "/project/"+projId)
 	}
 
 	if form.Scan != "" && form.PrimaryType == "radio_this" {
@@ -427,7 +427,7 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 		c.Redirect(303, "/removerepo/"+projId)
 		return
 	}
-	project, err := a.rtrvr.GetProject(projId)
+	project, err := a.rtrvr.GetProjectById(projId)
 	if err != nil {
 		c.String(500, "Unable to get the project: %s", err)
 		return

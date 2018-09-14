@@ -56,21 +56,21 @@ func (a *Application) generateBranch(c *gin.Context) {
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Could not bind form: %s", err.Error())
 	}
-	pproj := c.Param("proj")
+	pprojId := c.Param("proj")
 	porg := c.Param("org")
 	prepo := c.Param("repo")
 	branch := form.Branch
 	if form.Back != "" {
-		c.Redirect(303, "/project/"+pproj)
+		c.Redirect(303, "/project/"+pprojId)
 		return
 	}
 	if form.Gen != "" {
-		_, err := a.generateBranchWrk(prepo, u.Format("%s/%s", porg, prepo), branch, pproj)
+		_, err := a.generateBranchWrk(prepo, u.Format("%s/%s", porg, prepo), branch, pprojId)
 		if err != nil {
 			c.String(400, "Could not generate this sha: %s", err.Error())
 			return
 		}
-		c.Redirect(303, "/project/"+pproj)
+		c.Redirect(303, "/project/"+pprojId)
 		return
 	}
 	h := gin.H{}
@@ -79,12 +79,12 @@ func (a *Application) generateBranch(c *gin.Context) {
 	c.HTML(200, "genbranch.html", h)
 }
 
-func (a *Application) generateBranchWrk(repoName, fullName, branch, proj string) (string, error) {
+func (a *Application) generateBranchWrk(repoName, fullName, branch, projId string) (string, error) {
 	sha, err := h.GetBranchSha(repoName, fullName, branch)
 	if err != nil {
 		return "", err
 	}
-	project, err := a.rtrvr.GetProject(proj)
+	project, err := a.rtrvr.GetProjectById(projId)
 	if err != nil {
 		return "", err
 	}
@@ -100,14 +100,14 @@ func (a *Application) generateBranchWrk(repoName, fullName, branch, proj string)
 			sha:        sha,
 			ref:        ref,
 		}
-		log.Println(repository.Fullname, sha, ref, proj)
+		log.Println(repository.Fullname, sha, ref, projId)
 		a.ff.FireRequest(&request)
 	}(repository, branch, sha)
 	return sha, nil
 }
 
-func (a *Application) genTagsWrk(proj string) (string, error) {
-	project, err := a.rtrvr.GetProject(proj)
+func (a *Application) genTagsWrk(projId string) (string, error) {
+	project, err := a.rtrvr.GetProjectById(projId)
 	if err != nil {
 		return "", err
 	}
@@ -135,7 +135,7 @@ func (a *Application) genTagsWrk(proj string) (string, error) {
 				}
 			}(dat, repo)
 		}
-	}(repos, proj)
+	}(repos, projId)
 
 	buf := bytes.NewBufferString("Trying to run against:\n")
 	for _, repo := range repos {

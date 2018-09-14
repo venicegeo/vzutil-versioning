@@ -257,8 +257,8 @@ func (p *Project) GetRepository(repository string) (*Repository, error) {
 }
 
 //Test: TestAddRepositories
-func (r *Retriever) GetRepository(repository, project string) (*Repository, *Project, error) {
-	proj, err := r.GetProject(project)
+func (r *Retriever) GetRepository(repository, projectId string) (*Repository, *Project, error) {
+	proj, err := r.GetProjectById(projectId)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -267,8 +267,8 @@ func (r *Retriever) GetRepository(repository, project string) (*Repository, *Pro
 }
 
 //Test: TestAddProjects
-func (r *Retriever) GetProject(name string) (*Project, error) {
-	resp, err := r.app.index.GetByID(ProjectType, name)
+func (r *Retriever) GetProjectById(id string) (*Project, error) {
+	resp, err := r.app.index.GetByID(ProjectType, id)
 	if err != nil {
 		return nil, err
 	} else if !resp.Found {

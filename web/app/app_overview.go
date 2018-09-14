@@ -149,11 +149,11 @@ func (a *Application) deleteProject(c *gin.Context) {
 	if err := c.Bind(&form); err != nil {
 		c.String(500, "Could not bind form: %s", err.Error())
 	}
-	proj := c.Param("proj")
+	projId := c.Param("proj")
 	switch form.Submit {
 	case "YES":
 	case "no":
-		c.Redirect(303, "/project/"+proj)
+		c.Redirect(303, "/project/"+projId)
 		return
 	case "":
 		c.HTML(200, "confirmation.html", nil)
@@ -162,20 +162,20 @@ func (a *Application) deleteProject(c *gin.Context) {
 		c.String(400, "Stop trying to break this please")
 		return
 	}
-	if exists, err := a.index.ItemExists(ProjectType, proj); err != nil {
+	if exists, err := a.index.ItemExists(ProjectType, projId); err != nil {
 		c.String(500, "Error checking status of project: %s", err.Error())
 		return
 	} else if !exists {
 		c.String(400, "Why would you give me a project that doesnt exist?")
 		return
 	}
-	a.index.DeleteByID(ProjectType, proj)
-	if hits, err := es.GetAll(a.index, RepositoryType, es.NewTerm(types.Repository_ProjectIdField, proj)); err == nil {
+	a.index.DeleteByID(ProjectType, projId)
+	if hits, err := es.GetAll(a.index, RepositoryType, es.NewTerm(types.Repository_ProjectIdField, projId)); err == nil {
 		for _, hit := range hits.Hits {
 			a.index.DeleteByID(RepositoryType, hit.Id)
 		}
 	}
-	if hits, err := es.GetAll(a.index, RepositoryEntryType, es.NewTerm(types.Scan_ProjectIdField, proj)); err == nil {
+	if hits, err := es.GetAll(a.index, RepositoryEntryType, es.NewTerm(types.Scan_ProjectIdField, projId)); err == nil {
 		for _, hit := range hits.Hits {
 			a.index.DeleteByID(RepositoryEntryType, hit.Id)
 		}

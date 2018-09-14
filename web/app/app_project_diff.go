@@ -20,7 +20,7 @@ import (
 )
 
 func (a *Application) differencesInProject(c *gin.Context) {
-	proj := c.Param("proj")
+	projId := c.Param("proj")
 	var back struct {
 		Back string `form:"button_back"`
 	}
@@ -29,7 +29,7 @@ func (a *Application) differencesInProject(c *gin.Context) {
 		return
 	}
 	if back.Back != "" {
-		c.Redirect(303, "/project/"+proj)
+		c.Redirect(303, "/project/"+projId)
 		return
 	}
 	gh := gin.H{}
@@ -40,7 +40,7 @@ func (a *Application) differencesInProject(c *gin.Context) {
 		c.HTML(500, "differences.html", gh)
 		return
 	}
-	diffs, err := a.diffMan.GetAllDiffsInProject(proj)
+	diffs, err := a.diffMan.GetAllDiffsInProject(projId)
 	if err != nil {
 		gh["buttons"] = "Could not load this.\n" + err.Error()
 		gh["data"] = "Error loading this.\n" + err.Error()
@@ -68,7 +68,7 @@ func (a *Application) differencesInProject(c *gin.Context) {
 			if diffId == "button_delete" {
 				a.diffMan.Delete(a.diffMan.CurrentDisplay)
 				a.diffMan.CurrentDisplay = ""
-				c.Redirect(303, "/diff/"+proj)
+				c.Redirect(303, "/diff/"+projId)
 				return
 			} else {
 				for _, diff := range *diffs {
