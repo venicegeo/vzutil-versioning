@@ -64,14 +64,14 @@ node {
           return
         }
 
-        def legacyAppNames = sh(script: "cf routes | grep \"${appName} \" | awk '{print \$4}'", returnStdout: true)
+        def legacyAppNames = sh(script: "cf routes | grep \"${appName}\" | while read -r line; do echo \$line | awk '{print \$4}'; done", returnStdout: true)
         sh "cf map-route ${deployAppName} ${pcfDomain} --hostname ${appName}"
         // Remove Legacy applications
-          for (Object legacyApp : legacyAppNames.trim().tokenize(',')) {
+          for (Object legacyApp : legacyAppNames.trim().tokenize('\n,')) {
             def legacyAppName = legacyApp.toString().trim()
             if (legacyAppName != deployAppName) {
-              sh "cf unmap-route ${legacyAppName} ${pcfDomain} --hostname ${appName}"
-              sh "cf delete -f ${legacyAppName} -r"
+              sh "cf unmap-route ${legacyAppName} ${pcfDomain} --hostname ${appName} || true"
+              sh "cf delete -f ${legacyAppName} -r || true"
             }
           }   
       }
