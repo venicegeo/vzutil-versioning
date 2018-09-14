@@ -22,11 +22,12 @@ import (
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/common/table"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
+	"github.com/venicegeo/vzutil-versioning/web/es/types"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 func (a *Application) reportRefOnProject(c *gin.Context) {
-	proj := c.Param("proj")
+	projId := c.Param("proj")
 	var form struct {
 		Back       string `form:"button_back"`
 		ReportType string `form:"reporttype"`
@@ -37,11 +38,11 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 		return
 	}
 	if form.Back != "" {
-		c.Redirect(303, "/project/"+proj)
+		c.Redirect(303, "/project/"+projId)
 		return
 	}
 	h := gin.H{"report": ""}
-	project, err := a.rtrvr.GetProject(proj)
+	project, err := a.rtrvr.GetProjectById(projId)
 	if err != nil {
 		h["refs"] = u.Format("Unable to retrieve this projects refs: %s", err.Error())
 	} else {
@@ -66,12 +67,16 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 	c.HTML(200, "reportref.html", h)
 }
 
-func (a *Application) reportAtRefWrk(ref string, deps map[string]*RepositoryDependencyScan, typ string) string {
+func (a *Application) reportAtRefWrk(ref string, deps map[string]*types.Scan, typ string) string {
 	buf := bytes.NewBufferString("")
 	switch typ {
 	case "seperate":
 		for name, depss := range deps {
-			buf.WriteString(u.Format("%s at %s in %s\n%s\nFrom %s %s", name, ref, depss.Project, depss.Sha, depss.Scan.Fullname, depss.Scan.Sha))
+			projName := "[Error finding project name]"
+			if proj, err := a.rtrvr.GetProjectById(depss.ProjectId); err == nil {
+				projName = proj.DisplayName
+			}
+			buf.WriteString(u.Format("%s at %s in %s\n%s\nFrom %s %s", name, ref, projName, depss.Sha, depss.Scan.Fullname, depss.Scan.Sha))
 			t := table.NewTable(3, len(depss.Scan.Deps))
 			for _, dep := range depss.Scan.Deps {
 				t.Fill(dep.Name, dep.Version, dep.Language.String())
@@ -103,9 +108,13 @@ func (a *Application) reportAtRefWrk(ref string, deps map[string]*RepositoryDepe
 	return buf.String()
 }
 
-func (a *Application) reportAtShaWrk(scan *RepositoryDependencyScan) string {
+func (a *Application) reportAtShaWrk(scan *types.Scan) string {
 	buf := bytes.NewBufferString("")
-	buf.WriteString(u.Format("%s at %s in %s\n", scan.RepoFullname, scan.Sha, scan.Project))
+	projName := "[Error finding project name]"
+	if proj, err := a.rtrvr.GetProjectById(scan.ProjectId); err == nil {
+		projName = proj.DisplayName
+	}
+	buf.WriteString(u.Format("%s at %s in %s\n", scan.RepoFullname, scan.Sha, projName))
 	buf.WriteString(u.Format("Dependencies from %s at %s\n", scan.Scan.Fullname, scan.Scan.Sha))
 	buf.WriteString("Files scanned:\n")
 	for _, f := range scan.Scan.Files {
