@@ -25,6 +25,7 @@ import (
 	t "github.com/venicegeo/vzutil-versioning/common/table"
 	"github.com/venicegeo/vzutil-versioning/compare/pub"
 	"github.com/venicegeo/vzutil-versioning/web/es"
+	"github.com/venicegeo/vzutil-versioning/web/es/types"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -134,11 +135,11 @@ func (d *DifferenceManager) GetAllDiffsInProject(proj string) (*[]Difference, er
 }
 
 func (d *DifferenceManager) ShaCompare(repoName string, files []string, oldSha, newSha string) (*Difference, error) {
-	ret := make(chan *RepositoryDependencyScan, 2)
+	ret := make(chan *types.Scan, 2)
 	defer func() {
 		close(ret)
 	}()
-	repo := &es.Repository{Fullname: repoName, DependencyInfo: es.RepositoryDependencyInfo{repoName, es.IncomingSha, "", files}}
+	repo := &types.Repository{Fullname: repoName, DependencyInfo: types.RepositoryDependencyInfo{repoName, types.IncomingSha, "", files}}
 	d.app.wrkr.AddTask(&SingleRunnerRequest{&Repository{nil, nil, repo}, oldSha, ""}, nil, ret)
 	d.app.wrkr.AddTask(&SingleRunnerRequest{&Repository{nil, nil, repo}, newSha, ""}, nil, ret)
 	oldScan := <-ret
@@ -149,7 +150,7 @@ func (d *DifferenceManager) ShaCompare(repoName string, files []string, oldSha, 
 	return d.diffCompareWrk(repoName, "", "", oldScan.Scan, newScan.Scan, oldSha, newSha, time.Now(), false)
 }
 
-func (d *DifferenceManager) webhookCompare(repoName, projectName, ref string, oldEntry, newEntry *RepositoryDependencyScan) (*Difference, error) {
+func (d *DifferenceManager) webhookCompare(repoName, projectName, ref string, oldEntry, newEntry *types.Scan) (*Difference, error) {
 	return d.diffCompareWrk(repoName, projectName, ref, oldEntry.Scan, newEntry.Scan, oldEntry.Sha, newEntry.Sha, time.Now(), true)
 }
 

@@ -23,13 +23,14 @@ import (
 	"github.com/venicegeo/vzutil-versioning/common/table"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
+	"github.com/venicegeo/vzutil-versioning/web/es/types"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 func (a *Application) projectsOverview(c *gin.Context) {
 	var form struct {
-		Project string `form:"button_project"`
-		Util    string `form:"button_util"`
+		ProjectId string `form:"button_project"`
+		Util      string `form:"button_util"`
 	}
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Error binding the form: %s", err.Error())
@@ -46,7 +47,7 @@ func (a *Application) projectsOverview(c *gin.Context) {
 		c.Redirect(303, "/cdiff")
 		return
 	}
-	if form.Project == "" {
+	if form.ProjectId == "" {
 		table := s.NewHtmlTable()
 		makeButton := func(name string) *s.HtmlButton {
 			return s.NewHtmlButton3("button_project", name, "button")
@@ -56,7 +57,7 @@ func (a *Application) projectsOverview(c *gin.Context) {
 			c.String(500, "Error collecting projects: %s", err.Error())
 			return
 		}
-		projs = append(projs, &Project{a.index, &es.Project{DisplayName: "Add New"}})
+		projs = append(projs, &Project{a.index, &types.Project{DisplayName: "Add New"}})
 		row := -1
 		for i, proj := range projs {
 			if i%3 == 0 {
@@ -69,11 +70,11 @@ func (a *Application) projectsOverview(c *gin.Context) {
 		h["table"] = table.Template()
 		c.HTML(200, "overview.html", h)
 		return
-	} else if form.Project == "Add New" {
+	} else if form.ProjectId == "Add New" {
 		c.Redirect(303, "/newproj")
 	} else {
 		q := map[string]interface{}{
-			"query": es.NewTerm(es.ProjectDisplayNameField, form.Project),
+			"query": es.NewTerm(types.Project_DisplayNameField, form.ProjectId),
 			"size":  1,
 		}
 		resp, err := a.index.SearchByJSON(ProjectType, q)
@@ -85,7 +86,7 @@ func (a *Application) projectsOverview(c *gin.Context) {
 			c.String(400, "This project does not appear to exist")
 			return
 		}
-		var proj es.Project
+		var proj types.Project
 		if err = json.Unmarshal(*resp.Hits.Hits[0].Source, &proj); err != nil {
 			c.String(500, "Unable to unmarshal project: %s", err.Error())
 			return
@@ -127,7 +128,7 @@ func (a *Application) newProject(c *gin.Context) {
 			c.String(400, "This project already exists")
 			return
 		}
-		if resp, err := a.index.PostData(ProjectType, id, es.Project{id, displayName}); err != nil {
+		if resp, err := a.index.PostData(ProjectType, id, types.Project{id, displayName}); err != nil {
 			c.String(500, "Error creating project in db: %s", err.Error())
 			return
 		} else if !resp.Created {
@@ -169,12 +170,12 @@ func (a *Application) deleteProject(c *gin.Context) {
 		return
 	}
 	a.index.DeleteByID(ProjectType, proj)
-	if hits, err := es.GetAll(a.index, RepositoryType, es.NewTerm(es.RepositoryProjectIdField, proj)); err == nil {
+	if hits, err := es.GetAll(a.index, RepositoryType, es.NewTerm(types.Repository_ProjectIdField, proj)); err == nil {
 		for _, hit := range hits.Hits {
 			a.index.DeleteByID(RepositoryType, hit.Id)
 		}
 	}
-	if hits, err := es.GetAll(a.index, RepositoryEntryType, es.NewTerm(Scan_ProjectIdField, proj)); err == nil {
+	if hits, err := es.GetAll(a.index, RepositoryEntryType, es.NewTerm(types.Scan_ProjectIdField, proj)); err == nil {
 		for _, hit := range hits.Hits {
 			a.index.DeleteByID(RepositoryEntryType, hit.Id)
 		}
@@ -243,11 +244,11 @@ func (a *Application) reportSha(c *gin.Context) {
 		}
 	}
 	getReport := func() string {
-		ret := make(chan *RepositoryDependencyScan, 2)
+		ret := make(chan *types.Scan, 2)
 		defer func() {
 			close(ret)
 		}()
-		repo := &es.Repository{Fullname: repoName, DependencyInfo: es.RepositoryDependencyInfo{repoName, es.IncomingSha, "", form.Files}}
+		repo := &types.Repository{Fullname: repoName, DependencyInfo: types.RepositoryDependencyInfo{repoName, types.IncomingSha, "", form.Files}}
 		a.wrkr.AddTask(&SingleRunnerRequest{&Repository{nil, nil, repo}, form.Sha, ""}, nil, ret)
 		scan := <-ret
 		if scan == nil {

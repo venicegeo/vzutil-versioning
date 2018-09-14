@@ -19,6 +19,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/venicegeo/vzutil-versioning/web/es/types"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -36,12 +37,12 @@ type Worker struct {
 
 type existsWork struct {
 	request   *SingleRunnerRequest
-	exists    chan *RepositoryDependencyScan
-	singleRet chan *RepositoryDependencyScan
+	exists    chan *types.Scan
+	singleRet chan *types.Scan
 }
 type scanWork struct {
 	request   *SingleRunnerRequest
-	singleRet chan *RepositoryDependencyScan
+	singleRet chan *types.Scan
 }
 
 func NewWorker(app *Application, numWorkers int) *Worker {
@@ -85,7 +86,7 @@ func (w *Worker) startCheckExist() {
 				log.Printf("[CHECK-WORKER (%d)] Unable to check status of current sha: %s. Continuing\n", worker, err.Error())
 			}
 			if item.Found {
-				repEntry := new(RepositoryDependencyScan)
+				repEntry := new(types.Scan)
 				if err = json.Unmarshal(*item.Source, repEntry); err != nil {
 					log.Printf("[CHECK-WORKER (%d)] Unable to unmarshal sha: %s\nReason: %s\n", worker, work.request.sha, err.Error())
 					work.exists <- nil
@@ -142,7 +143,7 @@ func (w *Worker) startClone() {
 	}
 }
 
-func (w *Worker) AddTask(request *SingleRunnerRequest, exists chan *RepositoryDependencyScan, singleRet chan *RepositoryDependencyScan) {
+func (w *Worker) AddTask(request *SingleRunnerRequest, exists chan *types.Scan, singleRet chan *types.Scan) {
 	if exists != nil {
 		w.checkExistQueue <- &existsWork{request, exists, singleRet}
 	} else {

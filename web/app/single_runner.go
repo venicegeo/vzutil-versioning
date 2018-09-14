@@ -23,7 +23,7 @@ import (
 
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	c "github.com/venicegeo/vzutil-versioning/common"
-	"github.com/venicegeo/vzutil-versioning/web/es"
+	"github.com/venicegeo/vzutil-versioning/web/es/types"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -37,36 +37,6 @@ type SingleRunnerRequest struct {
 	sha        string
 	ref        string
 }
-
-type RepositoryDependencyScan struct {
-	RepoFullname string            `json:"repo"`
-	ProjectId    string            `json:"project_id"`
-	Refs         []string          `json:"refs"`
-	Sha          string            `json:"sha"`
-	Timestamp    time.Time         `json:"timestamp"`
-	Scan         *c.DependencyScan `json:"scan"`
-}
-
-const Scan_FullnameField = "repo"
-const Scan_ProjectIdField = "project_id"
-const Scan_RefsField = "refs"
-const Scan_ShaField = "sha"
-const Scan_TimestampField = "timestamp"
-const Scan_SubDependenciesField = "scan." + c.DependenciesField
-const Scan_SubFullNameField = "scan." + c.FullNameField
-const Scan_SubFilesField = "scan." + c.FilesField
-
-const RepositoryDependencyScanMapping string = `{
-	"dynamic":"strict",
-	"properties":{
-		"` + Scan_FullnameField + `":{"type":"keyword"},
-		"` + Scan_ProjectIdField + `":{"type":"keyword"},
-		"` + Scan_RefsField + `":{"type":"keyword"},
-		"` + Scan_ShaField + `":{"type":"keyword"},
-		"` + Scan_TimestampField + `":{"type":"keyword"},
-		"scan":` + c.DependencyScanMapping + `
-	}
-}`
 
 func NewSingleRunner(app *Application) *SingleRunner {
 	return &SingleRunner{
@@ -92,7 +62,7 @@ func (sr *SingleRunner) ScanWithSingle(fullName string) ([]string, error) {
 	return output.Files, nil
 }
 
-func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan string, request *SingleRunnerRequest) *RepositoryDependencyScan {
+func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan string, request *SingleRunnerRequest) *types.Scan {
 	sr.sendStringTo(printLocation, "%sStarting work on %s", printHeader, request.sha)
 
 	args := make([]string, len(request.repository.DependencyInfo.FilesToScan)*2, len(request.repository.DependencyInfo.FilesToScan)*2)
@@ -104,13 +74,13 @@ func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan 
 	}
 	args = append(args, request.repository.DependencyInfo.RepoFullname)
 	switch request.repository.DependencyInfo.CheckoutType {
-	case es.IncomingSha:
+	case types.IncomingSha:
 		args = append(args, request.sha)
-	case es.ExactSha:
+	case types.ExactSha:
 		args = append(args, request.repository.DependencyInfo.CustomField)
-	case es.CustomRef:
+	case types.CustomRef:
 		args = append(args, request.repository.DependencyInfo.CustomField)
-	case es.SameRef:
+	case types.SameRef:
 		args = append(args, request.ref)
 	}
 
@@ -119,7 +89,7 @@ func (sr *SingleRunner) RunAgainstSingle(printHeader string, printLocation chan 
 		sr.sendStringTo(printLocation, "%sUnable to run against %s [%s]\n%s", printHeader, request.sha, err.Error(), string(dat))
 		return nil
 	}
-	res := &RepositoryDependencyScan{
+	res := &types.Scan{
 		RepoFullname: request.repository.Fullname,
 		ProjectId:    request.repository.ProjectId,
 		Refs:         []string{request.ref},

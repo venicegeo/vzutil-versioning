@@ -20,6 +20,7 @@ import (
 
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
+	"github.com/venicegeo/vzutil-versioning/web/es/types"
 )
 
 type FireAndForget struct {
@@ -32,8 +33,8 @@ func NewFireAndForget(app *Application) *FireAndForget {
 
 func (ff *FireAndForget) FireRequest(request *SingleRunnerRequest) {
 	go func(request *SingleRunnerRequest) {
-		exists := make(chan *RepositoryDependencyScan, 1)
-		ret := make(chan *RepositoryDependencyScan, 1)
+		exists := make(chan *types.Scan, 1)
+		ret := make(chan *types.Scan, 1)
 		defer func() {
 			close(exists)
 			close(ret)
@@ -54,7 +55,7 @@ func (ff *FireAndForget) FireRequest(request *SingleRunnerRequest) {
 func (ff *FireAndForget) FireGit(git *s.GitWebhook) {
 	go func(git *s.GitWebhook) {
 		fire := func(git *s.GitWebhook, repo *Repository) {
-			ret := make(chan *RepositoryDependencyScan, 1)
+			ret := make(chan *types.Scan, 1)
 			defer close(ret)
 			request := &SingleRunnerRequest{
 				repository: repo,
@@ -86,7 +87,7 @@ func (ff *FireAndForget) FireGit(git *s.GitWebhook) {
 
 }
 
-func (ff *FireAndForget) tryUpdateScan(ref string, scan *RepositoryDependencyScan) {
+func (ff *FireAndForget) tryUpdateScan(ref string, scan *types.Scan) {
 	contains := false
 	for _, r := range scan.Refs {
 		if r == ref {
@@ -107,28 +108,28 @@ func (ff *FireAndForget) tryUpdateScan(ref string, scan *RepositoryDependencySca
 	}
 }
 
-func (ff *FireAndForget) postScan(scan *RepositoryDependencyScan) {
+func (ff *FireAndForget) postScan(scan *types.Scan) {
 	log.Println("[ES-WORKER] Starting work on", scan.Sha, "for", scan.ProjectId)
 	var err error
 
-	testAgainstEntries := make(map[string]*RepositoryDependencyScan, len(scan.Refs))
+	testAgainstEntries := make(map[string]*types.Scan, len(scan.Refs))
 	for _, ref := range scan.Refs {
 		boolq := es.NewBool().
 			SetMust(es.NewBoolQ(
-				es.NewTerm(Scan_FullnameField, scan.RepoFullname),
-				es.NewTerm(Scan_RefsField, ref),
-				es.NewTerm(Scan_ProjectIdField, scan.ProjectId),
-				es.NewRange(Scan_TimestampField, "lt", scan.Timestamp)))
+				es.NewTerm(types.Scan_FullnameField, scan.RepoFullname),
+				es.NewTerm(types.Scan_RefsField, ref),
+				es.NewTerm(types.Scan_ProjectIdField, scan.ProjectId),
+				es.NewRange(types.Scan_TimestampField, "lt", scan.Timestamp)))
 		q := map[string]interface{}{
 			"query": map[string]interface{}{"bool": boolq},
 			"sort": map[string]interface{}{
-				Scan_TimestampField: "desc",
+				types.Scan_TimestampField: "desc",
 			},
 			"size": 1,
 		}
 		result, err := ff.app.index.SearchByJSON(RepositoryEntryType, q)
 		if err == nil && result.Hits.TotalHits == 1 {
-			entry := new(RepositoryDependencyScan)
+			entry := new(types.Scan)
 			if err = json.Unmarshal(*result.Hits.Hits[0].Source, entry); err == nil {
 				testAgainstEntries[ref] = entry
 			}
@@ -150,7 +151,7 @@ func (ff *FireAndForget) postScan(scan *RepositoryDependencyScan) {
 	}
 }
 
-func (w *FireAndForget) runDiff(repoName, projectName, ref string, oldEntry, newEntry *RepositoryDependencyScan) {
+func (w *FireAndForget) runDiff(repoName, projectName, ref string, oldEntry, newEntry *types.Scan) {
 	if _, err := w.app.diffMan.webhookCompare(repoName, projectName, ref, oldEntry, newEntry); err != nil {
 		log.Println("[ES-WORKER] Error creating diff:", err.Error())
 	}
