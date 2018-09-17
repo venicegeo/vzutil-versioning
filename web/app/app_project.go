@@ -25,12 +25,13 @@ import (
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 	"github.com/venicegeo/vzutil-versioning/web/es"
+	"github.com/venicegeo/vzutil-versioning/web/es/types"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 func (a *Application) viewProject(c *gin.Context) {
-	proj := c.Param("proj")
-	project, err := a.rtrvr.GetProject(proj)
+	projId := c.Param("proj")
+	project, err := a.rtrvr.GetProjectById(projId)
 	if err != nil {
 		c.String(400, "Error getting this project: %s", err.Error())
 		return
@@ -53,31 +54,31 @@ func (a *Application) viewProject(c *gin.Context) {
 		c.Redirect(303, "/ui")
 		return
 	} else if form.Reload != "" {
-		c.Redirect(303, "/project/"+proj)
+		c.Redirect(303, "/project/"+projId)
 		return
 	} else if form.Util != "" {
 		switch form.Util {
 		case "Report By Ref":
-			c.Redirect(303, "/reportref/"+proj)
+			c.Redirect(303, "/reportref/"+projId)
 			return
 		case "Generate All Tags":
-			str, err := a.genTagsWrk(proj)
+			str, err := a.genTagsWrk(projId)
 			if err != nil {
 				u.Format("Unable to generate all tags: %s", err.Error())
 			} else {
 				depsStr = str
 			}
 		case "Add Repository":
-			c.Redirect(303, "/addrepo/"+proj)
+			c.Redirect(303, "/addrepo/"+projId)
 			return
 		case "Remove Repository":
-			c.Redirect(303, "/removerepo/"+proj)
+			c.Redirect(303, "/removerepo/"+projId)
 			return
 		case "Dependency Search":
-			c.Redirect(303, "/depsearch/"+proj)
+			c.Redirect(303, "/depsearch/"+projId)
 			return
 		case "Delete Project":
-			c.Redirect(303, "/delproj/"+proj)
+			c.Redirect(303, "/delproj/"+projId)
 			return
 		}
 	} else if form.Sha != "" {
@@ -92,10 +93,10 @@ func (a *Application) viewProject(c *gin.Context) {
 		depsStr = a.reportAtShaWrk(scan)
 	} else if form.Gen != "" {
 		repoFullName := strings.TrimPrefix(form.Gen, "Generate Branch - ")
-		c.Redirect(303, u.Format("/genbranch/%s/%s", proj, repoFullName))
+		c.Redirect(303, u.Format("/genbranch/%s/%s", projId, repoFullName))
 		return
 	} else if form.Diff != "" {
-		c.Redirect(303, "/diff/"+proj)
+		c.Redirect(303, "/diff/"+projId)
 		return
 	}
 	accord := s.NewHtmlAccordion()
@@ -125,7 +126,7 @@ func (a *Application) viewProject(c *gin.Context) {
 	h["accordion"] = accord.Template()
 	h["deps"] = depsStr
 	{
-		diffs, err := a.diffMan.GetAllDiffsInProject(proj)
+		diffs, err := a.diffMan.GetAllDiffsInProject(projId)
 		if err != nil {
 			h["diff"] = ""
 		} else {
@@ -159,7 +160,7 @@ func (a *Application) generateAccordion(accord *s.HtmlAccordion, repo *Repositor
 		tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
 	}
 	mux.Lock()
-	accord.AddItem(repo.RepoFullname, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlButton2("button_gen", "Generate Branch - "+repo.RepoFullname)).Post(), tempAccord.Sort()))
+	accord.AddItem(repo.Fullname, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlButton2("button_gen", "Generate Branch - "+repo.Fullname)).Post(), tempAccord.Sort()))
 	mux.Unlock()
 	errs <- nil
 }
@@ -183,13 +184,13 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 		Files  []string `form:"files[]"`
 		Submit string   `form:"button_submit"`
 	}
-	proj := c.Param("proj")
+	projId := c.Param("proj")
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Error binding form: %s", err.Error())
 		return
 	}
 	if form.Back != "" {
-		c.Redirect(303, "/project/"+proj)
+		c.Redirect(303, "/project/"+projId)
 		return
 	}
 	form.Org = strings.TrimSpace(form.Org)
@@ -205,7 +206,7 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 		"text_sha": form.TextSha,
 		"hidescan": true,
 	}
-	depinfo := es.ProjectEntryDependencyInfo{FilesToScan: form.Files}
+	depinfo := types.RepositoryDependencyInfo{FilesToScan: form.Files}
 	isThis := false
 	switch form.PrimaryType {
 	case "radio_other":
@@ -215,20 +216,20 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 	default:
 		isThis = true
 		depinfo.RepoFullname = form.Org + "/" + form.Repo
-		depinfo.CheckoutType = es.IncomingSha
+		depinfo.CheckoutType = types.IncomingSha
 		h["radio_this_checked"] = "checked"
 	}
 	switch form.SecondaryType {
 	case "radio_ref":
 		h["radio_ref_checked"] = "checked"
 		if !isThis {
-			depinfo.CheckoutType = es.CustomRef
+			depinfo.CheckoutType = types.CustomRef
 			depinfo.CustomField = form.TextRef
 		}
 	case "radio_sha":
 		h["radio_sha_checked"] = "checked"
 		if !isThis {
-			depinfo.CheckoutType = es.ExactSha
+			depinfo.CheckoutType = types.ExactSha
 			depinfo.CustomField = form.TextSha
 		}
 	case "radio_same":
@@ -236,7 +237,7 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 	default:
 		h["radio_same_checked"] = "checked"
 		if !isThis {
-			depinfo.CheckoutType = es.SameRef
+			depinfo.CheckoutType = types.SameRef
 		}
 	}
 	if !isThis {
@@ -291,16 +292,18 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 	}
 
 	submit := func() {
-		entry := es.ProjectEntry{
-			ProjectName:    proj,
-			RepoFullname:   repoName,
+		id := nt.NewUuid().String()
+		entry := types.Repository{
+			Id:             id,
+			ProjectId:      projId,
+			Fullname:       repoName,
 			DependencyInfo: depinfo,
 		}
 		boolq := es.NewBool().
 			SetMust(es.NewBoolQ(
-				es.NewTerm(es.ProjectEntryNameField, entry.ProjectName),
-				es.NewTerm(es.ProjectEntryRepositoryField, entry.RepoFullname)))
-		resp, err := a.index.SearchByJSON(ProjectEntryType, map[string]interface{}{
+				es.NewTerm(types.Repository_ProjectIdField, entry.ProjectId),
+				es.NewTerm(types.Repository_NameField, entry.Fullname)))
+		resp, err := a.index.SearchByJSON(RepositoryType, map[string]interface{}{
 			"query": map[string]interface{}{"bool": boolq},
 			"size":  1,
 		})
@@ -312,12 +315,12 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 			c.String(400, "This repo already exists under this project")
 			return
 		}
-		iresp, err := a.index.PostData(ProjectEntryType, "", entry)
+		iresp, err := a.index.PostData(RepositoryType, id, entry)
 		if err != nil || !iresp.Created {
 			c.String(500, "Error adding entry to database: ", err)
 			return
 		}
-		c.Redirect(303, "/project/"+proj)
+		c.Redirect(303, "/project/"+projId)
 	}
 
 	if form.Scan != "" && form.PrimaryType == "radio_this" {
@@ -360,7 +363,7 @@ func (a *Application) checkRepoIsReal(name ...string) bool {
 }
 
 func (a *Application) removeReposFromProject(c *gin.Context) {
-	proj := c.Param("proj")
+	projId := c.Param("proj")
 	var form struct {
 		Back string `form:"button_back"`
 		Repo string `form:"button_submit"`
@@ -370,15 +373,15 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 		return
 	}
 	if form.Back != "" {
-		c.Redirect(303, "/project/"+proj)
+		c.Redirect(303, "/project/"+projId)
 		return
 	}
 	if form.Repo != "" {
 		boolq := es.NewBool().
 			SetMust(es.NewBoolQ(
-				es.NewTerm(es.ProjectEntryNameField, proj),
-				es.NewTerm(es.ProjectEntryRepositoryField, form.Repo)))
-		resp, err := a.index.SearchByJSON(ProjectEntryType, map[string]interface{}{
+				es.NewTerm(types.Repository_ProjectIdField, projId),
+				es.NewTerm(types.Repository_NameField, form.Repo)))
+		resp, err := a.index.SearchByJSON(RepositoryType, map[string]interface{}{
 			"query": map[string]interface{}{"bool": boolq},
 			"size":  1,
 		})
@@ -390,12 +393,12 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 			c.String(400, "Could not find the project entry")
 			return
 		}
-		entry := new(es.ProjectEntry)
+		entry := new(types.Repository)
 		if err = json.Unmarshal(*resp.Hits.Hits[0].Source, entry); err != nil {
 			c.String(500, "Unable to read project entry: %s", err.Error())
 			return
 		}
-		_, err = a.index.DeleteByIDWait(ProjectEntryType, resp.Hits.Hits[0].Id)
+		_, err = a.index.DeleteByIDWait(RepositoryType, resp.Hits.Hits[0].Id)
 		if err != nil {
 			c.String(500, "Unable to delete project entry: %s", err.Error())
 			return
@@ -404,11 +407,11 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 			hits, err := es.GetAll(a.index, RepositoryEntryType, map[string]interface{}{
 				"bool": es.NewBool().
 					SetMust(es.NewBoolQ(
-						es.NewTerm(Scan_FullnameField, entry.RepoFullname),
-						es.NewTerm(Scan_ProjectField, entry.ProjectName))),
+						es.NewTerm(types.Scan_FullnameField, entry.Fullname),
+						es.NewTerm(types.Scan_ProjectIdField, entry.ProjectId))),
 			})
 			if err != nil {
-				log.Println("Unable to cleanup after repo", entry.RepoFullname, "in", entry.ProjectName, ":", err.Error())
+				log.Println("Unable to cleanup after repo", entry.Fullname, "in", entry.ProjectId, ":", err.Error())
 				return
 			}
 			wg := sync.WaitGroup{}
@@ -421,10 +424,10 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 			}
 			wg.Wait()
 		}()
-		c.Redirect(303, "/removerepo/"+proj)
+		c.Redirect(303, "/removerepo/"+projId)
 		return
 	}
-	project, err := a.rtrvr.GetProject(proj)
+	project, err := a.rtrvr.GetProjectById(projId)
 	if err != nil {
 		c.String(500, "Unable to get the project: %s", err)
 		return
@@ -437,7 +440,7 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 	h := gin.H{}
 	buttons := s.NewHtmlCollection()
 	for _, repo := range repos {
-		buttons.Add(s.NewHtmlButton2("button_submit", repo.RepoFullname))
+		buttons.Add(s.NewHtmlButton2("button_submit", repo.Fullname))
 		buttons.Add(s.NewHtmlBr())
 	}
 	h["repos"] = buttons.Template()

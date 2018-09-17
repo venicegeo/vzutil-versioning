@@ -23,7 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
-	"github.com/venicegeo/vzutil-versioning/web/es"
+	"github.com/venicegeo/vzutil-versioning/web/es/types"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -49,15 +49,15 @@ type Application struct {
 const ESMapping = `
 {
 	"mappings": {
-		"` + RepositoryEntryType + `": ` + RepositoryDependencyScanMapping + `,
+		"` + RepositoryEntryType + `": ` + types.ScanMapping + `,
 		"` + DifferenceType + `": ` + DifferenceMapping + `,
-		"` + ProjectEntryType + `": ` + es.ProjectEntryMapping + `,
-		"` + ProjectType + `": ` + es.ProjectMapping + `
+		"` + RepositoryType + `": ` + types.RepositoryMapping + `,
+		"` + ProjectType + `": ` + types.ProjectMapping + `
 	}
 }`
 const RepositoryEntryType = `repository_entry`
 const DifferenceType = `difference`
-const ProjectEntryType = `project_entry`
+const RepositoryType = `repository`
 const ProjectType = `project`
 
 type Back struct {
