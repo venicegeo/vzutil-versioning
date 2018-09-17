@@ -34,7 +34,7 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 		Back       string `form:"button_back"`
 		ReportType string `form:"reporttype"`
 		Ref        string `form:"button_submit"`
-		Download   string `form:"downloadCSV"`
+		Download   string `form:"download_csv"`
 	}
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Unable to bind form: %s", err.Error())
@@ -80,7 +80,7 @@ func (a *Application) reportRefOnProjectDownloadCSV(c *gin.Context) {
 	proj := c.Param("proj")
 	var form struct {
 		ReportType string `form:"reporttype"`
-		Ref        string `form:"button_download"`
+		Ref        string `form:"button_submit"`
 	}
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Unable to bind form: %s", err.Error())
