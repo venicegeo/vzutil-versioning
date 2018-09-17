@@ -16,6 +16,8 @@ package app
 
 import (
 	"bytes"
+	"encoding/csv"
+	"fmt"
 	"sort"
 
 	"github.com/gin-gonic/gin"
@@ -31,6 +33,7 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 		Back       string `form:"button_back"`
 		ReportType string `form:"reporttype"`
 		Ref        string `form:"button_submit"`
+		Download   string `form:"downloadCSV"`
 	}
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Unable to bind form: %s", err.Error())
@@ -40,6 +43,12 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 		c.Redirect(303, "/project/"+proj)
 		return
 	}
+
+	if form.Download != "" {
+		a.reportRefOnProjectDownloadCSV(c)
+		return
+	}
+
 	h := gin.H{"report": ""}
 	project, err := a.rtrvr.GetProject(proj)
 	if err != nil {
@@ -66,8 +75,92 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 	c.HTML(200, "reportref.html", h)
 }
 
+func (a *Application) reportRefOnProjectDownloadCSV(c *gin.Context) {
+	proj := c.Param("proj")
+	var form struct {
+		ReportType string `form:"reporttype"`
+		Ref        string `form:"button_download"`
+	}
+	if err := c.Bind(&form); err != nil {
+		c.String(400, "Unable to bind form: %s", err.Error())
+		return
+	}
+
+	buf := bytes.NewBuffer([]byte{})
+	writer := csv.NewWriter(buf)
+
+	if proj == "" || form.Ref == "" {
+		c.Header("Content-Disposition", "attachment; filename=\"report_invalid_ref.csv\"")
+		writer.Write([]string{"ERROR", "Invalid project/ref", proj, form.Ref})
+		c.Data(404, "text/csv", buf.Bytes())
+		return
+	}
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"report_%s_%s.csv\"", proj, form.Ref))
+
+	project, err := a.rtrvr.GetProject(proj)
+
+	if err != nil {
+		writer.Write([]string{"ERROR", "Unable to retrieve this project", err.Error()})
+		c.Data(404, "text/csv", buf.Bytes())
+		return
+	}
+
+	if scans, err := project.ScansByRefInProject(form.Ref); err != nil {
+		writer.Write([]string{"ERROR", "Unable to generate report", err.Error()})
+		c.Data(500, "text/csv", buf.Bytes())
+	} else {
+		a.reportAtRefWrkCSV(writer, form.Ref, scans, typ)
+		c.Data(200, "text/csv", buf.Bytes())
+		return
+	}
+}
+
+func (a *Application) reportAtRefWrkCSV(w *csv.Writer, ref string, deps map[string]*RepositoryDependencyScan, typ string) {
+	switch typ {
+	case "seperate":
+		for name, depss := range deps {
+			w.Write([]string{
+				fmt.Sprintf("%s at %s in %s", name, ref, depss.Project),
+				depss.Sha,
+				fmt.Sprintf("From %s %s", depss.Scan.Fullname, depss.Scan.Sha),
+			})
+			w.Write([]string{})
+			for _, dep := range depss.Scan.Deps {
+				w.Write([]string{dep.Name, dep.Version, dep.Language.String()})
+			}
+			w.Write([]string{})
+		}
+	case "grouped":
+		w.Write([]string{fmt.Sprintf("All repos at %s", ref)})
+		w.Write([]string{})
+
+		noDups := map[string]d.Dependency{}
+		for name, depss := range deps {
+			w.Write([]string{name})
+			for _, dep := range depss.Scan.Deps {
+				noDups[dep.String()] = dep
+			}
+		}
+		w.Write([]string{})
+
+		sorted := make(d.Dependencies, 0, len(noDups))
+		for _, dep := range noDups {
+			sorted = append(sorted, dep)
+		}
+		sort.Sort(sorted)
+
+		for _, dep := range sorted {
+			w.Write([]string{dep.Name, dep.Version, dep.Language.String()})
+		}
+	default:
+		w.Write([]string{"Unknown report type", typ})
+	}
+}
+
 func (a *Application) reportAtRefWrk(ref string, deps map[string]*RepositoryDependencyScan, typ string) string {
 	buf := bytes.NewBufferString("")
+	s.NewHtmlButton2("foo", "bar")
+	buf.WriteString()
 	switch typ {
 	case "seperate":
 		for name, depss := range deps {
