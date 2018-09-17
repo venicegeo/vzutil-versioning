@@ -93,6 +93,7 @@ func (a *Application) reportRefOnProjectDownloadCSV(c *gin.Context) {
 	if proj == "" || form.Ref == "" {
 		c.Header("Content-Disposition", "attachment; filename=\"report_invalid_ref.csv\"")
 		writer.Write([]string{"ERROR", "Invalid project/ref", proj, form.Ref})
+		writer.Flush()
 		c.Data(404, "text/csv", buf.Bytes())
 		return
 	}
@@ -102,15 +103,18 @@ func (a *Application) reportRefOnProjectDownloadCSV(c *gin.Context) {
 
 	if err != nil {
 		writer.Write([]string{"ERROR", "Unable to retrieve this project", err.Error()})
+		writer.Flush()
 		c.Data(404, "text/csv", buf.Bytes())
 		return
 	}
 
 	if scans, err := project.ScansByRefInProject(form.Ref); err != nil {
 		writer.Write([]string{"ERROR", "Unable to generate report", err.Error()})
+		writer.Flush()
 		c.Data(500, "text/csv", buf.Bytes())
 	} else {
 		a.reportAtRefWrkCSV(writer, form.Ref, scans, form.ReportType)
+		writer.Flush()
 		c.Data(200, "text/csv", buf.Bytes())
 		return
 	}
