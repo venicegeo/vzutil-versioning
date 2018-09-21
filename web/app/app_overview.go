@@ -49,8 +49,8 @@ func (a *Application) projectsOverview(c *gin.Context) {
 	}
 	if form.ProjectId == "" {
 		table := s.NewHtmlTable()
-		makeButton := func(name string) *s.HtmlButton {
-			return s.NewHtmlButton3("button_project", name, "button")
+		makeButton := func(name string) *s.HtmlSubmitButton {
+			return s.NewHtmlSubmitButton3("button_project", name, "button")
 		}
 		projs, err := a.rtrvr.GetAllProjects()
 		if err != nil {
@@ -224,7 +224,7 @@ func (a *Application) reportSha(c *gin.Context) {
 			for _, file := range i.([]string) {
 				check.Add(file, file, true)
 			}
-			h["scan"] = s.NewHtmlCollection(check, s.NewHtmlButton2("button_submit", "Submit")).Template()
+			h["scan"] = s.NewHtmlCollection(check, s.NewHtmlSubmitButton2("button_submit", "Submit")).Template()
 		default:
 			panic("Youre doing this wrong")
 		}
@@ -318,7 +318,7 @@ func (a *Application) customDiff(c *gin.Context) {
 			for _, file := range i.([]string) {
 				check.Add(file, file, true)
 			}
-			h["scan"] = s.NewHtmlCollection(check, s.NewHtmlButton2("button_next", "Next")).Template()
+			h["scan"] = s.NewHtmlCollection(check, s.NewHtmlSubmitButton2("button_next", "Next")).Template()
 		default:
 			panic("Youre doing this wrong")
 		}

@@ -16,30 +16,37 @@ package structs
 
 import (
 	"html/template"
+	"strings"
 
 	f "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
-type HtmlButton struct {
-	display string
+type HtmlSubmitButton struct {
 	name    string
 	value   string
-	typ     string
-	style   string
+	class   string
+	special string
 }
 
-func NewHtmlButton(display, name, value, typ string) *HtmlButton {
-	return &HtmlButton{display, name, value, typ, ""}
+func NewHtmlSubmitButton(value string) *HtmlSubmitButton {
+	return &HtmlSubmitButton{"button_" + strings.ToLower(value), value, "", ""}
 }
-func (h *HtmlButton) Style(style string) *HtmlButton {
-	h.style = style
+func NewHtmlSubmitButton2(name, value string) *HtmlSubmitButton {
+	return &HtmlSubmitButton{name, value, "", ""}
+}
+func NewHtmlSubmitButton3(name, value, class string) *HtmlSubmitButton {
+	return &HtmlSubmitButton{name, value, class, ""}
+}
+
+func (h *HtmlSubmitButton) Special(special string) *HtmlSubmitButton {
+	h.special = special
 	return h
 }
 
-func (h *HtmlButton) Template() template.HTML {
+func (h *HtmlSubmitButton) Template() template.HTML {
 	return template.HTML(h.String())
 }
 
-func (h *HtmlButton) String() string {
-	return f.Format(`<button name="%s" value="%s" type="%s" style="%s">%s</button>`, h.name, h.value, h.typ, h.style, h.display)
+func (h *HtmlSubmitButton) String() string {
+	return f.Format(`<input type="submit" name="%s" value="%s" class="%s" %s>`, h.name, h.value, h.class, h.special)
 }

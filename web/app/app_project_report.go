@@ -60,7 +60,7 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 		} else {
 			buttons := s.NewHtmlCollection()
 			for _, ref := range refs {
-				buttons.Add(s.NewHtmlButton2("button_submit", ref))
+				buttons.Add(s.NewHtmlSubmitButton2("button_submit", ref))
 				buttons.Add(s.NewHtmlBr())
 			}
 			h["refs"] = buttons.Template()
@@ -69,7 +69,8 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 			if scans, err := project.ScansByRefInProject(form.Ref); err != nil {
 				h["report"] = u.Format("Unable to generate report: %s", err.Error())
 			} else {
-				h["report"] = a.reportAtRefWrk(form.Ref, scans, form.ReportType)
+				report := a.reportAtRefWrk(form.Ref, scans, form.ReportType)
+				h["report"] = s.NewHtmlCollection(s.NewHtmlButton("Download CSV", "download_csv", form.Ref, "submit").Style("float:right;"), s.NewHtmlBr(), s.NewHtmlBasic("pre", report)).Template()
 			}
 		}
 	}
@@ -80,7 +81,7 @@ func (a *Application) reportRefOnProjectDownloadCSV(c *gin.Context) {
 	projId := c.Param("proj")
 	var form struct {
 		ReportType string `form:"reporttype"`
-		Ref        string `form:"button_submit"`
+		Ref        string `form:"download_csv"`
 	}
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Unable to bind form: %s", err.Error())

@@ -22,9 +22,6 @@ td {
 <td>
 <fieldset>
 <legend>Type</legend>
-<label for="download_csv">
-	<input type="checkbox" id="download_csv" name="download_csv" value="true"> Download CSV
-</label> <br>
 <input type="radio" name="reporttype" value="grouped" checked> Grouped<br>
 <input type="radio" name="reporttype" value="seperate"> Seperate
 </fieldset>
@@ -32,9 +29,7 @@ td {
 <td>
 <fieldset>
 <legend>Report</legend>
-<pre>
 {{ .report }}
-</pre>
 </fieldset>
 </td>
 </tr>

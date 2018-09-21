@@ -51,7 +51,7 @@ func (a *Application) differencesInProject(c *gin.Context) {
 	{
 		buttons := make([]s.HtmlInter, len(*diffs))
 		for i, d := range *diffs {
-			buttons[i] = s.NewHtmlButton2(d.Id, d.SimpleString())
+			buttons[i] = s.NewHtmlSubmitButton2(d.Id, d.SimpleString())
 		}
 		if len(buttons) > 0 {
 			tmp := s.NewHtmlCollection()
@@ -80,7 +80,7 @@ func (a *Application) differencesInProject(c *gin.Context) {
 				}
 			}
 		}
-		gh["data"] = s.NewHtmlCollection(s.NewHtmlBasic("pre", res), s.NewHtmlBasic("form", s.NewHtmlButton("Delete").String())).Template()
+		gh["data"] = s.NewHtmlCollection(s.NewHtmlBasic("pre", res), s.NewHtmlBasic("form", s.NewHtmlSubmitButton("Delete").String())).Template()
 	}
 	c.HTML(200, "differences.html", gh)
 }

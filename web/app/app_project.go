@@ -152,7 +152,7 @@ func (a *Application) generateAccordion(accord *s.HtmlAccordion, repo *Repositor
 		c := s.NewHtmlCollection()
 		correctShas := shas["refs/"+ref]
 		for i, sha := range correctShas {
-			c.Add(s.NewHtmlButton2("button_sha", sha))
+			c.Add(s.NewHtmlSubmitButton2("button_sha", sha))
 			if i < len(correctShas)-1 {
 				c.Add(s.NewHtmlBr())
 			}
@@ -160,7 +160,7 @@ func (a *Application) generateAccordion(accord *s.HtmlAccordion, repo *Repositor
 		tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
 	}
 	mux.Lock()
-	accord.AddItem(repo.Fullname, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlButton2("button_gen", "Generate Branch - "+repo.Fullname)).Post(), tempAccord.Sort()))
+	accord.AddItem(repo.Fullname, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlSubmitButton2("button_gen", "Generate Branch - "+repo.Fullname)).Post(), tempAccord.Sort()))
 	mux.Unlock()
 	errs <- nil
 }
@@ -261,7 +261,7 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 			for _, file := range i.([]string) {
 				check.Add(file, file, true)
 			}
-			h["scan"] = s.NewHtmlCollection(check, s.NewHtmlButton2("button_submit", "Submit")).Template()
+			h["scan"] = s.NewHtmlCollection(check, s.NewHtmlSubmitButton2("button_submit", "Submit")).Template()
 		default:
 			panic("Youre doing this wrong")
 		}
@@ -440,7 +440,7 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 	h := gin.H{}
 	buttons := s.NewHtmlCollection()
 	for _, repo := range repos {
-		buttons.Add(s.NewHtmlButton2("button_submit", repo.Fullname))
+		buttons.Add(s.NewHtmlSubmitButton2("button_submit", repo.Fullname))
 		buttons.Add(s.NewHtmlBr())
 	}
 	h["repos"] = buttons.Template()
