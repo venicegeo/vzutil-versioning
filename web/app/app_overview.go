@@ -128,7 +128,7 @@ func (a *Application) newProject(c *gin.Context) {
 			c.String(400, "This project already exists")
 			return
 		}
-		if resp, err := a.index.PostData(ProjectType, id, types.Project{id, displayName}); err != nil {
+		if resp, err := a.index.PostData(ProjectType, id, types.NewProject(id, displayName)); err != nil {
 			c.String(500, "Error creating project in db: %s", err.Error())
 			return
 		} else if !resp.Created {

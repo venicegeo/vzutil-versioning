@@ -15,25 +15,35 @@
 package types
 
 import (
+	"regexp"
 	"time"
 
 	c "github.com/venicegeo/vzutil-versioning/common"
 )
 
+var escape = regexp.MustCompile(`[^a-zA-Z\-_]`)
+
 type Project struct {
 	Id          string `json:"id"`
 	DisplayName string `json:"displayname"`
+	EscapedName string `json:"escapedname"`
 }
 
 const ProjectMapping = `{
 	"dynamic":"strict",
 	"properties":{
 		"` + Project_IdField + `":{"type":"keyword"},
-		"` + Project_DisplayNameField + `":{"type":"keyword"}
+		"` + Project_DisplayNameField + `":{"type":"keyword"},
+		"` + Project_EscapedName + `":{"type":"keyword"}
 	}
 }`
 const Project_IdField = `id`
 const Project_DisplayNameField = `displayname`
+const Project_EscapedName = `escapedname`
+
+func NewProject(id, name string) Project {
+	return Project{id, name, escape.ReplaceAllString(name, "_")}
+}
 
 //--------------------------------------------------------------------------------
 

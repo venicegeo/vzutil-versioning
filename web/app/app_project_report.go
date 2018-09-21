@@ -77,7 +77,7 @@ func (a *Application) reportRefOnProject(c *gin.Context) {
 }
 
 func (a *Application) reportRefOnProjectDownloadCSV(c *gin.Context) {
-	proj := c.Param("proj")
+	projId := c.Param("proj")
 	var form struct {
 		ReportType string `form:"reporttype"`
 		Ref        string `form:"button_submit"`
@@ -90,16 +90,20 @@ func (a *Application) reportRefOnProjectDownloadCSV(c *gin.Context) {
 	buf := bytes.NewBuffer([]byte{})
 	writer := csv.NewWriter(buf)
 
-	if proj == "" || form.Ref == "" {
+	if projId == "" || form.Ref == "" {
 		c.Header("Content-Disposition", "attachment; filename=\"report_invalid_ref.csv\"")
-		writer.Write([]string{"ERROR", "Invalid project/ref", proj, form.Ref})
+		writer.Write([]string{"ERROR", "Invalid project/ref", projId, form.Ref})
 		writer.Flush()
 		c.Data(404, "text/csv", buf.Bytes())
 		return
 	}
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"report_%s_%s.csv\"", proj, form.Ref))
+	projName := "unknown"
+	project, err := a.rtrvr.GetProjectById(projId)
+	if err == nil {
+		projName = project.EscapedName
+	}
 
-	project, err := a.rtrvr.GetProjectById(proj)
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"report_%s_%s.csv\"", projName, form.Ref))
 
 	if err != nil {
 		writer.Write([]string{"ERROR", "Unable to retrieve this project", err.Error()})
