@@ -80,6 +80,9 @@ func (a *Application) viewProject(c *gin.Context) {
 		case "Delete Project":
 			c.Redirect(303, "/delproj/"+projId)
 			return
+		case "Jenkins":
+			c.Redirect(303, "/jenkins/"+projId)
+			return
 		}
 	} else if form.Sha != "" {
 		scan, found, err := project.ScanBySha(form.Sha)

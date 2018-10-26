@@ -28,7 +28,7 @@ type Bool struct {
 }
 type BoolQ []interface{}
 type Term struct {
-	Term map[string]string `json:"term"`
+	Term map[string]interface{} `json:"term"`
 }
 type Wildcard struct {
 	Wildcard map[string]string `json:"wildcard"`
@@ -40,9 +40,9 @@ type Range struct {
 	Range map[string]map[string]interface{} `json:"range"`
 }
 
-func NewTerm(key, value string) *Term {
+func NewTerm(key string, value interface{}) *Term {
 	ret := new(Term)
-	ret.Term = map[string]string{key: value}
+	ret.Term = map[string]interface{}{key: value}
 	return ret
 }
 func NewWildcard(key, value string) *Wildcard {
@@ -148,8 +148,8 @@ func GetAggKeysFromSearchResponse(term string, resp *elastic.SearchResult, err e
 
 type NestedQuery map[string]interface{}
 
-func NewNestedQuery(path string) NestedQuery {
-	return map[string]interface{}{
+func NewNestedQuery(path string) *NestedQuery {
+	return &NestedQuery{
 		"nested": map[string]interface{}{
 			"path":       path,
 			"inner_hits": map[string]interface{}{},

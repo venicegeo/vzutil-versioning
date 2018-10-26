@@ -41,3 +41,25 @@ func Hash(a string) string {
 	tmp := md5.Sum([]byte(a))
 	return hex.EncodeToString(tmp[:])
 }
+
+func SplitAtAnyTrim(str string, split ...string) []string {
+	spl := []string{str}
+	for _, s := range split {
+		temp := []string{}
+		for _, sp := range spl {
+			temp = append(temp, strings.Split(sp, s)...)
+		}
+		spl = temp
+	}
+	return StringSliceTrimSpaceRemoveEmpty(spl)
+}
+func StringSliceTrimSpaceRemoveEmpty(s []string) []string {
+	u := make([]string, 0, len(s))
+	for _, t := range s {
+		v := strings.TrimSpace(t)
+		if v != "" {
+			u = append(u, v)
+		}
+	}
+	return u
+}

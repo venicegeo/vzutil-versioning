@@ -20,10 +20,14 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/es/types"
+	"github.com/venicegeo/vzutil-versioning/web/jenkins-thing"
+	"github.com/venicegeo/vzutil-versioning/web/jenkins-thing/nt"
+	jt "github.com/venicegeo/vzutil-versioning/web/jenkins-thing/types"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -35,11 +39,12 @@ type Application struct {
 
 	server *u.Server
 
-	wrkr     *Worker
-	rtrvr    *Retriever
-	diffMan  *DifferenceManager
-	ff       *FireAndForget
-	cmprRnnr *CompareRunner
+	wrkr      *Worker
+	rtrvr     *Retriever
+	diffMan   *DifferenceManager
+	ff        *FireAndForget
+	cmprRnnr  *CompareRunner
+	jnknsMngr *j.Manager
 
 	killChan chan bool
 
@@ -52,13 +57,17 @@ const ESMapping = `
 		"` + RepositoryEntryType + `": ` + types.ScanMapping + `,
 		"` + DifferenceType + `": ` + DifferenceMapping + `,
 		"` + RepositoryType + `": ` + types.RepositoryMapping + `,
-		"` + ProjectType + `": ` + types.ProjectMapping + `
+		"` + ProjectType + `": ` + types.ProjectMapping + `,
+		"` + j.PipelineEntryType + `": ` + jt.PipelineEntryMapping + `,
+		"` + j.TargetsType + `": ` + jt.TargetsMapping + `
 	}
 }`
-const RepositoryEntryType = `repository_entry`
-const DifferenceType = `difference`
-const RepositoryType = `repository`
-const ProjectType = `project`
+const (
+	RepositoryEntryType = `repository_entry`
+	DifferenceType      = `difference`
+	RepositoryType      = `repository`
+	ProjectType         = `project`
+)
 
 type Back struct {
 	BackButton string `form:"button_back"`
@@ -87,6 +96,7 @@ func (a *Application) StartInternals() {
 	a.rtrvr = NewRetriever(a)
 	a.ff = NewFireAndForget(a)
 	a.cmprRnnr = NewCompareRunner(a)
+	a.jnknsMngr = j.NewManager(a.index, &nt.RealHTTP{}, os.Getenv("JENKINS_URL"))
 
 	a.wrkr.Start()
 
@@ -120,6 +130,8 @@ func (a *Application) StartInternals() {
 		u.RouteData{"GET", "/reportsha", a.reportSha, true},
 		u.RouteData{"GET", "/cdiff", a.customDiff, true},
 		u.RouteData{"POST", "/cdiff", a.customDiff, true},
+
+		u.RouteData{"GET", "/jenkins/:proj", a.jenkinsTesting, true},
 	})
 }
 
@@ -133,12 +145,17 @@ func (a *Application) StartServer() chan error {
 
 	log.Printf("Starting server on port %s...\n", port)
 
+	stopJen := make(chan struct{}, 1)
+
+	go a.jnknsMngr.RunAutomatedScans(time.Minute*2, stopJen)
+
 	select {
 	case err := <-a.server.Start(":" + port):
 		done <- err
 	case <-a.killChan:
 		done <- errors.New(u.Format("was stopped: %s", a.server.Stop()))
 	}
+	stopJen <- struct{}{}
 	return done
 }
 func (a *Application) Stop() {
