@@ -43,6 +43,7 @@ var includeTest bool
 var files stringarr
 var full_name string
 var name string
+var localMode bool
 
 var cleanup func()
 
@@ -54,6 +55,7 @@ func main() {
 
 	runInterruptHandler()
 
+	flag.BoolVar(&localMode, "local", false, "Run in local mode")
 	flag.BoolVar(&scan, "scan", false, "Scan for dependency files")
 	flag.BoolVar(&all, "all", false, "Run against all found dependency files")
 	flag.BoolVar(&includeTest, "testing", true, "Include testing dependencies")
@@ -70,7 +72,7 @@ func main() {
 	} else if len(files) == 0 && !(scan || all) {
 		fmt.Println("Must give a run paramater")
 		os.Exit(1)
-	} else if len(info) != 2 {
+	} else if localMode && len(info) != 1 || !localMode && len(info) != 2 {
 		fmt.Println("The program arguments were incorrect. Usage: single [options] [org/repo] [sha]")
 		os.Exit(1)
 	}
@@ -78,10 +80,24 @@ func main() {
 	resolver = r.NewResolver(ioutil.ReadFile)
 	genFileToFunc()
 
+	var location, sha string
+	var refs []string
+
 	full_name = info[0]
-	name = strings.SplitN(info[0], "/", 2)[1]
-	location, sha, refs, err := cloneAndCheckout(info[0], info[1], name)
-	cleanup = func() { util.RunCommand("rm", "-rf", strings.TrimSuffix(location, name)) }
+	if !localMode {
+		name = strings.SplitN(info[0], "/", 2)[1]
+		location, sha, refs, err = cloneAndCheckout(info[0], info[1], name)
+	} else {
+		name = ""
+		location = full_name
+		sha = "Local"
+		refs = []string{}
+	}
+	cleanup = func() {
+		if !localMode {
+			util.RunCommand("rm", "-rf", strings.TrimSuffix(location, name))
+		}
+	}
 	defer cleanup()
 	if err != nil {
 		cleanup()
