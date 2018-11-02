@@ -43,6 +43,12 @@ func (r *Resolver) ResolvePackageJson(location string, test bool) (d.Dependencie
 	if err := json.Unmarshal(dat, &packageJson); err != nil {
 		return nil, nil, err
 	}
+	if packageJson.DependencyMap == nil {
+		packageJson.DependencyMap = map[string]string{}
+	}
+	if packageJson.DevDependencyMap == nil {
+		packageJson.DevDependencyMap = map[string]string{}
+	}
 	depMap := packageJson.DependencyMap
 	if test {
 		for k, v := range packageJson.DevDependencyMap {
