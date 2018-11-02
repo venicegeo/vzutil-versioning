@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package j
+package app
 
 import (
 	"bytes"
@@ -23,8 +23,7 @@ import (
 	"strings"
 	"time"
 
-	n "github.com/venicegeo/vzutil-versioning/web/jenkins-thing/nt"
-	t "github.com/venicegeo/vzutil-versioning/web/jenkins-thing/types"
+	t "github.com/venicegeo/vzutil-versioning/web/es/types"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
@@ -42,22 +41,24 @@ type PipelineBuild struct {
 
 var findTimestamp = regexp.MustCompile(`.*"timestamp"\s*:\s*([0-9]+),`)
 
-//var repo_match = regexp.MustCompile(`^Cloning repository .+github.com\/venicegeo\/pz-gateway.*$`)
 var sha_match = regexp.MustCompile(`^.*git checkout .*([a-f0-9]{40}).*$`)
 var target_match = regexp.MustCompile(`^.*cf target (.*)$`)
 var push_match = regexp.MustCompile(`^.*cf push (.*)$`)
 var stage_match = regexp.MustCompile(`^\[Pipeline\] { \((.+)\)$`)
 
-type Manager struct {
-	index      elasticsearch.IIndex
-	h          n.HTTP
-	jenkinsUrl string
+type JenkinsManager struct {
+	index             elasticsearch.IIndex
+	h                 u.HTTP
+	jenkinsUrl        string
+	authHeader        [][2]string
+	pipelineEntryType string
+	targetsType       string
 }
 
-func NewManager(index elasticsearch.IIndex, h n.HTTP, jenkinsUrl string) *Manager {
-	return &Manager{index, h, jenkinsUrl}
+func NewJenkinsManager(index elasticsearch.IIndex, h u.HTTP, jenkinsUrl string, authHeader [][2]string, pipelineEntryType, targetsType string) *JenkinsManager {
+	return &JenkinsManager{index, h, jenkinsUrl, authHeader, pipelineEntryType, targetsType}
 }
-func (m *Manager) Add(project, repository, url string) (string, error) {
+func (m *JenkinsManager) Add(project, repository, url string) (string, error) {
 	parts := strings.SplitN(url, "://", 2)
 	if len(parts) == 2 {
 		url = parts[1]
@@ -68,7 +69,7 @@ func (m *Manager) Add(project, repository, url string) (string, error) {
 	url = strings.TrimPrefix(url, m.jenkinsUrl)
 	jobParts := u.SplitAtAnyTrim(url, "job", "/")
 	id := nt.NewUuid().String()
-	resp, err := m.index.PostData(PipelineEntryType, id, &t.PipelineEntry{id, project, repository, jobParts})
+	resp, err := m.index.PostData(m.pipelineEntryType, id, &t.PipelineEntry{id, project, repository, jobParts})
 	if err != nil {
 		return "", err
 	}
@@ -78,7 +79,7 @@ func (m *Manager) Add(project, repository, url string) (string, error) {
 	return id, nil
 }
 
-func (m *Manager) RunAutomatedScans(pause time.Duration, stop chan struct{}) {
+func (m *JenkinsManager) RunAutomatedScans(pause time.Duration, stop chan struct{}) {
 	for {
 		select {
 		case <-stop:
@@ -92,8 +93,8 @@ func (m *Manager) RunAutomatedScans(pause time.Duration, stop chan struct{}) {
 	}
 }
 
-func (m *Manager) RunScan() error {
-	resp, err := es.GetAll(m.index, PipelineEntryType, map[string]interface{}{})
+func (m *JenkinsManager) RunScan() error {
+	resp, err := es.GetAll(m.index, m.pipelineEntryType, map[string]interface{}{})
 	if err != nil {
 		return err
 	}
@@ -104,7 +105,7 @@ func (m *Manager) RunScan() error {
 		}
 		log.Println("Looking at info:", entry.PipelineInfo)
 		generalApi := u.Format("https://%s/job/%s/api/json?pretty=true", m.jenkinsUrl, strings.Join(entry.PipelineInfo, "/job/"))
-		code, dat, _, err := m.h.HTTP(nt.GET, generalApi, authHeader, nil)
+		code, dat, _, err := m.h.HTTP(nt.GET, generalApi, m.authHeader, nil)
 		if err != nil {
 			return err
 		} else if code != 200 {
@@ -137,7 +138,7 @@ func (m *Manager) RunScan() error {
 		for _, build := range resp.Builds {
 			log.Println()
 			log.Println("Looking at build", build.Number)
-			code, dat, _, err = m.h.HTTP(nt.GET, u.Format("https://%s/job/%s/%d/api/json?pretty=true", m.jenkinsUrl, strings.Join(entry.PipelineInfo, "/job/"), build.Number), authHeader, nil)
+			code, dat, _, err = m.h.HTTP(nt.GET, u.Format("https://%s/job/%s/%d/api/json?pretty=true", m.jenkinsUrl, strings.Join(entry.PipelineInfo, "/job/"), build.Number), m.authHeader, nil)
 			if err != nil {
 				return err
 			} else if code != 200 {
@@ -156,7 +157,7 @@ func (m *Manager) RunScan() error {
 				log.Println("Reached outdated builds")
 				break
 			}
-			code, dat, _, err = m.h.HTTP(nt.GET, u.Format("https://%s/job/%s/%d/consoleText", m.jenkinsUrl, strings.Join(entry.PipelineInfo, "/job/"), build.Number), authHeader, nil)
+			code, dat, _, err = m.h.HTTP(nt.GET, u.Format("https://%s/job/%s/%d/consoleText", m.jenkinsUrl, strings.Join(entry.PipelineInfo, "/job/"), build.Number), m.authHeader, nil)
 			if err != nil {
 				return err
 			} else if code != 200 {
@@ -271,14 +272,14 @@ func (m *Manager) RunScan() error {
 			temp := t.Targets{id, entry.Id, tim, build.Number, sha, targets}
 			log.Println(sha)
 			log.Printf("%+v\n", temp)
-			log.Println(m.index.PostData(TargetsType, id, temp))
+			log.Println(m.index.PostData(m.targetsType, id, temp))
 		}
 	}
 	return nil
 }
 
-func (m *Manager) GetOrgsAndSpaces(repoId string) (map[string][]string, error) {
-	resp, err := m.index.SearchByJSON(TargetsType, map[string]interface{}{
+func (m *JenkinsManager) GetOrgsAndSpaces(repoId string) (map[string][]string, error) {
+	resp, err := m.index.SearchByJSON(m.targetsType, map[string]interface{}{
 		"aggs": map[string]interface{}{
 			"targets": map[string]interface{}{
 				"nested": map[string]interface{}{"path": t.Targets_CFTargets},
@@ -333,7 +334,7 @@ func (m *Manager) GetOrgsAndSpaces(repoId string) (map[string][]string, error) {
 	return res, nil
 }
 
-func (m *Manager) GetLastSuccesses(repoId string) (map[string]map[string]string, error) {
+func (m *JenkinsManager) GetLastSuccesses(repoId string) (map[string]map[string]string, error) {
 	res := map[string]map[string]string{}
 	orgsSpaces, err := m.GetOrgsAndSpaces(repoId)
 	if err != nil {
@@ -355,7 +356,7 @@ func (m *Manager) GetLastSuccesses(repoId string) (map[string]map[string]string,
 				},
 				"size": 1,
 			}
-			resp, err := m.index.SearchByJSON(TargetsType, q)
+			resp, err := m.index.SearchByJSON(m.targetsType, q)
 			if err != nil {
 				return nil, err
 			}
@@ -372,7 +373,7 @@ func (m *Manager) GetLastSuccesses(repoId string) (map[string]map[string]string,
 	return res, nil
 }
 
-func (m *Manager) GetAllSuccesses(repoId string) (map[string]map[string][]string, error) {
+func (m *JenkinsManager) GetAllSuccesses(repoId string) (map[string]map[string][]string, error) {
 	res := map[string]map[string][]string{}
 	orgsSpaces, err := m.GetOrgsAndSpaces(repoId)
 	if err != nil {
@@ -390,7 +391,7 @@ func (m *Manager) GetAllSuccesses(repoId string) (map[string]map[string][]string
 				es.NewTerm(t.Join(t.Targets_CFTargets, t.CFTarget_StageField, t.Stage_SuccessField), true)))
 			nested.SetInnerQuery(map[string]interface{}{"bool": boool})
 			agg["query"] = nested
-			resp, err := m.index.SearchByJSON(TargetsType, agg)
+			resp, err := m.index.SearchByJSON(m.targetsType, agg)
 			res[org][space], err = es.GetAggKeysFromSearchResponse("shas", resp, err)
 			if err != nil {
 				return nil, err

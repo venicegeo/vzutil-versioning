@@ -24,10 +24,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
+	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	"github.com/venicegeo/vzutil-versioning/web/es/types"
-	"github.com/venicegeo/vzutil-versioning/web/jenkins-thing"
-	"github.com/venicegeo/vzutil-versioning/web/jenkins-thing/nt"
-	jt "github.com/venicegeo/vzutil-versioning/web/jenkins-thing/types"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -44,7 +42,7 @@ type Application struct {
 	diffMan   *DifferenceManager
 	ff        *FireAndForget
 	cmprRnnr  *CompareRunner
-	jnknsMngr *j.Manager
+	jnknsMngr *JenkinsManager
 
 	killChan chan bool
 
@@ -58,8 +56,8 @@ const ESMapping = `
 		"` + DifferenceType + `": ` + DifferenceMapping + `,
 		"` + RepositoryType + `": ` + types.RepositoryMapping + `,
 		"` + ProjectType + `": ` + types.ProjectMapping + `,
-		"` + j.PipelineEntryType + `": ` + jt.PipelineEntryMapping + `,
-		"` + j.TargetsType + `": ` + jt.TargetsMapping + `
+		"` + PipelineEntryType + `": ` + types.PipelineEntryMapping + `,
+		"` + TargetsType + `": ` + types.TargetsMapping + `
 	}
 }`
 const (
@@ -67,6 +65,8 @@ const (
 	DifferenceType      = `difference`
 	RepositoryType      = `repository`
 	ProjectType         = `project`
+	PipelineEntryType   = `jenkins_repos`
+	TargetsType         = `jenkins_builds`
 )
 
 type Back struct {
@@ -96,7 +96,9 @@ func (a *Application) StartInternals() {
 	a.rtrvr = NewRetriever(a)
 	a.ff = NewFireAndForget(a)
 	a.cmprRnnr = NewCompareRunner(a)
-	a.jnknsMngr = j.NewManager(a.index, &nt.RealHTTP{}, os.Getenv("JENKINS_URL"))
+	a.jnknsMngr = NewJenkinsManager(a.index, &u.RealHTTP{}, os.Getenv("JENKINS_URL"),
+		nt.NewHeaderBuilder().AddHeader("Authorization", "Basic "+os.Getenv("JENKINS")).GetHeader(),
+		PipelineEntryType, TargetsType)
 
 	a.wrkr.Start()
 

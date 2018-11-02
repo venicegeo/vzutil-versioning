@@ -11,12 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package j
+package helpers
 
 import (
 	"bytes"
 
-	"github.com/venicegeo/vzutil-versioning/web/jenkins-thing/nt"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
@@ -123,8 +122,8 @@ func (t *Testing_Pipeline) Api() string {
 	return buf.String()
 }
 
-func (t *Testing_Pipeline) CreateHttpMap() nt.HTTP {
-	res := nt.NewMap()
+func (t *Testing_Pipeline) CreateHttpMap() u.HTTP {
+	res := u.NewMap()
 	res.Add(t.basicUrl+"/api/json", 200, t.Api())
 	for i, build := range t.builds {
 		res.Add(u.Format("%s/%d/api/json", t.basicUrl, i), 200, build.Api())

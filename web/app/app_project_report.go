@@ -23,7 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
 	"github.com/venicegeo/vzutil-versioning/common/table"
-	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
+	s "github.com/venicegeo/vzutil-versioning/web/app/structs/html"
 	"github.com/venicegeo/vzutil-versioning/web/es/types"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
