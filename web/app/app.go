@@ -15,6 +15,7 @@
 package app
 
 import (
+	"crypto/sha512"
 	"errors"
 	"log"
 	"os"
@@ -161,8 +162,13 @@ func (a *Application) login(c *gin.Context) {
 	if form.Submit == "" {
 		c.HTML(200, "login.html", nil)
 	} else {
-		a.server.CreateAuth(c)
-		c.Redirect(302, "/ui")
+		h := sha512.Sum512([]byte(form.Key))
+		if u.Format("%x", h[:]) == os.Getenv("VZUTIL_AUTH") {
+			a.server.CreateAuth(c)
+			c.Redirect(302, "/ui")
+		} else {
+			c.Redirect(301, "/login")
+		}
 	}
 }
 
