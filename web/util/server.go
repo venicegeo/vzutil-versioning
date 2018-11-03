@@ -34,6 +34,7 @@ type Server struct {
 	keyFile          string
 	authCollection   map[string]authInfo
 	authTimeout      time.Duration
+	configured       bool
 }
 
 type RouteData struct {
@@ -47,7 +48,7 @@ type authInfo struct {
 }
 
 func NewServer() *Server {
-	return &Server{nil, nil, "/login", "", "", map[string]authInfo{}, time.Minute * 15}
+	return &Server{nil, nil, "/login", "", "", map[string]authInfo{}, time.Minute * 15, false}
 }
 
 func (server *Server) SetAuthRedirectPath(path string) {
@@ -66,6 +67,12 @@ func (server *Server) Stop() error {
 }
 func (server *Server) Start(uri string) chan error {
 	done := make(chan error)
+
+	if !server.configured {
+		done <- errors.New("Server not configured")
+		return done
+	}
+
 	server.obj = manners.NewWithServer(&http.Server{
 		Addr:    uri,
 		Handler: server.router,
@@ -109,6 +116,8 @@ func (server *Server) Configure(templateLocation string, routeData []RouteData) 
 	}
 	router.LoadHTMLGlob(templateLocation + "*")
 	server.router = router
+
+	server.configured = true
 
 	return nil
 }

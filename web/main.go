@@ -16,6 +16,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/app"
@@ -23,14 +24,17 @@ import (
 )
 
 func main() {
+	if os.Getenv("VZUTIL_AUTH") == "" {
+		log.Fatalln("NO CREDENTIALS")
+	}
 	url, user, pass, err := s.GetVcapES()
 	log.Printf("The elasticsearch url has been found to be [%s]\n", url)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalln(err)
 	}
 	index, err := elasticsearch.NewIndex2(url, user, pass, "versioning_tool", app.ESMapping)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatalln(err.Error())
 	} else {
 		log.Println(index.GetVersion())
 	}
