@@ -44,26 +44,30 @@ node {
     }
     withEnv(["CF_HOME=.cf"]) {
       withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${env.PCF_CREDS}", usernameVariable: "CFUSER", passwordVariable: "CFPASS"]]) {
-        sh "pwd && ls"
-        sh "cf api ${env.PCF_API_ENDPOINT}"
-        sh "cf auth ${CFUSER} ${CFPASS}"
-        sh "cf target -o ${env.PCF_ORG} -s ${pcfSpace}"
-        try {
-          sh "cf push ${deployAppName} -f manifest.jenkins.yml --hostname ${deployAppName} -d ${pcfDomain} -u none --no-start"
-          sh "cf set-env ${deployAppName} SPACE ${pcfSpace}"
-          sh "cf set-env ${deployAppName} DOMAIN ${pcfDomain}"
-          sh "cf set-env ${deployAppName} ARTIFACT_STORAGE_URL ${env.ARTIFACT_STORAGE_URL}"
-          sh "cf set-env ${deployAppName} ES_VCAP ${env.ES_VCAP}"
-          sh "cf bind-service ${deployAppName} ${env.ES_VCAP}"
-          sh "cf start ${deployAppName}"
-        } catch (Exception e) {
-          error(e.toString())
-          error("Error during application start. Deleting ${deployAppName} and failing the build.")
-          printLogsFailsafe(deployAppName)
-          sh "cf delete ${deployAppName} -f -r"
-          return
-        }
-
+	withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${env.JENKINS_CREDS}", usernameVariable: 'JUSER', passwordVariable: 'JPASS']]) {
+        	sh "pwd && ls"
+        	sh "cf api ${env.PCF_API_ENDPOINT}"
+        	sh "cf auth ${CFUSER} ${CFPASS}"
+        	sh "cf target -o ${env.PCF_ORG} -s ${pcfSpace}"
+		def jauth = (JUSER+":"+JPASS).bytes.encodeBase64().toString()
+        	try {
+        	  sh "cf push ${deployAppName} -f manifest.jenkins.yml --hostname ${deployAppName} -d ${pcfDomain} -u none --no-start"
+        	  sh "cf set-env ${deployAppName} SPACE ${pcfSpace}"
+         	  sh "cf set-env ${deployAppName} DOMAIN ${pcfDomain}"
+        	  sh "cf set-env ${deployAppName} ARTIFACT_STORAGE_URL ${env.ARTIFACT_STORAGE_URL}"
+        	  sh "cf set-env ${deployAppName} ES_VCAP ${env.ES_VCAP}"
+        	  sh "cf set-env ${deployAppName} VZUTIL_AUTH ${env.VZUTIL_USER}"
+		  sh "cf set-env ${appName} JENKINS ${jauth}
+        	  sh "cf bind-service ${deployAppName} ${env.ES_VCAP}"
+        	  sh "cf start ${deployAppName}"
+        	} catch (Exception e) {
+        	  error(e.toString())
+        	  error("Error during application start. Deleting ${deployAppName} and failing the build.")
+        	  printLogsFailsafe(deployAppName)
+        	  sh "cf delete ${deployAppName} -f -r"
+        	  return
+        	}
+	}
         def legacyAppNames = sh(script: "cf routes | grep \"${appName}\" | while read -r line; do echo \$line | awk '{print \$4}'; done", returnStdout: true)
         sh "cf map-route ${deployAppName} ${pcfDomain} --hostname ${appName}"
         // Remove Legacy applications
