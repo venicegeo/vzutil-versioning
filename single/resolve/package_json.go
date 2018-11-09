@@ -17,6 +17,8 @@ package resolve
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -43,6 +45,12 @@ func (r *Resolver) ResolvePackageJson(location string, test bool) (d.Dependencie
 	if err := json.Unmarshal(dat, &packageJson); err != nil {
 		return nil, nil, err
 	}
+	if packageJson.DependencyMap == nil {
+		packageJson.DependencyMap = map[string]string{}
+	}
+	if packageJson.DevDependencyMap == nil {
+		packageJson.DevDependencyMap = map[string]string{}
+	}
 	depMap := packageJson.DependencyMap
 	if test {
 		for k, v := range packageJson.DevDependencyMap {
@@ -63,7 +71,42 @@ func (r *Resolver) ResolvePackageJson(location string, test bool) (d.Dependencie
 		}
 		deps = append(deps, d.NewDependency(name, version, lan.JavaScript))
 	}
+	lock, found, err := r.resolvePackageLockJson(location)
+	if err != nil && found {
+		for _, dep := range deps {
+			lockDep, ok := lock[dep.Name]
+			if !ok {
+				continue
+			}
+			if dep.Version != lockDep.Version {
+				issues = append(issues, i.NewVersionMismatch(dep.Name, dep.Version, lockDep.Version))
+				dep.Version = lockDep.Version
+			}
+		}
+	}
 	sort.Sort(deps)
 	sort.Sort(issues)
 	return deps, issues, nil
+}
+
+func (r *Resolver) resolvePackageLockJson(location string) (PackageLock, bool, error) {
+	location = strings.Replace(location, "package.json", "package-lock.json", -1)
+	_, err := os.Stat(location)
+	if os.IsNotExist(err) {
+		return nil, false, nil
+	} else if err != nil {
+		return nil, false, err
+	}
+	dat, err := ioutil.ReadFile(location)
+	if err != nil {
+		return nil, true, err
+	}
+	var p PackageLock
+	err = json.Unmarshal(dat, &p)
+	return p, true, err
+}
+
+type PackageLock map[string]PackageLockEntry
+type PackageLockEntry struct {
+	Version string `json:"version"`
 }
