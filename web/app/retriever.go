@@ -272,13 +272,27 @@ func (r *Retriever) GetProjectById(id string) (*Project, error) {
 	if err != nil {
 		return nil, err
 	} else if !resp.Found {
-		return nil, u.Error("Project %s does not exist", err.Error())
+		return nil, u.Error("Project %s does not exist", id)
 	}
 	p := new(types.Project)
 	if err = json.Unmarshal(*resp.Source, p); err != nil {
 		return nil, err
 	}
 	return &Project{r.app.index, p}, nil
+}
+
+func (r *Retriever) GetRepositoryById(id string) (*Repository, error) {
+	resp, err := r.app.index.GetByID(RepositoryType, id)
+	if err != nil {
+		return nil, err
+	} else if !resp.Found {
+		return nil, u.Error("Repository %s does not exist", id)
+	}
+	re := new(types.Repository)
+	if err = json.Unmarshal(*resp.Source, re); err != nil {
+		return nil, err
+	}
+	return &Repository{r.app.index, nil, re}, nil
 }
 
 //Test: TestAddProjects

@@ -77,11 +77,11 @@ func (a *Application) jenkinsTesting(c *gin.Context) {
 		inuseBuf.WriteString(err.Error())
 	} else {
 		for _, entry := range entries {
-			delete(availableRepos, entry.Repository)
-			inuseBuf.WriteString(idsToNames[entry.Repository])
+			delete(availableRepos, entry.RepositoryId)
+			inuseBuf.WriteString(idsToNames[entry.RepositoryId])
 			inuseBuf.WriteString("\n")
 
-			data, err := a.jnknsMngr.GetOrgsAndSpaces(entry.Repository)
+			data, err := a.jnknsMngr.GetOrgsAndSpaces(entry.Id)
 			fmt.Println(data)
 			tempBuf.WriteString(u.Format("%#v %s\n", data, err))
 		}

@@ -97,7 +97,7 @@ func (a *Application) StartInternals() {
 	a.rtrvr = NewRetriever(a)
 	a.ff = NewFireAndForget(a)
 	a.cmprRnnr = NewCompareRunner(a)
-	a.jnknsMngr = NewJenkinsManager(a.index, &u.RealHTTP{}, os.Getenv("JENKINS_URL"),
+	a.jnknsMngr = NewJenkinsManager(a, a.index, &u.RealHTTP{}, os.Getenv("JENKINS_URL"),
 		nt.NewHeaderBuilder().AddHeader("Authorization", "Basic "+os.Getenv("JENKINS")).GetHeader(),
 		PipelineEntryType, TargetsType)
 

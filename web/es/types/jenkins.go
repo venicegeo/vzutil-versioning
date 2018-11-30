@@ -26,8 +26,8 @@ func Join(strs ...string) string {
 
 type PipelineEntry struct {
 	Id           string   `json:"id"`
-	Project      string   `json:"project"`       //The project the repo is in
-	Repository   string   `json:"repository"`    //The repository org/repo
+	ProjectId    string   `json:"project_id"`    //The project the repo is in
+	RepositoryId string   `json:"repository_id"` //The repository org/repo
 	PipelineInfo []string `json:"pipeline_info"` //The job parts from the jenkins url
 }
 
@@ -98,28 +98,28 @@ const CFTargetMapping = `{
 //--------------------------------------------------------------------------------
 
 type Targets struct {
-	Id        string     `json:"id"`
-	RepoId    string     `json:"repoId"`
-	Timestamp string     `json:"timestamp"`
-	Build     uint       `json:"build"`
-	Sha       string     `json:"sha"`
-	Targets   []CFTarget `json:"targets"`
+	Id              string     `json:"id"`
+	PipelineEntryId string     `json:"pipelineEntryId"`
+	Timestamp       string     `json:"timestamp"`
+	Build           uint       `json:"build"`
+	Sha             string     `json:"sha"`
+	Targets         []CFTarget `json:"targets"`
 }
 
 const (
-	Targets_IdField        = `id`
-	Targets_RepoIdField    = `repoId`
-	Targets_TimestampField = `timestamp`
-	Targets_BuildField     = `build`
-	Targets_ShaField       = `sha`
-	Targets_CFTargets      = `targets`
+	Targets_IdField         = `id`
+	Targets_PipelineEntryId = `pipelineEntryId`
+	Targets_TimestampField  = `timestamp`
+	Targets_BuildField      = `build`
+	Targets_ShaField        = `sha`
+	Targets_CFTargets       = `targets`
 )
 
 const TargetsMapping = `{
 	"dynamic":"strict",
 	"properties":{
 		"` + Targets_IdField + `":{"type":"keyword"},
-		"` + Targets_RepoIdField + `":{"type":"keyword"},
+		"` + Targets_PipelineEntryId + `":{"type":"keyword"},
 		"` + Targets_TimestampField + `":{"type":"keyword"},
 		"` + Targets_BuildField + `":{"type":"integer"},
 		"` + Targets_ShaField + `":{"type":"keyword"},

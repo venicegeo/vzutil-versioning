@@ -47,6 +47,7 @@ var push_match = regexp.MustCompile(`^.*cf push (.*)$`)
 var stage_match = regexp.MustCompile(`^\[Pipeline\] { \((.+)\)$`)
 
 type JenkinsManager struct {
+	app               *Application
 	index             elasticsearch.IIndex
 	h                 u.HTTP
 	jenkinsUrl        string
@@ -55,8 +56,8 @@ type JenkinsManager struct {
 	targetsType       string
 }
 
-func NewJenkinsManager(index elasticsearch.IIndex, h u.HTTP, jenkinsUrl string, authHeader [][2]string, pipelineEntryType, targetsType string) *JenkinsManager {
-	return &JenkinsManager{index, h, jenkinsUrl, authHeader, pipelineEntryType, targetsType}
+func NewJenkinsManager(app *Application, index elasticsearch.IIndex, h u.HTTP, jenkinsUrl string, authHeader [][2]string, pipelineEntryType, targetsType string) *JenkinsManager {
+	return &JenkinsManager{app, index, h, jenkinsUrl, authHeader, pipelineEntryType, targetsType}
 }
 func (m *JenkinsManager) Add(project, repository, url string) (string, error) {
 	parts := strings.SplitN(url, "://", 2)
@@ -110,7 +111,7 @@ func (m *JenkinsManager) getAllEntries() ([]*t.PipelineEntry, error) {
 }
 
 func (m *JenkinsManager) getAllEntriesProj(projId string) ([]*t.PipelineEntry, error) {
-	resp, err := es.GetAll(m.index, m.pipelineEntryType, es.NewTerm("project", projId))
+	resp, err := es.GetAll(m.index, m.pipelineEntryType, es.NewTerm(t.PipelineEntry_ProjectIdField, projId))
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +132,7 @@ func (m *JenkinsManager) RunScan() error {
 		return err
 	}
 	for _, entry := range entries {
-		log.Println("Looking at info:", entry.PipelineInfo)
+		//log.Println("Looking at info:", entry.PipelineInfo)
 		generalApi := u.Format("https://%s/job/%s/api/json?pretty=true", m.jenkinsUrl, strings.Join(entry.PipelineInfo, "/job/"))
 		code, dat, _, err := m.h.HTTP(nt.GET, generalApi, m.authHeader, nil)
 		if err != nil {
@@ -143,8 +144,8 @@ func (m *JenkinsManager) RunScan() error {
 		if err = json.Unmarshal(dat, resp); err != nil {
 			return err
 		}
-		log.Println(resp)
-		currentNewest, err := m.index.SearchByJSON("jenkins_builds", map[string]interface{}{
+		//log.Println(resp)
+		currentNewest, err := m.index.SearchByJSON(TargetsType, map[string]interface{}{
 			"size": 1,
 			"sort": map[string]interface{}{
 				"timestamp": "desc",
@@ -161,11 +162,11 @@ func (m *JenkinsManager) RunScan() error {
 			}
 			timeToBeat = target.Timestamp
 		}
-		log.Println("Time to beat:", timeToBeat)
+		//log.Println("Time to beat:", timeToBeat)
 
 		for _, build := range resp.Builds {
 			log.Println()
-			log.Println("Looking at build", build.Number)
+			//log.Println("Looking at build", build.Number)
 			code, dat, _, err = m.h.HTTP(nt.GET, u.Format("https://%s/job/%s/%d/api/json?pretty=true", m.jenkinsUrl, strings.Join(entry.PipelineInfo, "/job/"), build.Number), m.authHeader, nil)
 			if err != nil {
 				return err
@@ -180,9 +181,9 @@ func (m *JenkinsManager) RunScan() error {
 				return err
 			}
 			tim := timestamp.Timestamp.String()
-			log.Println("Found timestamp to be", tim)
+			//log.Println("Found timestamp to be", tim)
 			if tim <= timeToBeat {
-				log.Println("Reached outdated builds")
+				//	log.Println("Reached outdated builds")
 				break
 			}
 			code, dat, _, err = m.h.HTTP(nt.GET, u.Format("https://%s/job/%s/%d/consoleText", m.jenkinsUrl, strings.Join(entry.PipelineInfo, "/job/"), build.Number), m.authHeader, nil)
@@ -205,7 +206,7 @@ func (m *JenkinsManager) RunScan() error {
 			}, "next")
 			stageFA.Add("next", func(l string) bool {
 				stages = append(stages, t.Stage{stage_match.FindStringSubmatch(l)[1], true})
-				fmt.Println("stages", stages)
+				//fmt.Println("stages", stages)
 				return true
 			}, "end")
 			stageFA.Add("end", func(l string) bool {
@@ -223,11 +224,15 @@ func (m *JenkinsManager) RunScan() error {
 			var sha string
 			targets := []t.CFTarget{}
 			deployFA := u.NewFA()
-			repo_match, err := regexp.Compile(u.Format(`^Cloning repository .+github.com\/%s.*$`, strings.Replace(entry.Repository, "/", `\/`, -1)))
+			repo, err := m.app.rtrvr.GetRepositoryById(entry.RepositoryId)
+			if err != nil {
+				return err
+			}
+			repo_match, err := regexp.Compile(u.Format(`^Cloning repository .+github.com\/%s.*$`, strings.Replace(repo.Fullname, "/", `\/`, -1)))
 			if err != nil {
 				panic(err)
 			}
-			fmt.Println("CHECKOUT", repo_match.String())
+			//fmt.Println("CHECKOUT", repo_match.String())
 			deployFA.Add("checkout", func(l string) bool {
 				return repo_match.MatchString(l)
 			}, "sha")
@@ -252,7 +257,7 @@ func (m *JenkinsManager) RunScan() error {
 						}
 					}
 					targets = append(targets, target)
-					fmt.Println("targets", targets)
+					//fmt.Println("targets", targets)
 					return true
 				}
 				return false
@@ -298,16 +303,17 @@ func (m *JenkinsManager) RunScan() error {
 
 			id := nt.NewUuid().String()
 			temp := t.Targets{id, entry.Id, tim, build.Number, sha, targets}
-			log.Println(sha)
-			log.Printf("%+v\n", temp)
-			log.Println(m.index.PostDataWait(m.targetsType, id, temp))
+			//log.Println(sha)
+			//log.Printf("%+v\n", temp)
+			m.index.PostDataWait(m.targetsType, id, temp)
+			//log.Println(m.index.PostDataWait(m.targetsType, id, temp))
 		}
 	}
 	return nil
 }
 
-func (m *JenkinsManager) GetOrgsAndSpaces(repoId string) (map[string][]string, error) {
-	resp, err := m.index.SearchByJSON(m.targetsType, map[string]interface{}{
+func (m *JenkinsManager) GetOrgsAndSpaces(pipelineId string) (map[string][]string, error) {
+	q := map[string]interface{}{
 		"aggs": map[string]interface{}{
 			"targets": map[string]interface{}{
 				"nested": map[string]interface{}{"path": t.Targets_CFTargets},
@@ -331,11 +337,16 @@ func (m *JenkinsManager) GetOrgsAndSpaces(repoId string) (map[string][]string, e
 		},
 		"query": map[string]interface{}{
 			"term": map[string]interface{}{
-				t.Targets_RepoIdField: repoId,
+				t.Targets_PipelineEntryId: pipelineId,
 			},
 		},
 		"size": 0,
-	})
+	}
+	{
+		temp, _ := json.MarshalIndent(q, " ", "   ")
+		fmt.Println(string(temp))
+	}
+	resp, err := m.index.SearchByJSON(m.targetsType, q)
 	if err != nil {
 		return nil, err
 	}
