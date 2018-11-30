@@ -81,6 +81,7 @@ type IIndex interface {
 	Close() error
 	Delete() error
 	PostData(typ string, id string, obj interface{}) (*elastic.IndexResponse, error)
+	PostDataWait(typ string, id string, obj interface{}) (*elastic.IndexResponse, error)
 	PutData(typ string, id string, obj interface{}) (*elastic.IndexResponse, error)
 	GetByID(typ string, id string) (*elastic.GetResult, error)
 	DeleteByID(typ string, id string) (*elastic.DeleteResponse, error)

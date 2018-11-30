@@ -318,7 +318,7 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 			c.String(400, "This repo already exists under this project")
 			return
 		}
-		iresp, err := a.index.PostData(RepositoryType, id, entry)
+		iresp, err := a.index.PostDataWait(RepositoryType, id, entry)
 		if err != nil || !iresp.Created {
 			c.String(500, "Error adding entry to database: ", err)
 			return

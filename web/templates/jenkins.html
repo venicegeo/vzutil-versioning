@@ -1,10 +1,11 @@
 <html>
 <form>
 <input type="submit" name="button_back" value="Back">
+<fieldset>
 <table>
 <tr>
 <td>Repo</td>
-<td><input type="text" name="repo" value="" id="repo"></td>
+<td>{{ .repo_dropdown }}</td>
 </tr>
 <tr>
 <td>Pipeline URL</td>
@@ -14,5 +15,17 @@
 <td><input type="submit" name="button_submit" value="add"></td>
 </tr>
 </table>
+</fieldset>
+<fieldset>
+In Use:<br>
+<pre>
+{{ .inuse }}
+</pre>
+</fieldset>
+<fieldset>
+<pre>
+{{ .temp }}
+</pre>
+</fieldset>
 </form>
 </html>

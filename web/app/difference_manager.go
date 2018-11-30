@@ -190,7 +190,7 @@ func (d *DifferenceManager) diffCompareWrk(repoName, projectName, ref string, ol
 	id := u.Hash(u.Format("%s%d", repoName, t))
 	diff := Difference{id, repoName, projectName, ref, oldSha, newSha, removed, added, t}
 	if post {
-		resp, err := d.app.index.PostData("difference", id, diff)
+		resp, err := d.app.index.PostDataWait("difference", id, diff)
 		if err != nil {
 			return nil, err
 		}

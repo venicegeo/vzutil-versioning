@@ -251,6 +251,10 @@ func (esi *MockIndex) PostData(typeName string, id string, obj interface{}) (*el
 	return r, nil
 }
 
+func (esi *MockIndex) PostDataWait(typeName string, id string, obj interface{}) (*elastic.IndexResponse, error) {
+	return esi.PostData(typeName, id, obj)
+}
+
 //TODO
 func (esi *MockIndex) PutData(typeName string, id string, obj interface{}) (*elastic.IndexResponse, error) {
 	return esi.PostData(typeName, id, obj)

@@ -15,15 +15,20 @@
 package app
 
 import (
+	"bytes"
+	"fmt"
+
 	"github.com/gin-gonic/gin"
+	"github.com/venicegeo/vzutil-versioning/web/app/structs/html"
+	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
 
 func (a *Application) jenkinsTesting(c *gin.Context) {
 	var form struct {
-		Back         string `form:"button_back"`
-		JenkinsUrl   string `form:"url"`
-		RepoFullname string `form:"repo"`
-		Submit       string `form:"button_submit"`
+		Back       string `form:"button_back"`
+		JenkinsUrl string `form:"url"`
+		RepoId     string `form:"repo"`
+		Submit     string `form:"button_submit"`
 	}
 	if err := c.Bind(&form); err != nil {
 		c.String(400, "Unable to bind form: %s", err.Error())
@@ -34,14 +39,59 @@ func (a *Application) jenkinsTesting(c *gin.Context) {
 		c.Redirect(303, "/project/"+projId)
 		return
 	}
-	if form.Submit == "" {
-		c.HTML(200, "jenkins.html", nil)
-		return
+
+	if form.Submit != "" {
+		if form.RepoId == "" {
+			c.String(400, "You must select a repository")
+			return
+		}
+		_, err := a.jnknsMngr.Add(projId, form.RepoId, form.JenkinsUrl)
+		if err != nil {
+			c.String(400, "Error adding this url: %s", err.Error())
+			return
+		}
 	}
-	_, err := a.jnknsMngr.Add(projId, form.RepoFullname, form.JenkinsUrl)
+	project, err := a.rtrvr.GetProjectById(projId)
 	if err != nil {
-		c.String(400, "Error adding this url: %s", err.Error())
+		c.String(500, "Unable to get the project: %s", err)
 		return
 	}
-	c.Redirect(303, "/project/"+projId)
+	repos, err := project.GetAllRepositories()
+	if err != nil {
+		c.String(500, "Unable to get the repos: %s", err)
+		return
+	}
+	availableRepos := map[string]string{}
+	idsToNames := map[string]string{}
+	for _, r := range repos {
+		availableRepos[r.Id] = r.Fullname
+		idsToNames[r.Id] = r.Fullname
+	}
+	h := gin.H{}
+
+	entries, err := a.jnknsMngr.getAllEntriesProj(projId)
+	inuseBuf := bytes.NewBufferString("")
+	tempBuf := bytes.NewBufferString("")
+	if err != nil {
+		inuseBuf.WriteString("Error: ")
+		inuseBuf.WriteString(err.Error())
+	} else {
+		for _, entry := range entries {
+			delete(availableRepos, entry.Repository)
+			inuseBuf.WriteString(idsToNames[entry.Repository])
+			inuseBuf.WriteString("\n")
+
+			data, err := a.jnknsMngr.GetOrgsAndSpaces(entry.Repository)
+			fmt.Println(data)
+			tempBuf.WriteString(u.Format("%#v %s\n", data, err))
+		}
+	}
+	drop := structs.NewHtmlDropdown("repo")
+	for id, name := range availableRepos {
+		drop.Add(id, name)
+	}
+	h["repo_dropdown"] = drop.Template()
+	h["inuse"] = inuseBuf.String()
+	h["temp"] = tempBuf.String()
+	c.HTML(200, "jenkins.html", h)
 }

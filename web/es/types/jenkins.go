@@ -33,8 +33,8 @@ type PipelineEntry struct {
 
 const (
 	PipelineEntry_IdField           = `id`
-	PipelineEntry_ProjectField      = `project`
-	PipelineEntry_RepositoryField   = `repository`
+	PipelineEntry_ProjectIdField    = `project_id`
+	PipelineEntry_RepositoryIdField = `repository_id`
 	PipelineEntry_PipelineInfoField = `pipeline_info`
 )
 
@@ -42,8 +42,8 @@ const PipelineEntryMapping = `{
 	"dynamic":"strict",
 	"properties":{
 		"` + PipelineEntry_IdField + `":{"type":"keyword"},
-		"` + PipelineEntry_ProjectField + `":{"type":"keyword"},
-		"` + PipelineEntry_RepositoryField + `":{"type":"keyword"},
+		"` + PipelineEntry_ProjectIdField + `":{"type":"keyword"},
+		"` + PipelineEntry_RepositoryIdField + `":{"type":"keyword"},
 		"` + PipelineEntry_PipelineInfoField + `":{"type":"keyword"}
 	}
 }`

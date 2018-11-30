@@ -5,7 +5,7 @@ import:
 - package: github.com/braintree/manners
 - package: github.com/gin-gonic/gin
 - package: github.com/venicegeo/pz-gocommon
-  version: 8bdedcd1d131c0cad8df38ec136ab714faa59577
+  version: 2c56fa2fd8cee6c462011d3a6fe64a8803fe3f9f
   subpackages:
   - elasticsearch
   - gocommon

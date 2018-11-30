@@ -69,7 +69,7 @@ func (m *JenkinsManager) Add(project, repository, url string) (string, error) {
 	url = strings.TrimPrefix(url, m.jenkinsUrl)
 	jobParts := u.SplitAtAnyTrim(url, "job", "/")
 	id := nt.NewUuid().String()
-	resp, err := m.index.PostData(m.pipelineEntryType, id, &t.PipelineEntry{id, project, repository, jobParts})
+	resp, err := m.index.PostDataWait(m.pipelineEntryType, id, &t.PipelineEntry{id, project, repository, jobParts})
 	if err != nil {
 		return "", err
 	}
@@ -93,16 +93,44 @@ func (m *JenkinsManager) RunAutomatedScans(pause time.Duration, stop chan struct
 	}
 }
 
-func (m *JenkinsManager) RunScan() error {
+func (m *JenkinsManager) getAllEntries() ([]*t.PipelineEntry, error) {
 	resp, err := es.GetAll(m.index, m.pipelineEntryType, map[string]interface{}{})
+	if err != nil {
+		return nil, err
+	}
+	res := make([]*t.PipelineEntry, len(resp.Hits), len(resp.Hits))
+	for i, hit := range resp.Hits {
+		entry := new(t.PipelineEntry)
+		if err := json.Unmarshal([]byte(*hit.Source), entry); err != nil {
+			return nil, err
+		}
+		res[i] = entry
+	}
+	return res, nil
+}
+
+func (m *JenkinsManager) getAllEntriesProj(projId string) ([]*t.PipelineEntry, error) {
+	resp, err := es.GetAll(m.index, m.pipelineEntryType, es.NewTerm("project", projId))
+	if err != nil {
+		return nil, err
+	}
+	res := make([]*t.PipelineEntry, len(resp.Hits), len(resp.Hits))
+	for i, hit := range resp.Hits {
+		entry := new(t.PipelineEntry)
+		if err := json.Unmarshal([]byte(*hit.Source), entry); err != nil {
+			return nil, err
+		}
+		res[i] = entry
+	}
+	return res, nil
+}
+
+func (m *JenkinsManager) RunScan() error {
+	entries, err := m.getAllEntries()
 	if err != nil {
 		return err
 	}
-	for _, hit := range resp.Hits {
-		entry := new(t.PipelineEntry)
-		if err := json.Unmarshal([]byte(*hit.Source), entry); err != nil {
-			return err
-		}
+	for _, entry := range entries {
 		log.Println("Looking at info:", entry.PipelineInfo)
 		generalApi := u.Format("https://%s/job/%s/api/json?pretty=true", m.jenkinsUrl, strings.Join(entry.PipelineInfo, "/job/"))
 		code, dat, _, err := m.h.HTTP(nt.GET, generalApi, m.authHeader, nil)
@@ -272,7 +300,7 @@ func (m *JenkinsManager) RunScan() error {
 			temp := t.Targets{id, entry.Id, tim, build.Number, sha, targets}
 			log.Println(sha)
 			log.Printf("%+v\n", temp)
-			log.Println(m.index.PostData(m.targetsType, id, temp))
+			log.Println(m.index.PostDataWait(m.targetsType, id, temp))
 		}
 	}
 	return nil

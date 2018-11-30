@@ -259,6 +259,33 @@ func (esi *Index) PostData(typ string, id string, obj interface{}) (*elastic.Ind
 		Do(context.Background())
 }
 
+// PostDataWait send JSON data to the index and waits.
+func (esi *Index) PostDataWait(typ string, id string, obj interface{}) (*elastic.IndexResponse, error) {
+	ok, err := esi.IndexExists()
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("Index %s does not exist", esi.index)
+	}
+	ok, err = esi.TypeExists(typ)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		err = fmt.Errorf("Type %s in index %s does not exist", typ, esi.index)
+		return nil, err
+	}
+
+	return esi.lib.Index().
+		Index(esi.index).
+		Type(typ).
+		Id(id).
+		Refresh("wait_for").
+		BodyJson(obj).
+		Do(context.Background())
+}
+
 //TODO
 func (esi *Index) PutData(typ string, id string, obj interface{}) (*elastic.IndexResponse, error) {
 	return esi.PostData(typ, id, obj)

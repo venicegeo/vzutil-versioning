@@ -100,7 +100,7 @@ func (ff *FireAndForget) tryUpdateScan(ref string, scan *types.Scan) {
 	}
 	scan.Refs = append(scan.Refs, ref)
 
-	_, err := ff.app.index.PostData(RepositoryEntryType, scan.Sha+"-"+scan.ProjectId, scan)
+	_, err := ff.app.index.PostDataWait(RepositoryEntryType, scan.Sha+"-"+scan.ProjectId, scan)
 	if err != nil {
 		log.Printf("[ES-WORKER] Unable to update entry %s: %s\n", scan.Sha, err.Error())
 	} else {
@@ -136,7 +136,7 @@ func (ff *FireAndForget) postScan(scan *types.Scan) {
 		}
 	}
 
-	resp, err := ff.app.index.PostData(RepositoryEntryType, scan.Sha+"-"+scan.ProjectId, scan)
+	resp, err := ff.app.index.PostDataWait(RepositoryEntryType, scan.Sha+"-"+scan.ProjectId, scan)
 	if err != nil {
 		log.Printf("[ES-WORKER] Unable to create entry %s: %s\n", scan.Sha, err.Error())
 		return
