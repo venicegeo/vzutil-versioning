@@ -74,10 +74,10 @@ func (a *Application) projectsOverview(c *gin.Context) {
 		c.Redirect(303, "/newproj")
 	} else {
 		q := map[string]interface{}{
-			"query": es.NewTerm(types.Project_DisplayNameField, form.ProjectId),
+			"query": es.NewTerm(types.Project_QField_DisplayName, form.ProjectId),
 			"size":  1,
 		}
-		resp, err := a.index.SearchByJSON(ProjectType, q)
+		resp, err := a.index.SearchByJSON(Project_QType, q)
 		if err != nil {
 			c.String(500, "Error getting this project: %s", err.Error())
 			return
@@ -120,7 +120,7 @@ func (a *Application) newProject(c *gin.Context) {
 		displayName := strings.TrimSpace(f.ProjectName)
 		id := p.NewUuid().String()
 		//TODO query for one
-		exists, err := a.index.ItemExists(ProjectType, id)
+		exists, err := a.index.ItemExists(Project_QType, id)
 		if err != nil {
 			c.String(500, "Error checking exists in db: %s", err.Error())
 			return
@@ -128,7 +128,7 @@ func (a *Application) newProject(c *gin.Context) {
 			c.String(400, "This project already exists")
 			return
 		}
-		if resp, err := a.index.PostDataWait(ProjectType, id, types.NewProject(id, displayName)); err != nil {
+		if resp, err := a.index.PostDataWait(Project_QType, id, types.NewProject(id, displayName)); err != nil {
 			c.String(500, "Error creating project in db: %s", err.Error())
 			return
 		} else if !resp.Created {
@@ -162,22 +162,22 @@ func (a *Application) deleteProject(c *gin.Context) {
 		c.String(400, "Stop trying to break this please")
 		return
 	}
-	if exists, err := a.index.ItemExists(ProjectType, projId); err != nil {
+	if exists, err := a.index.ItemExists(Project_QType, projId); err != nil {
 		c.String(500, "Error checking status of project: %s", err.Error())
 		return
 	} else if !exists {
 		c.String(400, "Why would you give me a project that doesnt exist?")
 		return
 	}
-	a.index.DeleteByID(ProjectType, projId)
-	if hits, err := es.GetAll(a.index, RepositoryType, es.NewTerm(types.Repository_ProjectIdField, projId)); err == nil {
+	a.index.DeleteByID(Project_QType, projId)
+	if hits, err := es.GetAll(a.index, Repository_QType, es.NewTerm(types.Repository_QField_ProjectId, projId)); err == nil {
 		for _, hit := range hits.Hits {
-			a.index.DeleteByID(RepositoryType, hit.Id)
+			a.index.DeleteByID(Repository_QType, hit.Id)
 		}
 	}
-	if hits, err := es.GetAll(a.index, RepositoryEntryType, es.NewTerm(types.Scan_ProjectIdField, projId)); err == nil {
+	if hits, err := es.GetAll(a.index, RepositoryEntry_QType, es.NewTerm(types.Scan_QField_ProjectId, projId)); err == nil {
 		for _, hit := range hits.Hits {
-			a.index.DeleteByID(RepositoryEntryType, hit.Id)
+			a.index.DeleteByID(RepositoryEntry_QType, hit.Id)
 		}
 	}
 	c.Redirect(303, "/ui")

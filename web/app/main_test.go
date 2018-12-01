@@ -28,10 +28,10 @@ var testApp *Application
 func TestMain(m *testing.M) {
 	index := elasticsearch.NewMockIndex("versioning_tool")
 	index.Create("")
-	index.SetMapping(RepositoryEntryType, j.JsonString(RepositoryDependencyScanMapping))
-	index.SetMapping(DifferenceType, j.JsonString(DifferenceMapping))
+	index.SetMapping(RepositoryEntry_QType, j.JsonString(RepositoryDependencyScanMapping))
+	index.SetMapping(Difference_QType, j.JsonString(DifferenceMapping))
 	index.SetMapping(ProjectEntryType, j.JsonString(es.ProjectEntryMapping))
-	index.SetMapping(ProjectType, j.JsonString(es.ProjectMapping))
+	index.SetMapping(Project_QType, j.JsonString(es.ProjectMapping))
 
 	testApp = NewApplication(index, "../single", "../compare", "../templates/", false)
 	testApp.StartInternals()

@@ -32,7 +32,7 @@ func TestOne(t *testing.T) {
 	err := index.Create(`{
 	"mappings":{
 		"` + PipelineEntryType + `": ` + types.PipelineEntryMapping + `,
-		"` + TargetsType + `": ` + types.TargetsMapping + `
+		"` + JenkinsBuildTargets_QType + `": ` + types.TargetsMapping + `
 	}
 }`)
 	assert.Nil(err)
@@ -60,7 +60,7 @@ func TestTwo(t *testing.T) {
 	index, err := elasticsearch.NewIndex2("http://localhost:9200", "", "", "test", `{
 	"mappings":{
 		"`+PipelineEntryType+`": `+t.PipelineEntryMapping+`,
-		"`+TargetsType+`": `+t.TargetsMapping+`
+		"`+JenkinsBuildTargets_QType+`": `+t.TargetsMapping+`
 	}
 }`)
 	if err != nil {

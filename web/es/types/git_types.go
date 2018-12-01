@@ -29,17 +29,19 @@ type Project struct {
 	EscapedName string `json:"escapedname"`
 }
 
-const ProjectMapping = `{
+const Project_QMapping = `{
 	"dynamic":"strict",
 	"properties":{
-		"` + Project_IdField + `":{"type":"keyword"},
-		"` + Project_DisplayNameField + `":{"type":"keyword"},
-		"` + Project_EscapedName + `":{"type":"keyword"}
+		"` + Project_QField_Id + `":{"type":"keyword"},
+		"` + Project_QField_DisplayName + `":{"type":"keyword"},
+		"` + Project_QField_EscapedName + `":{"type":"keyword"}
 	}
 }`
-const Project_IdField = `id`
-const Project_DisplayNameField = `displayname`
-const Project_EscapedName = `escapedname`
+const (
+	Project_QField_Id          = `id`
+	Project_QField_DisplayName = `displayname`
+	Project_QField_EscapedName = `escapedname`
+)
 
 func NewProject(id, name string) Project {
 	return Project{id, name, escape.ReplaceAllString(name, "_")}
@@ -61,12 +63,12 @@ type RepositoryDependencyInfo struct {
 	FilesToScan  []string     `json:"files"`
 }
 
-const RepositoryMapping = `{
+const Repository_QMapping = `{
 	"dynamic":"strict",
 	"properties":{
-		"` + Repository_IdField + `":{"type":"keyword"},
-		"` + Repository_ProjectIdField + `":{"type":"keyword"},
-		"` + Repository_NameField + `":{"type":"keyword"},
+		"` + Repository_QField_Id + `":{"type":"keyword"},
+		"` + Repository_QField_ProjectId + `":{"type":"keyword"},
+		"` + Repository_QField_Name + `":{"type":"keyword"},
 		"depend_info":{
 			"dynamic":"strict",
 			"properties":{
@@ -78,16 +80,20 @@ const RepositoryMapping = `{
 		}
 	}
 }`
-const Repository_IdField = `id`
-const Repository_ProjectIdField = `project_id`
-const Repository_NameField = `repo`
+const (
+	Repository_QField_Id        = `id`
+	Repository_QField_ProjectId = `project_id`
+	Repository_QField_Name      = `repo`
+)
 
 type CheckoutType string
 
-const IncomingSha CheckoutType = "IncomingSha"
-const SameRef CheckoutType = "SameRef"
-const CustomRef CheckoutType = "CustomRef"
-const ExactSha CheckoutType = "ExactSha"
+const (
+	IncomingSha CheckoutType = "IncomingSha"
+	SameRef     CheckoutType = "SameRef"
+	CustomRef   CheckoutType = "CustomRef"
+	ExactSha    CheckoutType = "ExactSha"
+)
 
 //--------------------------------------------------------------------------------
 
@@ -100,23 +106,25 @@ type Scan struct {
 	Scan         *c.DependencyScan `json:"scan"`
 }
 
-const Scan_FullnameField = "repo"
-const Scan_ProjectIdField = "project_id"
-const Scan_RefsField = "refs"
-const Scan_ShaField = "sha"
-const Scan_TimestampField = "timestamp"
-const Scan_SubDependenciesField = "scan." + c.DependenciesField
-const Scan_SubFullNameField = "scan." + c.FullNameField
-const Scan_SubFilesField = "scan." + c.FilesField
+const (
+	Scan_QField_Fullname        = "repo"
+	Scan_QField_ProjectId       = "project_id"
+	Scan_QField_Refs            = "refs"
+	Scan_QField_Sha             = "sha"
+	Scan_QField_Timestamp       = "timestamp"
+	Scan_QField_SubDependencies = "scan." + c.DependenciesField
+	Scan_QField_SubFullName     = "scan." + c.FullNameField
+	Scan_QField_SubFiles        = "scan." + c.FilesField
+)
 
-const ScanMapping string = `{
+const Scan_QMapping string = `{
 	"dynamic":"strict",
 	"properties":{
-		"` + Scan_FullnameField + `":{"type":"keyword"},
-		"` + Scan_ProjectIdField + `":{"type":"keyword"},
-		"` + Scan_RefsField + `":{"type":"keyword"},
-		"` + Scan_ShaField + `":{"type":"keyword"},
-		"` + Scan_TimestampField + `":{"type":"keyword"},
+		"` + Scan_QField_Fullname + `":{"type":"keyword"},
+		"` + Scan_QField_ProjectId + `":{"type":"keyword"},
+		"` + Scan_QField_Refs + `":{"type":"keyword"},
+		"` + Scan_QField_Sha + `":{"type":"keyword"},
+		"` + Scan_QField_Timestamp + `":{"type":"keyword"},
 		"scan":` + c.DependencyScanMapping + `
 	}
 }`

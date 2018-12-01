@@ -100,7 +100,7 @@ func (ff *FireAndForget) tryUpdateScan(ref string, scan *types.Scan) {
 	}
 	scan.Refs = append(scan.Refs, ref)
 
-	_, err := ff.app.index.PostDataWait(RepositoryEntryType, scan.Sha+"-"+scan.ProjectId, scan)
+	_, err := ff.app.index.PostDataWait(RepositoryEntry_QType, scan.Sha+"-"+scan.ProjectId, scan)
 	if err != nil {
 		log.Printf("[ES-WORKER] Unable to update entry %s: %s\n", scan.Sha, err.Error())
 	} else {
@@ -116,18 +116,18 @@ func (ff *FireAndForget) postScan(scan *types.Scan) {
 	for _, ref := range scan.Refs {
 		boolq := es.NewBool().
 			SetMust(es.NewBoolQ(
-				es.NewTerm(types.Scan_FullnameField, scan.RepoFullname),
-				es.NewTerm(types.Scan_RefsField, ref),
-				es.NewTerm(types.Scan_ProjectIdField, scan.ProjectId),
-				es.NewRange(types.Scan_TimestampField, "lt", scan.Timestamp)))
+				es.NewTerm(types.Scan_QField_Fullname, scan.RepoFullname),
+				es.NewTerm(types.Scan_QField_Refs, ref),
+				es.NewTerm(types.Scan_QField_ProjectId, scan.ProjectId),
+				es.NewRange(types.Scan_QField_Timestamp, "lt", scan.Timestamp)))
 		q := map[string]interface{}{
 			"query": map[string]interface{}{"bool": boolq},
 			"sort": map[string]interface{}{
-				types.Scan_TimestampField: "desc",
+				types.Scan_QField_Timestamp: "desc",
 			},
 			"size": 1,
 		}
-		result, err := ff.app.index.SearchByJSON(RepositoryEntryType, q)
+		result, err := ff.app.index.SearchByJSON(RepositoryEntry_QType, q)
 		if err == nil && result.Hits.TotalHits == 1 {
 			entry := new(types.Scan)
 			if err = json.Unmarshal(*result.Hits.Hits[0].Source, entry); err == nil {
@@ -136,7 +136,7 @@ func (ff *FireAndForget) postScan(scan *types.Scan) {
 		}
 	}
 
-	resp, err := ff.app.index.PostDataWait(RepositoryEntryType, scan.Sha+"-"+scan.ProjectId, scan)
+	resp, err := ff.app.index.PostDataWait(RepositoryEntry_QType, scan.Sha+"-"+scan.ProjectId, scan)
 	if err != nil {
 		log.Printf("[ES-WORKER] Unable to create entry %s: %s\n", scan.Sha, err.Error())
 		return

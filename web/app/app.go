@@ -53,21 +53,21 @@ type Application struct {
 const ESMapping = `
 {
 	"mappings": {
-		"` + RepositoryEntryType + `": ` + types.ScanMapping + `,
-		"` + DifferenceType + `": ` + DifferenceMapping + `,
-		"` + RepositoryType + `": ` + types.RepositoryMapping + `,
-		"` + ProjectType + `": ` + types.ProjectMapping + `,
-		"` + PipelineEntryType + `": ` + types.PipelineEntryMapping + `,
-		"` + TargetsType + `": ` + types.TargetsMapping + `
+		"` + RepositoryEntry_QType + `": ` + types.Scan_QMapping + `,
+		"` + Difference_QType + `": ` + DifferenceMapping + `,
+		"` + Repository_QType + `": ` + types.Repository_QMapping + `,
+		"` + Project_QType + `": ` + types.Project_QMapping + `,
+		"` + JenkinsPipeline_QType + `": ` + types.JenkinsPipeline_QMapping + `,
+		"` + JenkinsBuildTargets_QType + `": ` + types.JenkinsBuildTargets_QMapping + `
 	}
 }`
 const (
-	RepositoryEntryType = `repository_entry`
-	DifferenceType      = `difference`
-	RepositoryType      = `repository`
-	ProjectType         = `project`
-	PipelineEntryType   = `jenkins_repos`
-	TargetsType         = `jenkins_builds`
+	RepositoryEntry_QType     = `repository_entry`
+	Difference_QType          = `difference`
+	Repository_QType          = `repository`
+	Project_QType             = `project`
+	JenkinsPipeline_QType     = `jenkins_repos`
+	JenkinsBuildTargets_QType = `jenkins_builds`
 )
 
 type Back struct {
@@ -97,9 +97,8 @@ func (a *Application) StartInternals() {
 	a.rtrvr = NewRetriever(a)
 	a.ff = NewFireAndForget(a)
 	a.cmprRnnr = NewCompareRunner(a)
-	a.jnknsMngr = NewJenkinsManager(a, a.index, &u.RealHTTP{}, os.Getenv("JENKINS_URL"),
-		nt.NewHeaderBuilder().AddHeader("Authorization", "Basic "+os.Getenv("JENKINS")).GetHeader(),
-		PipelineEntryType, TargetsType)
+	a.jnknsMngr = NewJenkinsManager(a, &u.RealHTTP{}, os.Getenv("JENKINS_URL"),
+		nt.NewHeaderBuilder().AddHeader("Authorization", "Basic "+os.Getenv("JENKINS")).GetHeader())
 
 	a.wrkr.Start()
 

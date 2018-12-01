@@ -105,17 +105,17 @@ func (a *Application) searchForDepInProject(c *gin.Context) {
 
 func (a *Application) searchForDepWrk(depName, depVersion string, repos []string) (int, string) {
 	buf := bytes.NewBufferString("Searching for:\n")
-	nested := es.NewNestedQuery(types.Scan_SubDependenciesField)
+	nested := es.NewNestedQuery(types.Scan_QField_SubDependencies)
 	must := es.NewBoolQ(
-		es.NewTerm(types.Scan_SubDependenciesField+"."+d.NameField, depName),
-		es.NewWildcard(types.Scan_SubDependenciesField+"."+d.VersionField, depVersion+"*"))
+		es.NewTerm(types.Scan_QField_SubDependencies+"."+d.NameField, depName),
+		es.NewWildcard(types.Scan_QField_SubDependencies+"."+d.VersionField, depVersion+"*"))
 
-	terms := es.NewTerms(types.Scan_FullnameField, repos...)
+	terms := es.NewTerms(types.Scan_QField_Fullname, repos...)
 
 	nested.SetInnerQuery(map[string]interface{}{"bool": es.NewBool().SetMust(must)})
 	query := map[string]interface{}{"bool": es.NewBool().SetMust(es.NewBoolQ(nested)).SetFilter(es.NewBoolQ(terms))}
 
-	hits, err := es.GetAllSource(a.index, RepositoryEntryType, query, []string{types.Scan_FullnameField, types.Scan_RefsField})
+	hits, err := es.GetAllSource(a.index, RepositoryEntry_QType, query, []string{types.Scan_QField_Fullname, types.Scan_QField_Refs})
 	if err != nil {
 		return 500, "Failure executing bool query: " + err.Error()
 	}
@@ -136,7 +136,7 @@ func (a *Application) searchForDepWrk(depName, depVersion string, repos []string
 			}
 			shas[scan.RepoFullname][ref][hit.Id] = struct{}{}
 		}
-		for _, innerHit := range hit.InnerHits[types.Scan_SubDependenciesField].Hits.Hits {
+		for _, innerHit := range hit.InnerHits[types.Scan_QField_SubDependencies].Hits.Hits {
 			dep := new(d.Dependency)
 			if err = json.Unmarshal(*innerHit.Source, dep); err != nil {
 				return 500, "Error retrieving dependencies: " + err.Error()

@@ -118,7 +118,7 @@ func (dm *DifferenceManager) GenerateReport(d *Difference) string {
 }
 
 func (d *DifferenceManager) GetAllDiffsInProject(proj string) (*[]Difference, error) {
-	hits, err := es.GetAll(d.app.index, DifferenceType, es.NewTerm(DifferenceProjectField, proj))
+	hits, err := es.GetAll(d.app.index, Difference_QType, es.NewTerm(DifferenceProjectField, proj))
 	if err != nil {
 		return nil, err
 	}

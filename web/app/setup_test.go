@@ -26,11 +26,11 @@ import (
 func TestAddProjects(t *testing.T) {
 	assert := assert.New(t)
 
-	resp, err := testApp.index.PostDataWait(ProjectType, "project1", es.Project{"project1", "Project One"})
+	resp, err := testApp.index.PostDataWait(Project_QType, "project1", es.Project{"project1", "Project One"})
 	assert.Nil(err)
 	assert.True(resp.Created)
 
-	resp, err = testApp.index.PostDataWait(ProjectType, "project2", es.Project{"project2", "Project Two"})
+	resp, err = testApp.index.PostDataWait(Project_QType, "project2", es.Project{"project2", "Project Two"})
 	assert.Nil(err)
 	assert.True(resp.Created)
 

@@ -25,7 +25,6 @@ import (
 
 	t "github.com/venicegeo/vzutil-versioning/web/es/types"
 
-	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	"github.com/venicegeo/vzutil-versioning/web/es"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
@@ -47,17 +46,14 @@ var push_match = regexp.MustCompile(`^.*cf push (.*)$`)
 var stage_match = regexp.MustCompile(`^\[Pipeline\] { \((.+)\)$`)
 
 type JenkinsManager struct {
-	app               *Application
-	index             elasticsearch.IIndex
-	h                 u.HTTP
-	jenkinsUrl        string
-	authHeader        [][2]string
-	pipelineEntryType string
-	targetsType       string
+	app        *Application
+	h          u.HTTP
+	jenkinsUrl string
+	authHeader [][2]string
 }
 
-func NewJenkinsManager(app *Application, index elasticsearch.IIndex, h u.HTTP, jenkinsUrl string, authHeader [][2]string, pipelineEntryType, targetsType string) *JenkinsManager {
-	return &JenkinsManager{app, index, h, jenkinsUrl, authHeader, pipelineEntryType, targetsType}
+func NewJenkinsManager(app *Application, h u.HTTP, jenkinsUrl string, authHeader [][2]string) *JenkinsManager {
+	return &JenkinsManager{app, h, jenkinsUrl, authHeader}
 }
 func (m *JenkinsManager) Add(project, repository, url string) (string, error) {
 	parts := strings.SplitN(url, "://", 2)
@@ -70,7 +66,7 @@ func (m *JenkinsManager) Add(project, repository, url string) (string, error) {
 	url = strings.TrimPrefix(url, m.jenkinsUrl)
 	jobParts := u.SplitAtAnyTrim(url, "job", "/")
 	id := nt.NewUuid().String()
-	resp, err := m.index.PostDataWait(m.pipelineEntryType, id, &t.PipelineEntry{id, project, repository, jobParts})
+	resp, err := m.app.index.PostDataWait(JenkinsPipeline_QType, id, &t.JenkinsPipeline{id, project, repository, jobParts})
 	if err != nil {
 		return "", err
 	}
@@ -94,14 +90,14 @@ func (m *JenkinsManager) RunAutomatedScans(pause time.Duration, stop chan struct
 	}
 }
 
-func (m *JenkinsManager) getAllEntries() ([]*t.PipelineEntry, error) {
-	resp, err := es.GetAll(m.index, m.pipelineEntryType, map[string]interface{}{})
+func (m *JenkinsManager) getAllEntries() ([]*t.JenkinsPipeline, error) {
+	resp, err := es.GetAll(m.app.index, JenkinsPipeline_QType, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
-	res := make([]*t.PipelineEntry, len(resp.Hits), len(resp.Hits))
+	res := make([]*t.JenkinsPipeline, len(resp.Hits), len(resp.Hits))
 	for i, hit := range resp.Hits {
-		entry := new(t.PipelineEntry)
+		entry := new(t.JenkinsPipeline)
 		if err := json.Unmarshal([]byte(*hit.Source), entry); err != nil {
 			return nil, err
 		}
@@ -110,14 +106,14 @@ func (m *JenkinsManager) getAllEntries() ([]*t.PipelineEntry, error) {
 	return res, nil
 }
 
-func (m *JenkinsManager) getAllEntriesProj(projId string) ([]*t.PipelineEntry, error) {
-	resp, err := es.GetAll(m.index, m.pipelineEntryType, es.NewTerm(t.PipelineEntry_ProjectIdField, projId))
+func (m *JenkinsManager) getAllEntriesProj(projId string) ([]*t.JenkinsPipeline, error) {
+	resp, err := es.GetAll(m.app.index, JenkinsPipeline_QType, es.NewTerm(t.JenkinsPipeline_QField_ProjectId, projId))
 	if err != nil {
 		return nil, err
 	}
-	res := make([]*t.PipelineEntry, len(resp.Hits), len(resp.Hits))
+	res := make([]*t.JenkinsPipeline, len(resp.Hits), len(resp.Hits))
 	for i, hit := range resp.Hits {
-		entry := new(t.PipelineEntry)
+		entry := new(t.JenkinsPipeline)
 		if err := json.Unmarshal([]byte(*hit.Source), entry); err != nil {
 			return nil, err
 		}
@@ -145,7 +141,7 @@ func (m *JenkinsManager) RunScan() error {
 			return err
 		}
 		//log.Println(resp)
-		currentNewest, err := m.index.SearchByJSON(TargetsType, map[string]interface{}{
+		currentNewest, err := m.app.index.SearchByJSON(JenkinsBuildTargets_QType, map[string]interface{}{
 			"size": 1,
 			"sort": map[string]interface{}{
 				"timestamp": "desc",
@@ -156,7 +152,7 @@ func (m *JenkinsManager) RunScan() error {
 		}
 		timeToBeat := "0"
 		if len(currentNewest.Hits.Hits) == 1 {
-			target := new(t.Targets)
+			target := new(t.JenkinsBuildTargets)
 			if err := json.Unmarshal([]byte(*currentNewest.Hits.Hits[0].Source), target); err != nil {
 				return err
 			}
@@ -165,7 +161,7 @@ func (m *JenkinsManager) RunScan() error {
 		//log.Println("Time to beat:", timeToBeat)
 
 		for _, build := range resp.Builds {
-			log.Println()
+			//log.Println()
 			//log.Println("Looking at build", build.Number)
 			code, dat, _, err = m.h.HTTP(nt.GET, u.Format("https://%s/job/%s/%d/api/json?pretty=true", m.jenkinsUrl, strings.Join(entry.PipelineInfo, "/job/"), build.Number), m.authHeader, nil)
 			if err != nil {
@@ -200,12 +196,12 @@ func (m *JenkinsManager) RunScan() error {
 
 			//HERE
 			stageFA := u.NewFA()
-			stages := []t.Stage{}
+			stages := []t.JenkinsBuildStage{}
 			stageFA.Add("start", func(l string) bool {
 				return l == `[Pipeline] stage`
 			}, "next")
 			stageFA.Add("next", func(l string) bool {
-				stages = append(stages, t.Stage{stage_match.FindStringSubmatch(l)[1], true})
+				stages = append(stages, t.JenkinsBuildStage{stage_match.FindStringSubmatch(l)[1], true})
 				//fmt.Println("stages", stages)
 				return true
 			}, "end")
@@ -302,10 +298,10 @@ func (m *JenkinsManager) RunScan() error {
 			}
 
 			id := nt.NewUuid().String()
-			temp := t.Targets{id, entry.Id, tim, build.Number, sha, targets}
+			temp := t.JenkinsBuildTargets{id, entry.Id, tim, build.Number, sha, targets}
 			//log.Println(sha)
 			//log.Printf("%+v\n", temp)
-			m.index.PostDataWait(m.targetsType, id, temp)
+			m.app.index.PostDataWait(JenkinsBuildTargets_QType, id, temp)
 			//log.Println(m.index.PostDataWait(m.targetsType, id, temp))
 		}
 	}
@@ -316,17 +312,17 @@ func (m *JenkinsManager) GetOrgsAndSpaces(pipelineId string) (map[string][]strin
 	q := map[string]interface{}{
 		"aggs": map[string]interface{}{
 			"targets": map[string]interface{}{
-				"nested": map[string]interface{}{"path": t.Targets_CFTargets},
+				"nested": map[string]interface{}{"path": t.JenkinsBuildTargets_QField_CFTargets},
 				"aggs": map[string]interface{}{
 					"orgs": map[string]interface{}{
 						"terms": map[string]interface{}{
-							"field": t.Join(t.Targets_CFTargets, t.CFTarget_OrgField),
+							"field": t.DotJoin(t.JenkinsBuildTargets_QField_CFTargets, t.CFTarget_QField_Org),
 							"size":  10000,
 						},
 						"aggs": map[string]interface{}{
 							"spaces": map[string]interface{}{
 								"terms": map[string]interface{}{
-									"field": t.Join(t.Targets_CFTargets, t.CFTarget_SpaceField),
+									"field": t.DotJoin(t.JenkinsBuildTargets_QField_CFTargets, t.CFTarget_QField_Space),
 									"size":  10000,
 								},
 							},
@@ -337,7 +333,7 @@ func (m *JenkinsManager) GetOrgsAndSpaces(pipelineId string) (map[string][]strin
 		},
 		"query": map[string]interface{}{
 			"term": map[string]interface{}{
-				t.Targets_PipelineEntryId: pipelineId,
+				t.JenkinsBuildTargets_QField_PipelineId: pipelineId,
 			},
 		},
 		"size": 0,
@@ -346,7 +342,7 @@ func (m *JenkinsManager) GetOrgsAndSpaces(pipelineId string) (map[string][]strin
 		temp, _ := json.MarshalIndent(q, " ", "   ")
 		fmt.Println(string(temp))
 	}
-	resp, err := m.index.SearchByJSON(m.targetsType, q)
+	resp, err := m.app.index.SearchByJSON(JenkinsBuildTargets_QType, q)
 	if err != nil {
 		return nil, err
 	}
@@ -383,26 +379,26 @@ func (m *JenkinsManager) GetLastSuccesses(repoId string) (map[string]map[string]
 		res[org] = map[string]string{}
 		for _, space := range spaces {
 			q := map[string]interface{}{
-				"query": es.NewNestedQuery(t.Targets_CFTargets).SetInnerQuery(map[string]interface{}{
+				"query": es.NewNestedQuery(t.JenkinsBuildTargets_QField_CFTargets).SetInnerQuery(map[string]interface{}{
 					"bool": es.NewBool().
 						SetMust(es.NewBoolQ(
-							es.NewTerm(t.Join(t.Targets_CFTargets, t.CFTarget_OrgField), org),
-							es.NewTerm(t.Join(t.Targets_CFTargets, t.CFTarget_SpaceField), space),
-							es.NewTerm(t.Join(t.Targets_CFTargets, t.CFTarget_PushedField), true),
-							es.NewTerm(t.Join(t.Targets_CFTargets, t.CFTarget_StageField, t.Stage_SuccessField), true)))}),
+							es.NewTerm(t.DotJoin(t.JenkinsBuildTargets_QField_CFTargets, t.CFTarget_QField_Org), org),
+							es.NewTerm(t.DotJoin(t.JenkinsBuildTargets_QField_CFTargets, t.CFTarget_QField_Space), space),
+							es.NewTerm(t.DotJoin(t.JenkinsBuildTargets_QField_CFTargets, t.CFTarget_QField_Pushed), true),
+							es.NewTerm(t.DotJoin(t.JenkinsBuildTargets_QField_CFTargets, t.CFTarget_QField_Stage, t.JenkinsBuildStage_QField_Success), true)))}),
 				"sort": map[string]interface{}{
-					t.Targets_TimestampField: "desc",
+					t.JenkinsBuildTargets_QField_Timestamp: "desc",
 				},
 				"size": 1,
 			}
-			resp, err := m.index.SearchByJSON(m.targetsType, q)
+			resp, err := m.app.index.SearchByJSON(JenkinsBuildTargets_QType, q)
 			if err != nil {
 				return nil, err
 			}
 			if len(resp.Hits.Hits) < 1 {
 				continue
 			}
-			target := new(t.Targets)
+			target := new(t.JenkinsBuildTargets)
 			if err = json.Unmarshal([]byte(*resp.Hits.Hits[0].Source), target); err != nil {
 				return nil, err
 			}
@@ -422,15 +418,15 @@ func (m *JenkinsManager) GetAllSuccesses(repoId string) (map[string]map[string][
 		res[org] = map[string][]string{}
 		for _, space := range spaces {
 			agg := es.NewAggQuery("shas", "sha")
-			nested := es.NewNestedQuery(t.Targets_CFTargets)
+			nested := es.NewNestedQuery(t.JenkinsBuildTargets_QField_CFTargets)
 			boool := es.NewBool().SetMust(es.NewBoolQ(
-				es.NewTerm(t.Join(t.Targets_CFTargets, t.CFTarget_OrgField), org),
-				es.NewTerm(t.Join(t.Targets_CFTargets, t.CFTarget_SpaceField), space),
-				es.NewTerm(t.Join(t.Targets_CFTargets, t.CFTarget_PushedField), true),
-				es.NewTerm(t.Join(t.Targets_CFTargets, t.CFTarget_StageField, t.Stage_SuccessField), true)))
+				es.NewTerm(t.DotJoin(t.JenkinsBuildTargets_QField_CFTargets, t.CFTarget_QField_Org), org),
+				es.NewTerm(t.DotJoin(t.JenkinsBuildTargets_QField_CFTargets, t.CFTarget_QField_Space), space),
+				es.NewTerm(t.DotJoin(t.JenkinsBuildTargets_QField_CFTargets, t.CFTarget_QField_Pushed), true),
+				es.NewTerm(t.DotJoin(t.JenkinsBuildTargets_QField_CFTargets, t.CFTarget_QField_Stage, t.JenkinsBuildStage_QField_Success), true)))
 			nested.SetInnerQuery(map[string]interface{}{"bool": boool})
 			agg["query"] = nested
-			resp, err := m.index.SearchByJSON(m.targetsType, agg)
+			resp, err := m.app.index.SearchByJSON(JenkinsBuildTargets_QType, agg)
 			res[org][space], err = es.GetAggKeysFromSearchResponse("shas", resp, err)
 			if err != nil {
 				return nil, err

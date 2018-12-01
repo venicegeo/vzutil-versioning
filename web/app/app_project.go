@@ -304,9 +304,9 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 		}
 		boolq := es.NewBool().
 			SetMust(es.NewBoolQ(
-				es.NewTerm(types.Repository_ProjectIdField, entry.ProjectId),
-				es.NewTerm(types.Repository_NameField, entry.Fullname)))
-		resp, err := a.index.SearchByJSON(RepositoryType, map[string]interface{}{
+				es.NewTerm(types.Repository_QField_ProjectId, entry.ProjectId),
+				es.NewTerm(types.Repository_QField_Name, entry.Fullname)))
+		resp, err := a.index.SearchByJSON(Repository_QType, map[string]interface{}{
 			"query": map[string]interface{}{"bool": boolq},
 			"size":  1,
 		})
@@ -318,7 +318,7 @@ func (a *Application) addRepoToProject(c *gin.Context) {
 			c.String(400, "This repo already exists under this project")
 			return
 		}
-		iresp, err := a.index.PostDataWait(RepositoryType, id, entry)
+		iresp, err := a.index.PostDataWait(Repository_QType, id, entry)
 		if err != nil || !iresp.Created {
 			c.String(500, "Error adding entry to database: ", err)
 			return
@@ -382,9 +382,9 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 	if form.Repo != "" {
 		boolq := es.NewBool().
 			SetMust(es.NewBoolQ(
-				es.NewTerm(types.Repository_ProjectIdField, projId),
-				es.NewTerm(types.Repository_NameField, form.Repo)))
-		resp, err := a.index.SearchByJSON(RepositoryType, map[string]interface{}{
+				es.NewTerm(types.Repository_QField_ProjectId, projId),
+				es.NewTerm(types.Repository_QField_Name, form.Repo)))
+		resp, err := a.index.SearchByJSON(Repository_QType, map[string]interface{}{
 			"query": map[string]interface{}{"bool": boolq},
 			"size":  1,
 		})
@@ -401,17 +401,17 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 			c.String(500, "Unable to read project entry: %s", err.Error())
 			return
 		}
-		_, err = a.index.DeleteByIDWait(RepositoryType, resp.Hits.Hits[0].Id)
+		_, err = a.index.DeleteByIDWait(Repository_QType, resp.Hits.Hits[0].Id)
 		if err != nil {
 			c.String(500, "Unable to delete project entry: %s", err.Error())
 			return
 		}
 		func() {
-			hits, err := es.GetAll(a.index, RepositoryEntryType, map[string]interface{}{
+			hits, err := es.GetAll(a.index, RepositoryEntry_QType, map[string]interface{}{
 				"bool": es.NewBool().
 					SetMust(es.NewBoolQ(
-						es.NewTerm(types.Scan_FullnameField, entry.Fullname),
-						es.NewTerm(types.Scan_ProjectIdField, entry.ProjectId))),
+						es.NewTerm(types.Scan_QField_Fullname, entry.Fullname),
+						es.NewTerm(types.Scan_QField_ProjectId, entry.ProjectId))),
 			})
 			if err != nil {
 				log.Println("Unable to cleanup after repo", entry.Fullname, "in", entry.ProjectId, ":", err.Error())
@@ -421,7 +421,7 @@ func (a *Application) removeReposFromProject(c *gin.Context) {
 			wg.Add(len(hits.Hits))
 			for _, hit := range hits.Hits {
 				go func(hit *elastic.SearchHit) {
-					a.index.DeleteByID(RepositoryEntryType, hit.Id)
+					a.index.DeleteByID(RepositoryEntry_QType, hit.Id)
 					wg.Done()
 				}(hit)
 			}
