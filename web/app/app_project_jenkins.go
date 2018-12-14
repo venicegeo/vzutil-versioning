@@ -16,7 +16,6 @@ package app
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/venicegeo/vzutil-versioning/web/app/structs/html"
@@ -82,8 +81,10 @@ func (a *Application) jenkinsTesting(c *gin.Context) {
 			inuseBuf.WriteString("\n")
 
 			data, err := a.jnknsMngr.GetOrgsAndSpaces(entry.Id)
-			fmt.Println(data)
 			tempBuf.WriteString(u.Format("%#v %s\n", data, err))
+
+			s, e := a.jnknsMngr.GetLastSuccesses(entry.Id)
+			tempBuf.WriteString(u.Format("%#v %s\n", s, e))
 		}
 	}
 	drop := structs.NewHtmlDropdown("repo")

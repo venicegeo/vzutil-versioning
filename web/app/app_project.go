@@ -16,6 +16,7 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -107,6 +108,10 @@ func (a *Application) viewProject(c *gin.Context) {
 	if err != nil {
 		c.String(500, "Unable to retrieve repository list: %s", err.Error())
 		return
+	}
+	for _, repo := range repos {
+		t, e := a.jnknsMngr.GetLastSuccesses(repo.Id)
+		fmt.Printf("%s: %s %s\n", repo.Fullname, t, e)
 	}
 	mux := sync.Mutex{}
 	errs := make(chan error, len(repos))

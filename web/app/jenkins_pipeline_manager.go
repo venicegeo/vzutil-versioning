@@ -17,6 +17,7 @@ package app
 import (
 	"bytes"
 	"encoding/json"
+
 	"fmt"
 	"log"
 	"regexp"
@@ -64,7 +65,33 @@ func (m *JenkinsManager) Add(project, repository, url string) (string, error) {
 		return "", u.Error("This is not the url expected")
 	}
 	url = strings.TrimPrefix(url, m.jenkinsUrl)
-	jobParts := u.SplitAtAnyTrim(url, "job", "/")
+	jobParts := u.SplitAtAnyTrim(strings.ToLower(url), "job", "/")
+	//TODO remove pipeline_info and replace with field name
+	boool := es.NewBoolQ()
+	for _, part := range jobParts {
+		boool.Add(es.NewTerm(t.JenkinsPipeline_QField_PipelineInfo, part))
+	}
+	boool.Add(map[string]interface{}{
+		"script": map[string]interface{}{
+			"script": map[string]string{
+				"inline": u.Format("doc['%s'].values.length == %d", t.JenkinsPipeline_QField_PipelineInfo, len(jobParts)),
+				"lang":   "painless",
+			},
+		},
+	})
+	checkExistQ := map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": es.NewBool().SetMust(boool),
+		},
+		"size": 0,
+	}
+	check, err := m.app.index.SearchByJSON(JenkinsPipeline_QType, checkExistQ)
+	if err != nil {
+		return "", err
+	}
+	if check.TotalHits() > 0 {
+		return "", nil
+	}
 	id := nt.NewUuid().String()
 	resp, err := m.app.index.PostDataWait(JenkinsPipeline_QType, id, &t.JenkinsPipeline{id, project, repository, jobParts})
 	if err != nil {
@@ -159,7 +186,7 @@ func (m *JenkinsManager) RunScan() error {
 			timeToBeat = target.Timestamp
 		}
 		//log.Println("Time to beat:", timeToBeat)
-
+		allShasAdded := map[string]struct{}{}
 		for _, build := range resp.Builds {
 			//log.Println()
 			//log.Println("Looking at build", build.Number)
@@ -299,10 +326,14 @@ func (m *JenkinsManager) RunScan() error {
 
 			id := nt.NewUuid().String()
 			temp := t.JenkinsBuildTargets{id, entry.Id, tim, build.Number, sha, targets}
+			allShasAdded[sha] = struct{}{}
 			//log.Println(sha)
 			//log.Printf("%+v\n", temp)
 			m.app.index.PostDataWait(JenkinsBuildTargets_QType, id, temp)
 			//log.Println(m.index.PostDataWait(m.targetsType, id, temp))
+		}
+		if len(allShasAdded) != 0 {
+			fmt.Println(allShasAdded)
 		}
 	}
 	return nil
@@ -337,10 +368,6 @@ func (m *JenkinsManager) GetOrgsAndSpaces(pipelineId string) (map[string][]strin
 			},
 		},
 		"size": 0,
-	}
-	{
-		temp, _ := json.MarshalIndent(q, " ", "   ")
-		fmt.Println(string(temp))
 	}
 	resp, err := m.app.index.SearchByJSON(JenkinsBuildTargets_QType, q)
 	if err != nil {
