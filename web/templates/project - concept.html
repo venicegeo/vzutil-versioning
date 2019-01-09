@@ -1,0 +1,110 @@
+
+
+
+<html>
+<head>
+<style type="text/css">
+td {
+	vertical-align: top;
+	align: left;
+}
+
+.item {
+	background-color: #afafaf;
+	color: black;
+	border: none;
+	text-align: center;
+	text-decoration: none;
+	height: 200px;
+	width: 200px;
+}
+
+.green { background-color: #99ff66; }
+.blue { background-color: #33ccff; }
+.yellow { background-color: #ffff66; }
+.red { background-color: #ff9999; }
+.white { background-color: #e6e6e6; }
+
+.item:hover {
+	filter: brightness(110%);
+}
+
+.darker {}
+.darker:hover {
+	filter: brightness(90%);
+}
+
+.panel {
+    padding: 0 18px;
+    background-color: white;
+    max-height: 0;
+    overflow: hidden;
+}
+
+</style>
+</head>
+<body>
+<!--form method="post"-->
+<form method="get">
+
+
+		<input type="submit" name="button_back" value="Back">
+		
+		<br>
+		
+
+		<fieldset style="display: inline-block;"><legend>Utilities</legend>
+		<table>
+			<tr><td><input type="submit" name="button_util" value="Dependency Search" class="button item white darker"></td></tr>
+			<tr><td><input type="submit" name="button_util" value="Delete Project" class="button item white darker"></td></tr>
+		</table>
+		</fieldset>
+	<fieldset style="display: inline-block;"><legend>Deployments</legend>
+	<table>
+		<tr>
+			<td><input type="submit" name="button_deployment" value="Dev" class="button item"></td>
+			<td><input type="submit" name="button_deployment" value="Int" class="button item"></td>
+			<td><input type="submit" name="button_deployment" value="Prod" class="button item"></td>
+		</tr>
+		<tr>
+			<td><input type="submit" name="button_deployment" value="Add Space" class="button item green darker"></td>
+		</tr>
+	</table>
+	</fieldset>
+	<fieldset style="display: inline-block;"><legend>Releases</legend>
+	<table>
+		<tr>
+			<td><input type="submit" name="button_release" value="Sprint 1" class="button item"></td>
+			<td><input type="submit" name="button_release" value="v0.0.1" class="button item"></td>
+			<td><input type="submit" name="button_release" value="Add Release" class="button item green darker"></td>
+		</tr>
+	</table>
+	</fieldset>
+<br>
+	<fieldset style="display: inline-block;"><legend>Repositories</legend>
+	<table>
+		<tr>
+			<td><input type="submit" name="button_repository" value="venicegeo/pz-gateway" class="button item"></td>
+			<td><input type="submit" name="button_repository" value="venicegeo/pz-idam" class="button item red darker"></td>
+			<td><input type="submit" name="button_repository" value="venicegeo/pz-ingest" class="button item"></td>
+			<td><input type="submit" name="button_repository" value="venicegeo/bf-ui" class="button item"></td>
+			<td><input type="submit" name="button_repository" value="venicegeo/bf-api" class="button item"></td>
+			<td><input type="submit" name="button_repository" value="venicegeo/bf-tideprediction" class="button item"></td>
+			<td><input type="submit" name="button_repository" value="venicegeo/pzsvc-exec" class="button item"></td>
+		</tr>
+		<tr>
+			<td><input type="submit" name="button_repository" value="venicegeo/pzsvc-ndwi-py" class="button item"></td>
+			<td><input type="submit" name="button_repository" value="venicegeo/pz-access" class="button item"></td>
+		</tr>
+		<tr>
+			<td><input type="submit" name="button_repository" value="Add Repo" class="button item green darker"></td>
+			<td><input type="submit" name="button_repository" value="Generate All Tags" class="button item blue darker"></td>
+			<td><input type="submit" name="button_repository" value="Reporting" class="button item yellow darker"></td>
+		</tr>
+	</table>
+	</fieldset>
+</table>
+</table>
+</form>
+</body>
+</html>

@@ -1,0 +1,124 @@
+
+
+
+<html>
+<head>
+<style type="text/css">
+td {
+	vertical-align: top;
+	align: left;
+}
+.accordion {
+    background-color: #eee;
+    color: #444;
+    cursor: pointer;
+    padding: 18px;
+    width: 100%;
+    border: none;
+    text-align: left;
+    outline: none;
+    font-size: 15px;
+}
+
+.active, .accordion:hover {
+    background-color: #ccc;
+}
+
+.accordion:after {
+    content: '\2228';
+    color: #777;
+    font-weight: bold;
+    float: right;
+    margin-left: 5px;
+}
+
+.active:after {
+    content: "\2227";
+}
+
+.panel {
+    padding: 0 18px;
+    background-color: white;
+    max-height: 0;
+    overflow: hidden;
+}
+</style>
+</head>
+<body>
+
+<table>
+<tr>
+<td>
+<form method="post">
+	<input type="submit" name="button_back" value="Back">
+</form>
+</td>
+<td>
+<form method="post">
+	<input type="submit" name="button_reload" value="Reload">
+</form>
+<td>
+</tr>
+<tr>
+<td>
+<fieldset>
+<legend>Util</legend>
+<form method="post">
+	<input type="submit" name="button_util" value="Report By Ref"><br>
+	<input type="submit" name="button_util" value="Generate All Tags"><br>
+	<input type="submit" name="button_util" value="Add Repository"><br>
+	<input type="submit" name="button_util" value="Remove Repository"><br>
+	<input type="submit" name="button_util" value="Dependency Search"><br>
+	<input type="submit" name="button_diff" value="Differences (0)"><br>
+	<input type="submit" name="button_util" value="Delete Project">
+</form>
+</fieldset>
+</td>
+<td>
+<button class="accordion">venicegeo/pz-gateway</button>
+	<div class="panel">
+		<form method="post">
+<input type="submit" name="button_gen" value="Generate Branch - venicegeo/pz-gateway" class="" >
+</form><button class="accordion">heads/master</button>
+	<div class="panel">
+		<form method="post">
+<input type="submit" name="button_sha" value="506f15f412054811f27e9c2a2e2e19ca8ad2f294" class="" >
+</form>
+	</div>
+<button class="accordion">tags/1.0.0</button>
+	<div class="panel">
+		<form method="post">
+<input type="submit" name="button_sha" value="2d7f64adb8dcddfa614c95ddc2b3d9895bac1ce7" class="" >
+</form>
+	</div>
+	</div>
+</td>
+<td>
+<fieldset>
+<pre>
+Result info will appear here
+</pre>
+</fieldset>
+</td>
+</tr>
+</table>
+
+<script>
+var acc = document.getElementsByClassName("accordion");
+var i;
+
+for (i = 0; i < acc.length; i++) {
+  acc[i].addEventListener("click", function() {
+    this.classList.toggle("active");
+    var panel = this.nextElementSibling;
+    if (panel.style.maxHeight){
+      panel.style.maxHeight = null;
+    } else {
+      panel.style.maxHeight = "100%";
+    }
+  });
+}
+</script>
+
+</body>
+</html>
