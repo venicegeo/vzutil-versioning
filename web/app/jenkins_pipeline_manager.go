@@ -333,6 +333,12 @@ func (m *JenkinsManager) RunScan() error {
 			//log.Println(m.index.PostDataWait(m.targetsType, id, temp))
 		}
 		if len(allShasAdded) != 0 {
+			repo, err := m.app.rtrvr.GetRepositoryById(entry.RepositoryId)
+			if err == nil {
+				for sha, _ := range allShasAdded {
+					m.app.ff.FireRequest(&SingleRunnerRequest{repo, sha, ""})
+				}
+			}
 			fmt.Println(allShasAdded)
 		}
 	}

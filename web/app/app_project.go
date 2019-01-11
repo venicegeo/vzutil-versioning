@@ -157,6 +157,9 @@ func (a *Application) generateAccordion(accord *s.HtmlAccordion, repo *Repositor
 		return
 	}
 	for _, ref := range refs {
+		if ref == "" {
+			continue
+		}
 		c := s.NewHtmlCollection()
 		correctShas := shas["refs/"+ref]
 		for i, sha := range correctShas {
@@ -166,6 +169,16 @@ func (a *Application) generateAccordion(accord *s.HtmlAccordion, repo *Repositor
 			}
 		}
 		tempAccord.AddItem(ref, s.NewHtmlForm(c).Post())
+	}
+	if noRefs, ok := shas[""]; ok {
+		c := s.NewHtmlCollection()
+		for i, sha := range noRefs {
+			c.Add(s.NewHtmlSubmitButton2("button_sha", sha))
+			if i < len(noRefs)-1 {
+				c.Add(s.NewHtmlBr())
+			}
+		}
+		tempAccord.AddItem("Unknown", s.NewHtmlForm(c).Post())
 	}
 	mux.Lock()
 	accord.AddItem(repo.Fullname, s.NewHtmlCollection(s.NewHtmlForm(s.NewHtmlSubmitButton2("button_gen", "Generate Branch - "+repo.Fullname)).Post(), tempAccord.Sort()))
