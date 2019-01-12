@@ -39,7 +39,7 @@ func main() {
 		log.Println(index.GetVersion())
 	}
 
-	app := app.NewApplication(index, "./single", "./compare", "templates/", false)
+	app := app.NewApplication(index, "./single", "./compare", "templates/", "static", false)
 	app.StartInternals()
 	log.Println(<-app.StartServer())
 }

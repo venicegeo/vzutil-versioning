@@ -88,7 +88,7 @@ func (server *Server) Start(uri string) chan error {
 
 	return done
 }
-func (server *Server) Configure(templateLocation string, routeData []RouteData) error {
+func (server *Server) Configure(templateLocation string, staticLocation string, routeData []RouteData) error {
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.New()
@@ -109,7 +109,8 @@ func (server *Server) Configure(templateLocation string, routeData []RouteData) 
 		}
 	}
 
-	router.NoRoute(server.noRoute)
+	//router.NoRoute(server.noRoute)
+	router.Static("/"+staticLocation, "./"+staticLocation)
 
 	if !strings.HasSuffix(templateLocation, "/") {
 		templateLocation += "/"

@@ -32,6 +32,7 @@ type Application struct {
 	singleLocation   string
 	compareLocation  string
 	templateLocation string
+	staticLocation   string
 	debugMode        bool
 
 	server *u.Server
@@ -65,12 +66,13 @@ type Back struct {
 	BackButton string `form:"button_back"`
 }
 
-func NewApplication(index elasticsearch.IIndex, singleLocation, compareLocation, templateLocation string, debugMode bool) *Application {
+func NewApplication(index elasticsearch.IIndex, singleLocation, compareLocation, templateLocation, staticLocation string, debugMode bool) *Application {
 	return &Application{
 		index:            index,
 		singleLocation:   singleLocation,
 		compareLocation:  compareLocation,
 		templateLocation: templateLocation,
+		staticLocation:   staticLocation,
 		debugMode:        debugMode,
 		killChan:         make(chan bool),
 	}
@@ -97,7 +99,7 @@ func (a *Application) StartInternals() {
 			a.server.SetTLSInfo("localhost.crt", "localhost.key")
 		}
 	}
-	a.server.Configure(a.templateLocation, []u.RouteData{
+	a.server.Configure(a.templateLocation, a.staticLocation, []u.RouteData{
 		u.RouteData{"GET", "/", a.defaultPath, false},
 		u.RouteData{"POST", "/webhook", a.webhookPath, false},
 
@@ -121,6 +123,8 @@ func (a *Application) StartInternals() {
 		u.RouteData{"GET", "/reportsha", a.reportSha, true},
 		u.RouteData{"GET", "/cdiff", a.customDiff, true},
 		u.RouteData{"POST", "/cdiff", a.customDiff, true},
+
+		u.RouteData{"GET", "/repoconcept", a.repoConcept, false},
 	})
 }
 

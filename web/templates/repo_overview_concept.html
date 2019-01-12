@@ -1,0 +1,182 @@
+<!DOCTYPE>
+<html>
+	<head>
+		<script src="../static/vis.min.js"></script>
+		<link href="../static/vis.min.css" rel="stylesheet" type="text/css" />
+		<script src="../static/jquery-3.3.1.min.js"></script>
+
+		<style type="text/css">
+			#mynetwork {
+				width: 100%;
+				height: 100%;
+				border: 1px solid lightgray;
+			}
+	
+			html {
+				height: 100%;
+			}
+			body {
+				min-height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<form id="shaform">
+			<input type="hidden" name="sha" id="sha" value="">
+		</form>
+
+		<div id="mynetwork"></div>
+
+		<script type="text/javascript">
+			var nodeSize = 70;
+			var lastView = [];
+			var minX, maxX, minY, maxY;
+			var canvasWidth, canvasHeight;
+			  
+			var nodes = new vis.DataSet({{ .nodes }});
+
+			var edges = new vis.DataSet({{ .edges }});
+
+			var container = document.getElementById('mynetwork');
+			var data = {
+				nodes: nodes,
+				edges: edges
+			};
+			var options = {
+				layout: {
+					hierarchical: {
+						direction: "DU",
+						sortMethod: "directed",
+						treeSpacing: 200,
+						nodeSpacing: 200,
+						levelSeparation: 190
+					}
+				},
+				interaction: {
+					dragNodes: false,
+					dragView: true,
+					zoomView: true,
+					selectConnectedEdges: false
+				},
+				physics: {
+					
+				},
+				nodes: {
+					widthConstraint: {minimum: 70, maximum:70},
+					heightConstraint: {minimum: 70}
+				},
+				edges: {
+					chosen: false
+				}
+			};
+			var network = new vis.Network(container, data, options);
+			  
+			network.on("zoom", function() {
+				if(network.getScale() <= 0.50 ) {
+					network.moveTo({
+						position: { x: lastView.x, y: lastView.y },
+						scale: 0.50,
+					});
+				} else if(network.getScale() >= 2.00 ) {
+					network.moveTo({
+						position: { x: lastView.x, y: lastView.y},
+						scale: 2.00,
+					});
+				} else
+					lastView = network.getViewPosition();
+			});
+			  
+			function fit() {
+				lastView = network.getViewPosition();
+				var xOffset = canvasWidth/network.getScale()/2.0;
+				var yOffset = canvasHeight/network.getScale()/2.0;
+				var viewLeft = lastView.x-xOffset;
+				var viewRight = lastView.x+xOffset;
+				var viewTop = lastView.y-yOffset;
+				var viewBottom = lastView.y+yOffset;
+				var position = {x:lastView.x, y: lastView.y};
+				var update = false;
+				if (viewLeft > maxX) {
+					position.x = maxX+xOffset;
+					update = true;
+				}
+				if (viewRight < minX) {
+					position.x = minX-xOffset;
+					update = true;
+				}
+				if (viewTop > maxY) {
+					position.y = maxY+yOffset;
+					update = true;
+				}
+				if (viewBottom < minY) {
+					position.y = minY-yOffset;
+					update = true;
+				}
+				if(update)
+					network.moveTo({position:position});
+			}
+			  
+			network.on("dragEnd", fit);
+			  
+			function post(sha) {
+				var form = document.getElementById('shaform');
+				var field = document.getElementById('sha');
+				field.value = sha;
+				form.submit();
+			}
+			  
+			network.on("click", function(obj) {
+				if (obj.nodes.length!=0)
+					post(obj.nodes[0]);
+			});
+
+
+			  
+			function resizeCanvas () {
+				$('#mynetwork').height($('body').height()-20)
+			}
+	
+			function updateBounds() {
+				var ids = network.getPositions(nodes.getIds());
+				var num = nodes.get().length;
+				for (var id in ids) {
+					minX = ids[id].x;
+					maxX = ids[id].x;
+					minY = ids[id].y;
+					maxY = ids[id].y;
+					break;
+				}
+				for( var i in ids) {
+					var p = ids[i];
+					if (p.x<minX)
+						minX = p.x;
+					if (p.x>maxX)
+						maxX = p.x;
+					if (p.y<minY)
+						minY = p.y;
+					if (p.y>maxY)
+						maxY = p.y;
+				}
+			}
+	
+			network.on("afterDrawing", function(canvas) {
+				canvasWidth = canvas.canvas.width;
+				canvasHeight = canvas.canvas.height;
+			});
+
+			$(document).ready(function () {
+				$(window).resize(function(){
+					resizeCanvas();
+					updateBounds();
+				});
+			});
+
+			resizeCanvas();
+			updateBounds();
+			 
+			lastView = network.getViewPosition();
+
+		</script>
+	</body>
+</html>
