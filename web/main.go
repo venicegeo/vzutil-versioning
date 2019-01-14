@@ -16,17 +16,19 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"github.com/venicegeo/pz-gocommon/elasticsearch"
 	"github.com/venicegeo/vzutil-versioning/web/app"
+	a "github.com/venicegeo/vzutil-versioning/web/app/auth"
 	s "github.com/venicegeo/vzutil-versioning/web/app/structs"
 )
 
 func main() {
-	if os.Getenv("VZUTIL_AUTH") == "" {
-		log.Fatalln("NO CREDENTIALS")
+	auth, err := a.NewAuthManager()
+	if err != nil {
+		log.Fatalln(err)
 	}
+
 	url, user, pass, err := s.GetVcapES()
 	log.Printf("The elasticsearch url has been found to be [%s]\n", url)
 	if err != nil {
@@ -39,7 +41,7 @@ func main() {
 		log.Println(index.GetVersion())
 	}
 
-	app := app.NewApplication(index, "./single", "./compare", "templates/", false)
+	app := app.NewApplication(index, auth, "./single", "./compare", "templates/", false)
 	app.StartInternals()
 	log.Println(<-app.StartServer())
 }
