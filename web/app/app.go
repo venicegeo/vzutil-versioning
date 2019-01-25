@@ -110,8 +110,8 @@ func (a *Application) StartInternals() {
 		u.RouteData{"GET", "/newproj", a.newProject, true},
 		u.RouteData{"POST", "/newproj", a.newProject, true},
 		u.RouteData{"GET", "/delproj/:proj", a.deleteProject, true},
-		u.RouteData{"GET", "/project/:proj", a.viewProject, true},
-		u.RouteData{"POST", "/project/:proj", a.viewProject, true},
+		u.RouteData{"GET", "/projectOLD/:proj", a.viewProject, true},
+		u.RouteData{"POST", "/projectOLD/:proj", a.viewProject, true},
 		u.RouteData{"GET", "/addrepo/:proj", a.addRepoToProject, true},
 		u.RouteData{"POST", "/addrepo/:proj", a.addRepoToProject, true},
 		u.RouteData{"GET", "/genbranch/:proj/:org/:repo", a.generateBranch, true},
@@ -124,7 +124,11 @@ func (a *Application) StartInternals() {
 		u.RouteData{"GET", "/cdiff", a.customDiff, true},
 		u.RouteData{"POST", "/cdiff", a.customDiff, true},
 
+		//concepts
 		u.RouteData{"GET", "/repoconcept", a.repoConcept, false},
+		u.RouteData{"GET", "/project/:proj", a.projectConcept, true},
+		u.RouteData{"GET", "/repoTemp/:proj/:repo", a.repoTemp, true},
+		u.RouteData{"POST", "/repoTemp/:proj/:repo", a.repoTemp, true},
 	})
 }
 

@@ -29,6 +29,11 @@ func NewHtmlBasic(tag, value string) *HtmlBasic {
 	return &HtmlBasic{value, tag}
 }
 
+func (h *HtmlBasic) SetValue(value string) *HtmlBasic {
+	h.value = value
+	return h
+}
+
 func (h *HtmlBasic) Template() template.HTML {
 	return template.HTML(h.String())
 }

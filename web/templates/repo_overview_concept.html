@@ -1,8 +1,8 @@
 <!DOCTYPE>
 <html>
 	<head>
-		<script src="../static/vis.min.js"></script>
-		<link href="../static/vis.min.css" rel="stylesheet" type="text/css" />
+		<script src="../static/vis-network-custom.min.js"></script>
+		<link href="../static/vis-network-custom.min.css" rel="stylesheet" type="text/css" />
 		<script src="../static/jquery-3.3.1.min.js"></script>
 
 		<style type="text/css">
@@ -29,11 +29,13 @@
 		<div id="mynetwork"></div>
 
 		<script type="text/javascript">
-			var nodeSize = 70;
+			//var nodeSize = 70;
 			var lastView = [];
 			var minX, maxX, minY, maxY;
 			var canvasWidth, canvasHeight;
-			  
+			var minScale = 0.5;
+			var maxScale = 2.0;
+			
 			var nodes = new vis.DataSet({{ .nodes }});
 
 			var edges = new vis.DataSet({{ .edges }});
@@ -44,15 +46,16 @@
 				edges: edges
 			};
 			var options = {
-				layout: {
-					hierarchical: {
-						direction: "DU",
-						sortMethod: "directed",
-						treeSpacing: 200,
-						nodeSpacing: 200,
-						levelSeparation: 190
-					}
-				},
+				//layout: {
+				//	hierarchical: {
+				//		direction: "DU",
+				//		sortMethod: "directed",
+						//treeSpacing: 250,
+						//nodeSpacing: 250,
+						//levelSeparation: 190
+				//		edgeMinimization: false
+				//	}
+				//},
 				interaction: {
 					dragNodes: false,
 					dragView: true,
@@ -60,28 +63,86 @@
 					selectConnectedEdges: false
 				},
 				physics: {
-					
+					enabled: false
 				},
-				nodes: {
-					widthConstraint: {minimum: 70, maximum:70},
-					heightConstraint: {minimum: 70}
-				},
+				//nodes: {
+				//	widthConstraint: {minimum: 70, maximum:70},
+				//	heightConstraint: {minimum: 70}
+				//},
 				edges: {
 					chosen: false
+				},
+				groups: {
+					"default": {
+						color: {
+							border: '#606060',
+							background: '#CCCCCC',
+							highlight: {
+								border: '#8C8C8C',
+								background: '#D1D1D1'
+							},
+							hover: {
+								border: '#8C8C8C',
+								background: '#D1D1D1'
+							}
+						}
+					},
+					"good": {
+						color: {
+							border: '#009900',
+							background: '#99FF99',
+							highlight: {
+								border: '#009900',
+								background: '#BAFFBA'
+							},
+							hover: {
+								border: '#009900',
+								background: '#BAFFBA'
+							}
+						}
+					},
+					"bad": {
+						color: {
+							border: '#A00000',
+							background: '#FF9999',
+							highlight: {
+								border: '#A00000',
+								background: '#FFCCCC'
+							},
+							hover: {
+								border: '#A00000',
+								background: '#FFCCCC'
+							}
+						}
+					},
+					"warning": {
+						color: {
+							border: '#D66B00',
+							background: '#FFAA56',
+							highlight: {
+								border: '#D66B00',
+								background: '#FFB770'
+							},
+							hover: {
+								border: '#D66B00',
+								background: '#FFB770'
+							}
+						}
+					}
 				}
 			};
 			var network = new vis.Network(container, data, options);
 			  
 			network.on("zoom", function() {
-				if(network.getScale() <= 0.50 ) {
+				if(network.getScale() <= minScale ) {
 					network.moveTo({
 						position: { x: lastView.x, y: lastView.y },
-						scale: 0.50,
+						scale: minScale,
 					});
-				} else if(network.getScale() >= 2.00 ) {
+				} else if(network.getScale() >= maxScale ) {
 					network.moveTo({
 						position: { x: lastView.x, y: lastView.y},
-						scale: 2.00,
+						scale: maxScale,
 					});
 				} else
 					lastView = network.getViewPosition();
@@ -166,6 +227,8 @@
 			});
 
 			$(document).ready(function () {
+				minScale = network.getScale();
+				maxScale = 1.0 / minScale;
 				$(window).resize(function(){
 					resizeCanvas();
 					updateBounds();

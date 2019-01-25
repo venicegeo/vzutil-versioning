@@ -19,6 +19,7 @@ import (
 	"log"
 	"sync"
 
+	h "github.com/venicegeo/vzutil-versioning/common/history"
 	"github.com/venicegeo/vzutil-versioning/web/es/types"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -149,4 +150,8 @@ func (w *Worker) AddTask(request *SingleRunnerRequest, exists chan *types.Scan, 
 	} else {
 		w.cloneQueue <- &scanWork{request, singleRet}
 	}
+}
+
+func (w *Worker) History(repo string) (h.HistoryTree, error) {
+	return w.snglRnnr.History(repo)
 }

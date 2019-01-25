@@ -23,6 +23,7 @@ import (
 
 	nt "github.com/venicegeo/pz-gocommon/gocommon"
 	c "github.com/venicegeo/vzutil-versioning/common"
+	h "github.com/venicegeo/vzutil-versioning/common/history"
 	"github.com/venicegeo/vzutil-versioning/web/es/types"
 	u "github.com/venicegeo/vzutil-versioning/web/util"
 )
@@ -129,4 +130,13 @@ func (sr *SingleRunner) sendStringTo(location chan string, format string, args .
 	if location != nil {
 		location <- u.Format(format, args...)
 	}
+}
+
+func (sr *SingleRunner) History(repo string) (h.HistoryTree, error) {
+	dat, err := exec.Command(sr.app.singleLocation, "-history", repo).CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	var tree h.HistoryTree
+	return tree, json.Unmarshal(dat, &tree)
 }

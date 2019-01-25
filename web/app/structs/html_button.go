@@ -26,13 +26,19 @@ type HtmlButton struct {
 	value   string
 	typ     string
 	style   string
+	class   string
 }
 
 func NewHtmlButton(display, name, value, typ string) *HtmlButton {
-	return &HtmlButton{display, name, value, typ, ""}
+	return &HtmlButton{display, name, value, typ, "", ""}
 }
 func (h *HtmlButton) Style(style string) *HtmlButton {
 	h.style = style
+	return h
+}
+
+func (h *HtmlButton) Class(class string) *HtmlButton {
+	h.class = class
 	return h
 }
 
@@ -41,5 +47,5 @@ func (h *HtmlButton) Template() template.HTML {
 }
 
 func (h *HtmlButton) String() string {
-	return f.Format(`<button name="%s" value="%s" type="%s" style="%s">%s</button>`, h.name, h.value, h.typ, h.style, h.display)
+	return f.Format(`<button name="%s" value="%s" type="%s" style="%s" class="%s">%s</button>`, h.name, h.value, h.typ, h.style, h.class, h.display)
 }

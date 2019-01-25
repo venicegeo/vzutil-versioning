@@ -1,5 +1,5 @@
 /*
-Copyright 2018, RadiantBlue Technologies, Inc.
+Copyright 2019, RadiantBlue Technologies, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"regexp"
@@ -30,6 +31,7 @@ import (
 
 	com "github.com/venicegeo/vzutil-versioning/common"
 	d "github.com/venicegeo/vzutil-versioning/common/dependency"
+	h "github.com/venicegeo/vzutil-versioning/common/history"
 	i "github.com/venicegeo/vzutil-versioning/common/issue"
 	r "github.com/venicegeo/vzutil-versioning/single/resolve"
 	"github.com/venicegeo/vzutil-versioning/single/util"
@@ -44,6 +46,7 @@ var files stringarr
 var full_name string
 var name string
 var localMode bool
+var history bool
 
 var cleanup func()
 
@@ -55,6 +58,7 @@ func main() {
 
 	runInterruptHandler()
 
+	flag.BoolVar(&history, "history", false, "Generate history tree")
 	flag.BoolVar(&localMode, "local", false, "Run in local mode")
 	flag.BoolVar(&scan, "scan", false, "Scan for dependency files")
 	flag.BoolVar(&all, "all", false, "Run against all found dependency files")
@@ -63,16 +67,16 @@ func main() {
 	flag.Parse()
 	info := flag.Args()
 
-	if scan && all {
-		fmt.Println("Cannot run in scan and resolve mode")
+	if (scan && all) || (scan && history) || (all && history) {
+		fmt.Println("Can only run in one mode at a time")
 		os.Exit(1)
 	} else if all && len(files) != 0 {
 		fmt.Println("Cannot scan all and certain files")
 		os.Exit(1)
-	} else if len(files) == 0 && !(scan || all) {
+	} else if len(files) == 0 && !(scan || all || history) {
 		fmt.Println("Must give a run paramater")
 		os.Exit(1)
-	} else if localMode && len(info) != 1 || !localMode && len(info) != 2 {
+	} else if (localMode || history) && len(info) != 1 || !(localMode || history) && len(info) != 2 {
 		fmt.Println("The program arguments were incorrect. Usage: single [options] [org/repo] [sha]")
 		os.Exit(1)
 	}
@@ -82,6 +86,10 @@ func main() {
 
 	var location, sha string
 	var refs []string
+
+	if len(info) == 1 {
+		info = append(info, "master") //TODO
+	}
 
 	full_name = info[0]
 	if !localMode {
@@ -105,7 +113,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	if scan {
+	if history {
+		tree, err := modeHistory(location, name)
+		cleanup()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		str, err := util.GetJson(tree)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+		fmt.Println(str)
+	} else if scan {
 		files, err := modeScan(location, name, includeTest)
 		cleanup()
 		if err != nil {
@@ -298,3 +319,187 @@ func (a *stringarr) Set(value string) error {
 	*a = append(*a, value)
 	return nil
 }
+
+func modeHistory(location, name string) (h.HistoryTree, error) {
+	gitLocation := location + "/" + name
+	shaToBranch := map[string]string{}
+	dat, err := exec.Command("git", "-C", gitLocation, "ls-remote", "--heads", "origin").Output()
+	if err != nil {
+		return nil, err
+	}
+	{
+		var parts []string
+		for _, line := range strings.Split(strings.TrimSpace(string(dat)), "\n") {
+			parts = strings.Split(line, "\t")
+			shaToBranch[parts[0]] = strings.TrimPrefix(parts[1], "refs/heads/")
+		}
+	}
+	//fmt.Println("Branches found:", len(shaToBranch))
+	dat, err = exec.Command("git", "-C", gitLocation, "log", "--all", `--pretty=format:%H|%P`).Output()
+	if err != nil {
+		return nil, err
+	}
+	tree := h.HistoryTree{}
+	lines := strings.Split(strings.TrimSpace(string(dat)), "\n")
+	parts := make([][]string, len(lines))
+	for i := 0; i < len(lines); i++ {
+		parts[i] = strings.Split(lines[i], "|")
+		tree[parts[i][0]] = &h.HistoryNode{parts[i][0], []string{}, []string{}, []string{}, 0, false, false}
+	}
+	for i := len(parts) - 1; i >= 0; i-- {
+		line := parts[i]
+		node := tree[line[0]]
+		parents := strings.Split(line[1], " ")
+		for _, p := range parents {
+			if p == "" {
+				continue
+			}
+			node.Parents = append(node.Parents, p)
+			tree[p].Children = append(tree[p].Children, node.Sha)
+		}
+	}
+	dat, err = exec.Command("bash", "-c", fmt.Sprintf(`git -C "%s" show HEAD --pretty=format:"%s" | head -1`, gitLocation, "%H")).Output()
+	if err != nil {
+		return nil, err
+	}
+	HEADsha := strings.TrimSpace(string(dat))
+	tree[HEADsha].IsHEAD = true
+	if err := fillTreeWithName(tree, gitLocation, HEADsha, shaToBranch[HEADsha]); err != nil {
+		return nil, err
+	}
+	//	fmt.Println(HEADsha, shaToBranch[HEADsha])
+	//	fmt.Println(tree.GetRoots())
+	for sha, branch := range shaToBranch {
+		if err := fillTreeWithName(tree, gitLocation, sha, branch); err != nil {
+			return nil, err
+		}
+	}
+	unknownBranchCount := 0
+	for _, node := range tree {
+		if len(node.Names) == 0 && len(node.Children) == 1 && len(tree[node.Children[0]].Parents) == 2 {
+			unknownBranchCount++
+			newBranchName := fmt.Sprintf("!DELETED - %d", unknownBranchCount)
+			shaToBranch[node.Sha] = newBranchName
+			if err := fillTreeWithName(tree, gitLocation, node.Sha, newBranchName); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	//	fmt.Println(shaToBranch)
+
+	//	for sha, name := range shaToBranch {
+	//	tree[sha].Names = append(tree[sha].Names, name)
+	//		fmt.Println("Starting", sha, name)
+	//		testGiveName(tree, sha, name)
+	//	}
+
+	//fmt.Println("With deleted:", len(shaToBranch))
+	//for true {
+	//	foundSomething := false
+	//	for _, node := range tree {
+	//		if len(node.Children) > 1 && len(node.Names) == len(node.Children) {
+	//			//fmt.Println("Node", node.Sha[:7], "has names", node.Names)
+	//			if err := filterOutName(tree, gitLocation, node.Sha, shaToBranch); err != nil {
+	//				return nil, err
+	//			}
+	//			foundSomething = true
+	//				break
+	//		}
+	//	}
+	//		if !foundSomething {
+	//			break
+	//		}
+	//	}
+	for sha, _ := range shaToBranch {
+		tree[sha].IsStartOfBranch = true
+	}
+	return tree, nil
+}
+
+//func getMostParentParent
+
+func testFillName3(t h.HistoryTree, sha, name string) {
+
+}
+
+func fillTreeWithName(t h.HistoryTree, gitLocation, sha, name string) error {
+	dat, err := exec.Command("git", "-C", gitLocation, "log", "--first-parent", `--pretty=format:%H`, sha).Output()
+	if err != nil {
+		return err
+	}
+	for _, s := range strings.Split(strings.TrimSpace(string(dat)), "\n") {
+		if len(t[s].Names) > 0 {
+			continue
+		}
+		t[s].Names = append(t[s].Names, name)
+	}
+	return nil
+}
+
+func filterOutName(t h.HistoryTree, gitLocation, sha string, shaToBranch map[string]string) error {
+	node := t[sha]
+	//fmt.Println("Children:", node.Children[0][:7], node.Children[1][:7])
+	var branchAName = t[node.Children[0]].Names[0]
+	var branchBName = t[node.Children[1]].Names[0]
+	var branchASha, branchBSha string
+	for s, b := range shaToBranch {
+		if b == branchAName {
+			branchASha = s
+		} else if b == branchBName {
+			branchBSha = s
+		}
+	}
+	//fmt.Println(branchASha[:7], branchAName, t[node.Children[0]].Names)
+	//fmt.Println(branchBSha[:7], branchBName, t[node.Children[1]].Names)
+	var toPurge string
+	if t[branchASha].IsHEAD {
+		toPurge = branchBName
+	} else if t[branchBSha].IsHEAD {
+		toPurge = branchAName
+	} else {
+		dat, err := exec.Command("bash", "-c", fmt.Sprintf(`git -C "%s" log "%s...%s" --oneline --pretty=format:"%s" | tail -1`, gitLocation, branchASha, branchBSha, "%H")).Output()
+		if err != nil {
+			return err
+		}
+		realParentSha := strings.TrimSpace(string(dat))
+		realParentName := t[realParentSha].Names[0]
+		//fmt.Println("Real parent found:", realParentSha[:7], realParentName, t[realParentSha].Names)
+		switch realParentName {
+		case branchAName:
+			toPurge = branchBName
+		case branchBName:
+			toPurge = branchAName
+		default:
+			return nil
+			return fmt.Errorf("My algo failed :(")
+		}
+	}
+	purgeName(t, sha, toPurge)
+	return nil
+}
+
+func purgeName(t h.HistoryTree, sha, name string) {
+	remove := func(node *h.HistoryNode, s string) bool {
+		i := -1
+		for ii, name := range node.Names {
+			if name == s {
+				i = ii
+				break
+			}
+		}
+		if i == -1 {
+			return false
+		}
+		node.Names = append(node.Names[:i], node.Names[i+1:]...)
+		return true
+	}
+	if remove(t[sha], name) {
+		for _, s := range t[sha].Parents {
+			purgeName(t, s, name)
+		}
+	}
+}
+
+// git log 2b201c3...8b2d73a --oneline | tail -1
+//0224198 Developing jenkins support

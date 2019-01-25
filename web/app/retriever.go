@@ -256,6 +256,29 @@ func (p *Project) GetRepository(repository string) (*Repository, error) {
 	return res, nil
 }
 
+func (p *Project) GetRepositoryById(repositoryId string) (*Repository, error) {
+	boolq := es.NewBool().
+		SetMust(es.NewBoolQ(
+			es.NewTerm(types.Repository_ProjectIdField, p.Id),
+			es.NewTerm(types.Repository_IdField, repositoryId)))
+	resp, err := p.index.SearchByJSON(RepositoryType, map[string]interface{}{
+		"query": map[string]interface{}{"bool": boolq},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Hits.Hits) != 1 {
+		return nil, u.Error("Total hits not 1 but %d", len(resp.Hits.Hits))
+	}
+	res := new(Repository)
+	if err = json.Unmarshal(*resp.Hits.Hits[0].Source, res); err != nil {
+		return nil, err
+	}
+	res.project = p
+	res.index = p.index
+	return res, nil
+}
+
 //Test: TestAddRepositories
 func (r *Retriever) GetRepository(repository, projectId string) (*Repository, *Project, error) {
 	proj, err := r.GetProjectById(projectId)
@@ -263,6 +286,15 @@ func (r *Retriever) GetRepository(repository, projectId string) (*Repository, *P
 		return nil, nil, err
 	}
 	repo, err := proj.GetRepository(repository)
+	return repo, proj, err
+}
+
+func (r *Retriever) GetRepositoryById(repositoryId, projectId string) (*Repository, *Project, error) {
+	proj, err := r.GetProjectById(projectId)
+	if err != nil {
+		return nil, nil, err
+	}
+	repo, err := proj.GetRepositoryById(repositoryId)
 	return repo, proj, err
 }
 

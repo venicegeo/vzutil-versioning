@@ -1,0 +1,75 @@
+
+
+
+<html>
+<head>
+<style type="text/css">
+td {
+	vertical-align: top;
+	align: left;
+}
+
+.item {
+	background-color: #afafaf;
+	color: black;
+	border: none;
+	text-align: center;
+	text-decoration: none;
+	height: 200px;
+	width: 200px;
+}
+
+.green { background-color: #99ff66; }
+.blue { background-color: #33ccff; }
+.yellow { background-color: #ffff66; }
+.red { background-color: #ff9999; }
+.white { background-color: #e6e6e6; }
+
+.item:hover {
+	filter: brightness(110%);
+}
+
+.darker {}
+.darker:hover {
+	filter: brightness(90%);
+}
+
+.panel {
+    padding: 0 18px;
+    background-color: white;
+    max-height: 0;
+    overflow: hidden;
+}
+
+</style>
+</head>
+<body>
+<!--form method="post"-->
+<form method="get">
+
+
+		<input type="submit" name="button_back" value="Back">
+		
+		<br>
+		
+
+		<fieldset style="display: inline-block;"><legend>Utilities</legend>
+		<table>
+			<tr><td><input type="submit" name="button_util" value="Dependency Search" class="button item white darker"></td></tr>
+			<tr><td><input type="submit" name="button_util" value="Delete Project" class="button item white darker"></td></tr>
+		</table>
+		</fieldset>
+	<fieldset style="display: inline-block;"><legend>Deployments</legend>
+		{{ .deployments }}
+	</fieldset>
+	<fieldset style="display: inline-block;"><legend>Releases</legend>
+		{{ .releases }}
+	</fieldset>
+<br>
+	<fieldset style="display: inline-block;"><legend>Repositories</legend>
+		{{ .repositories }}
+	</fieldset>
+</form>
+{{ .alert }}
+</body>
+</html>
