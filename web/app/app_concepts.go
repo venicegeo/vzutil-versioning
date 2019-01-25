@@ -15,7 +15,6 @@
 package app
 
 import (
-	"fmt"
 	"math"
 	"strings"
 
@@ -188,7 +187,7 @@ func (a *Application) repoConcept(c *gin.Context) {
 	}
 	nodes := []VNode{}
 	edges := []VEdge{}
-	tree, err := a.wrkr.History("venicegeo/vzutil-versioning")
+	tree, err := a.wrkr.History("venicegeo/pz-gateway")
 	if err != nil {
 		c.String(400, "Error creating history tree: %s\n", err.Error())
 		return
@@ -203,7 +202,9 @@ func (a *Application) repoConcept(c *gin.Context) {
 			if node.Weight != weight {
 				node.Weight = weight
 				for _, p := range node.Parents {
-					edges = append(edges, VEdge{node.Sha, p, "to", false})
+					if _, ok := sub[p]; ok {
+						edges = append(edges, VEdge{node.Sha, p, "to", false})
+					}
 				}
 				return true, weight
 			}
@@ -224,26 +225,40 @@ func (a *Application) repoConcept(c *gin.Context) {
 
 	sub.ReverseWeights(max)
 	var tempNode VNode
-	var tempName string
+	var tempName string = ""
 	var tempXOffset int
 	knownBranches := map[string]int{}
+	maxXOffset := 0
 	for _, n := range sub {
-		tempName = strings.Join(n.Names, "|")
-		if _, ok := knownBranches[tempName]; !ok {
-			knownBranches[tempName] = len(knownBranches)
+		if _, ok := knownBranches[n.Branch]; !ok {
+			knownBranches[n.Branch] = len(knownBranches)
 		}
-		tempXOffset = knownBranches[tempName]
-		if !n.IsStartOfBranch {
-			tempName = ""
+		tempXOffset = knownBranches[n.Branch]
+		if n.IsStartOfBranch {
+			tempName = n.Branch
+		}
+		for _, tag := range n.Tags {
+			tempName += "\n" + tag
+		}
+		if tempXOffset*200 > maxXOffset {
+			maxXOffset = tempXOffset * 200
 		}
 		tempNode = VNode{n.Sha, n.Sha[:7], tempName, n.Weight, "good", tempXOffset * 200, n.Weight * -150}
 		nodes = append(nodes, tempNode)
+		tempName = ""
 	}
-	//Include tags on side - WIP
-	if false {
-		missing := sub.FindMissingNames(tree)
-		fmt.Println(missing)
-		fmt.Println(len(missing))
+
+	{
+		missingMap := map[string]struct{}{}
+		for _, v := range tree {
+			if _, ok := sub[v.Sha]; !ok && len(v.Tags) > 0 {
+				missingMap[v.Sha] = struct{}{}
+			}
+		}
+		missing := make([]string, 0, len(missingMap))
+		for sha, _ := range missingMap {
+			missing = append(missing, sha)
+		}
 		missingSquare := int(math.Ceil(math.Sqrt(float64(len(missing)))))
 		var missingLevel int
 		for i, sha := range missing {
@@ -252,12 +267,8 @@ func (a *Application) repoConcept(c *gin.Context) {
 			} else {
 				missingLevel--
 			}
-			fmt.Println(sha[:7], missingLevel)
 			node := tree[sha]
-			nodes = append(nodes, VNode{sha, sha[:7], strings.Join(node.Names, "\n"), missingLevel, "warning", 0, 0})
-			if i%missingSquare != 0 {
-				edges = append(edges, VEdge{sha, missing[i-1], "to", true})
-			}
+			nodes = append(nodes, VNode{sha, sha[:7], strings.Join(node.Tags, "\n"), missingLevel, "warning", maxXOffset + 200 + (i/missingSquare)*150, missingLevel * -100})
 		}
 	}
 

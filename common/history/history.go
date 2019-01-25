@@ -32,7 +32,8 @@ type HistoryNode struct {
 	Sha             string   `json:"sha"`
 	Parents         []string `json:"parents"`
 	Children        []string `json:"children"`
-	Names           []string `json:"names"`
+	Branch          string   `json:"branch"`
+	Tags            []string `json:"tags"`
 	Weight          int      `json:"weight"`
 	IsHEAD          bool     `json:"isHEAD"`
 	IsStartOfBranch bool     `json:"isStartOfBranch"`
@@ -44,13 +45,14 @@ func (n *HistoryNode) duplicate() *HistoryNode {
 	res.Weight = n.Weight
 	res.IsHEAD = n.IsHEAD
 	res.IsStartOfBranch = n.IsStartOfBranch
+	res.Branch = n.Branch
 
 	res.Parents = make([]string, len(n.Parents))
 	copy(res.Parents, n.Parents)
 	res.Children = make([]string, len(n.Children))
 	copy(res.Children, n.Children)
-	res.Names = make([]string, len(n.Names))
-	copy(res.Names, n.Names)
+	res.Tags = make([]string, len(n.Tags))
+	copy(res.Tags, n.Tags)
 
 	return res
 }
@@ -204,25 +206,25 @@ func (t *HistoryTree) ReverseWeights(reverseFrom int) {
 	}
 }
 
-func (t *HistoryTree) FindMissingNames(fullTree HistoryTree) []string {
-	allNames := map[string]string{}
-	for _, n := range fullTree {
-		for _, name := range n.Names {
-			allNames[name] = n.Sha
-		}
-	}
-	for _, n := range *t {
-		for _, name := range n.Names {
-			delete(allNames, name)
-		}
-	}
-	temp := map[string]struct{}{}
-	for _, v := range allNames {
-		temp[v] = struct{}{}
-	}
-	res := make([]string, 0, len(temp))
-	for k, _ := range temp {
-		res = append(res, k)
-	}
-	return res
-}
+//func (t *HistoryTree) FindMissingNames(fullTree HistoryTree) []string {
+//	allNames := map[string]string{}
+//	for _, n := range fullTree {
+//		for _, name := range n.Names {
+//			allNames[name] = n.Sha
+//		}
+//	}
+//	for _, n := range *t {
+//		for _, name := range n.Names {
+//			delete(allNames, name)
+//		}
+//	}
+//	temp := map[string]struct{}{}
+//	for _, v := range allNames {
+//		temp[v] = struct{}{}
+//	}
+//	res := make([]string, 0, len(temp))
+//	for k, _ := range temp {
+//		res = append(res, k)
+//	}
+//	return res
+//}

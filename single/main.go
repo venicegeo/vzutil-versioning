@@ -344,7 +344,7 @@ func modeHistory(location, name string) (h.HistoryTree, error) {
 	parts := make([][]string, len(lines))
 	for i := 0; i < len(lines); i++ {
 		parts[i] = strings.Split(lines[i], "|")
-		tree[parts[i][0]] = &h.HistoryNode{parts[i][0], []string{}, []string{}, []string{}, 0, false, false}
+		tree[parts[i][0]] = &h.HistoryNode{parts[i][0], []string{}, []string{}, "", []string{}, 0, false, false}
 	}
 	for i := len(parts) - 1; i >= 0; i-- {
 		line := parts[i]
@@ -358,29 +358,46 @@ func modeHistory(location, name string) (h.HistoryTree, error) {
 			tree[p].Children = append(tree[p].Children, node.Sha)
 		}
 	}
+	{
+		tags := map[string]string{}
+		dat, err = exec.Command("git", "-C", gitLocation, "ls-remote", "--tags").Output()
+		if err != nil {
+			return nil, err
+		}
+		for _, line := range strings.Split(strings.TrimSpace(string(dat)), "\n") {
+			if line == "" {
+				continue
+			}
+			parts := strings.SplitN(line, "\t", 2)
+			tags[strings.TrimPrefix(strings.TrimSuffix(parts[1], "^{}"), "refs/tags/")] = parts[0]
+		}
+		for tag, sha := range tags {
+			tree[sha].Tags = append(tree[sha].Tags, tag)
+		}
+	}
 	dat, err = exec.Command("bash", "-c", fmt.Sprintf(`git -C "%s" show HEAD --pretty=format:"%s" | head -1`, gitLocation, "%H")).Output()
 	if err != nil {
 		return nil, err
 	}
 	HEADsha := strings.TrimSpace(string(dat))
 	tree[HEADsha].IsHEAD = true
-	if err := fillTreeWithName(tree, gitLocation, HEADsha, shaToBranch[HEADsha]); err != nil {
+	if err := fillTreeWithBranchName(tree, gitLocation, HEADsha, shaToBranch[HEADsha]); err != nil {
 		return nil, err
 	}
 	//	fmt.Println(HEADsha, shaToBranch[HEADsha])
 	//	fmt.Println(tree.GetRoots())
 	for sha, branch := range shaToBranch {
-		if err := fillTreeWithName(tree, gitLocation, sha, branch); err != nil {
+		if err := fillTreeWithBranchName(tree, gitLocation, sha, branch); err != nil {
 			return nil, err
 		}
 	}
 	unknownBranchCount := 0
 	for _, node := range tree {
-		if len(node.Names) == 0 && len(node.Children) == 1 && len(tree[node.Children[0]].Parents) == 2 {
+		if node.Branch == "" && len(node.Children) == 1 && len(tree[node.Children[0]].Parents) == 2 {
 			unknownBranchCount++
 			newBranchName := fmt.Sprintf("!DELETED - %d", unknownBranchCount)
 			shaToBranch[node.Sha] = newBranchName
-			if err := fillTreeWithName(tree, gitLocation, node.Sha, newBranchName); err != nil {
+			if err := fillTreeWithBranchName(tree, gitLocation, node.Sha, newBranchName); err != nil {
 				return nil, err
 			}
 		}
@@ -392,16 +409,16 @@ func modeHistory(location, name string) (h.HistoryTree, error) {
 	return tree, nil
 }
 
-func fillTreeWithName(t h.HistoryTree, gitLocation, sha, name string) error {
+func fillTreeWithBranchName(t h.HistoryTree, gitLocation, sha, name string) error {
 	dat, err := exec.Command("git", "-C", gitLocation, "log", "--first-parent", `--pretty=format:%H`, sha).Output()
 	if err != nil {
 		return err
 	}
 	for _, s := range strings.Split(strings.TrimSpace(string(dat)), "\n") {
-		if len(t[s].Names) > 0 {
+		if t[s].Branch != "" {
 			continue
 		}
-		t[s].Names = append(t[s].Names, name)
+		t[s].Branch = name
 	}
 	return nil
 }
