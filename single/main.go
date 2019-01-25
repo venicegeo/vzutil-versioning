@@ -386,41 +386,10 @@ func modeHistory(location, name string) (h.HistoryTree, error) {
 		}
 	}
 
-	//	fmt.Println(shaToBranch)
-
-	//	for sha, name := range shaToBranch {
-	//	tree[sha].Names = append(tree[sha].Names, name)
-	//		fmt.Println("Starting", sha, name)
-	//		testGiveName(tree, sha, name)
-	//	}
-
-	//fmt.Println("With deleted:", len(shaToBranch))
-	//for true {
-	//	foundSomething := false
-	//	for _, node := range tree {
-	//		if len(node.Children) > 1 && len(node.Names) == len(node.Children) {
-	//			//fmt.Println("Node", node.Sha[:7], "has names", node.Names)
-	//			if err := filterOutName(tree, gitLocation, node.Sha, shaToBranch); err != nil {
-	//				return nil, err
-	//			}
-	//			foundSomething = true
-	//				break
-	//		}
-	//	}
-	//		if !foundSomething {
-	//			break
-	//		}
-	//	}
 	for sha, _ := range shaToBranch {
 		tree[sha].IsStartOfBranch = true
 	}
 	return tree, nil
-}
-
-//func getMostParentParent
-
-func testFillName3(t h.HistoryTree, sha, name string) {
-
 }
 
 func fillTreeWithName(t h.HistoryTree, gitLocation, sha, name string) error {
@@ -436,70 +405,3 @@ func fillTreeWithName(t h.HistoryTree, gitLocation, sha, name string) error {
 	}
 	return nil
 }
-
-func filterOutName(t h.HistoryTree, gitLocation, sha string, shaToBranch map[string]string) error {
-	node := t[sha]
-	//fmt.Println("Children:", node.Children[0][:7], node.Children[1][:7])
-	var branchAName = t[node.Children[0]].Names[0]
-	var branchBName = t[node.Children[1]].Names[0]
-	var branchASha, branchBSha string
-	for s, b := range shaToBranch {
-		if b == branchAName {
-			branchASha = s
-		} else if b == branchBName {
-			branchBSha = s
-		}
-	}
-	//fmt.Println(branchASha[:7], branchAName, t[node.Children[0]].Names)
-	//fmt.Println(branchBSha[:7], branchBName, t[node.Children[1]].Names)
-	var toPurge string
-	if t[branchASha].IsHEAD {
-		toPurge = branchBName
-	} else if t[branchBSha].IsHEAD {
-		toPurge = branchAName
-	} else {
-		dat, err := exec.Command("bash", "-c", fmt.Sprintf(`git -C "%s" log "%s...%s" --oneline --pretty=format:"%s" | tail -1`, gitLocation, branchASha, branchBSha, "%H")).Output()
-		if err != nil {
-			return err
-		}
-		realParentSha := strings.TrimSpace(string(dat))
-		realParentName := t[realParentSha].Names[0]
-		//fmt.Println("Real parent found:", realParentSha[:7], realParentName, t[realParentSha].Names)
-		switch realParentName {
-		case branchAName:
-			toPurge = branchBName
-		case branchBName:
-			toPurge = branchAName
-		default:
-			return nil
-			return fmt.Errorf("My algo failed :(")
-		}
-	}
-	purgeName(t, sha, toPurge)
-	return nil
-}
-
-func purgeName(t h.HistoryTree, sha, name string) {
-	remove := func(node *h.HistoryNode, s string) bool {
-		i := -1
-		for ii, name := range node.Names {
-			if name == s {
-				i = ii
-				break
-			}
-		}
-		if i == -1 {
-			return false
-		}
-		node.Names = append(node.Names[:i], node.Names[i+1:]...)
-		return true
-	}
-	if remove(t[sha], name) {
-		for _, s := range t[sha].Parents {
-			purgeName(t, s, name)
-		}
-	}
-}
-
-// git log 2b201c3...8b2d73a --oneline | tail -1
-//0224198 Developing jenkins support

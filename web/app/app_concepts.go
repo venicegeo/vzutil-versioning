@@ -5,7 +5,7 @@
 // You may obtain a copy of the License at
 //
 // http://www.apache.org/licenses/LICENSE-2.0
-//sub
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -228,11 +228,7 @@ func (a *Application) repoConcept(c *gin.Context) {
 	var tempXOffset int
 	knownBranches := map[string]int{}
 	for _, n := range sub {
-		//if n.IsStartOfBranch {
 		tempName = strings.Join(n.Names, "|")
-		//} else {
-		//	tempName = ""
-		//}
 		if _, ok := knownBranches[tempName]; !ok {
 			knownBranches[tempName] = len(knownBranches)
 		}
